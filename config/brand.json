@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0.0",
+  "brand": {
+    "companyName": "Elite Post-Construction Cleaning Service",
+    "shortName": "Elite",
+    "tagline": "Inspection-Ready. Every Time.",
+    "primaryColor": "#0F3557",
+    "secondaryColor": "#5F6B73",
+    "accentColor": "#F47C20",
+    "textColor": "#2B2B2B",
+    "backgroundColor": "#FFFFFF",
+    "headingFont": "Montserrat",
+    "bodyFont": "Source Sans Pro",
+    "fallbackFont": "Arial, sans-serif"
+  },
+  "logos": {
+    "primary": "/branding/logos/primary",
+    "horizontal": "/branding/logos/horizontal",
+    "stacked": "/branding/logos/stacked",
+    "wordmark": "/branding/logos/wordmark",
+    "icon": "/branding/logos/icon",
+    "favicon": "/branding/logos/favicon"
+  },
+  "templates": {
+    "stationery": "/branding/templates/stationery",
+    "capabilityStatements": "/branding/templates/capability-statements",
+    "proposals": "/branding/templates/proposals",
+    "presentations": "/branding/templates/presentations",
+    "social": "/branding/templates/social",
+    "email": "/branding/templates/email"
+  },
+  "contact": {
+    "name": "Bruce Clarke",
+    "title": "Managing Member",
+    "phone": "215-703-1588",
+    "email": "info@elitepostconstructioncleaningservice.com",
+    "corporateOffice": {
+      "street": "502 W 7th St., Suite 100",
+      "city": "Erie",
+      "state": "PA",
+      "postalCode": "16502"
+    },
+    "serviceArea": "Philadelphia and surrounding counties"
+  }
+}

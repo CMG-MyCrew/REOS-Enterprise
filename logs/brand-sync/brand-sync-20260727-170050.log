@@ -1,0 +1,170 @@
+[2026-07-27 17:00:50] Starting Elite REOS brand sync
+[2026-07-27 17:00:50] Source: /home/bjssnc3/Projects/ELITE-POST-CONSTRUCTION-CLEANING-SERVICE
+[2026-07-27 17:00:50] REOS:   /home/bjssnc3/REOS-Enterprise
+[2026-07-27 17:00:50] Mode:   LIVE
+[2026-07-27 17:00:50] Syncing 01_Brand_Guidelines/ -> /home/bjssnc3/REOS-Enterprise/branding/guidelines/
+sending incremental file list
+created directory /home/bjssnc3/REOS-Enterprise/branding/guidelines
+cd+++++++++ ./
+
+sent 66 bytes  received 91 bytes  314.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:50] Syncing 02_Logos/Primary/ -> /home/bjssnc3/REOS-Enterprise/branding/logos/primary/
+sending incremental file list
+.d..t...... ./
+
+sent 66 bytes  received 19 bytes  170.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:50] Syncing 02_Logos/Horizontal/ -> /home/bjssnc3/REOS-Enterprise/branding/logos/horizontal/
+sending incremental file list
+.d..t...... ./
+
+sent 62 bytes  received 19 bytes  162.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:50] Syncing 02_Logos/Stacked/ -> /home/bjssnc3/REOS-Enterprise/branding/logos/stacked/
+sending incremental file list
+.d..t...... ./
+
+sent 62 bytes  received 19 bytes  162.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:50] Syncing 02_Logos/Wordmark/ -> /home/bjssnc3/REOS-Enterprise/branding/logos/wordmark/
+sending incremental file list
+.d..t...... ./
+
+sent 66 bytes  received 19 bytes  170.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:50] Syncing 02_Logos/Icon/ -> /home/bjssnc3/REOS-Enterprise/branding/logos/icon/
+sending incremental file list
+.d..t...... ./
+
+sent 66 bytes  received 19 bytes  170.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:50] Syncing 02_Logos/Monochrome/ -> /home/bjssnc3/REOS-Enterprise/branding/logos/monochrome/
+sending incremental file list
+.d..t...... ./
+
+sent 62 bytes  received 19 bytes  162.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:50] Syncing 02_Logos/Embroidery/ -> /home/bjssnc3/REOS-Enterprise/branding/logos/embroidery/
+sending incremental file list
+.d..t...... ./
+
+sent 62 bytes  received 19 bytes  162.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:50] Syncing 02_Logos/Favicon/ -> /home/bjssnc3/REOS-Enterprise/branding/logos/favicon/
+sending incremental file list
+.d..t...... ./
+
+sent 62 bytes  received 19 bytes  162.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:50] Syncing 02_Logos/Social Icons/ -> /home/bjssnc3/REOS-Enterprise/branding/logos/social-icons/
+sending incremental file list
+.d..t...... ./
+
+sent 62 bytes  received 19 bytes  162.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:50] Syncing 03_Color_System/ -> /home/bjssnc3/REOS-Enterprise/branding/colors/
+sending incremental file list
+.d..t...... ./
+
+sent 62 bytes  received 19 bytes  162.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing 04_Typography/ -> /home/bjssnc3/REOS-Enterprise/branding/typography/
+sending incremental file list
+.d..t...... ./
+
+sent 62 bytes  received 19 bytes  162.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing 05_Brand_Patterns/ -> /home/bjssnc3/REOS-Enterprise/branding/patterns/
+sending incremental file list
+.d..t...... ./
+
+sent 62 bytes  received 19 bytes  162.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing 06_Backgrounds/ -> /home/bjssnc3/REOS-Enterprise/branding/backgrounds/
+sending incremental file list
+.d..t...... ./
+
+sent 62 bytes  received 19 bytes  162.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing 07_Mockups/Business Cards/ -> /home/bjssnc3/REOS-Enterprise/branding/templates/stationery/business-cards/
+sending incremental file list
+created directory /home/bjssnc3/REOS-Enterprise/branding/templates/stationery/business-cards
+cd+++++++++ ./
+
+sent 62 bytes  received 116 bytes  356.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing 07_Mockups/Letterhead/ -> /home/bjssnc3/REOS-Enterprise/branding/templates/stationery/letterhead/
+sending incremental file list
+created directory /home/bjssnc3/REOS-Enterprise/branding/templates/stationery/letterhead
+cd+++++++++ ./
+
+sent 62 bytes  received 112 bytes  348.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing 07_Mockups/Capability Statements/ -> /home/bjssnc3/REOS-Enterprise/branding/templates/capability-statements/
+sending incremental file list
+.d..t...... ./
+
+sent 66 bytes  received 19 bytes  170.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing 07_Mockups/Proposal Covers/ -> /home/bjssnc3/REOS-Enterprise/branding/templates/proposals/
+sending incremental file list
+.d..t...... ./
+
+sent 66 bytes  received 19 bytes  170.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing 07_Mockups/Presentations/ -> /home/bjssnc3/REOS-Enterprise/branding/templates/presentations/
+sending incremental file list
+.d..t...... ./
+
+sent 66 bytes  received 19 bytes  170.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing 07_Mockups/Social Media/ -> /home/bjssnc3/REOS-Enterprise/branding/templates/social/
+sending incremental file list
+.d..t...... ./
+
+sent 66 bytes  received 19 bytes  170.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing 07_Mockups/Email Signatures/ -> /home/bjssnc3/REOS-Enterprise/branding/templates/email/
+sending incremental file list
+.d..t...... ./
+
+sent 62 bytes  received 19 bytes  162.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing 07_Mockups/Vehicle/ -> /home/bjssnc3/REOS-Enterprise/assets/vehicle/
+sending incremental file list
+.d..t...... ./
+
+sent 66 bytes  received 19 bytes  170.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing 07_Mockups/Uniforms/ -> /home/bjssnc3/REOS-Enterprise/assets/uniforms/
+sending incremental file list
+.d..t...... ./
+
+sent 62 bytes  received 19 bytes  162.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing Print Ready/ -> /home/bjssnc3/REOS-Enterprise/branding/print/
+sending incremental file list
+.d..t...... ./
+
+sent 62 bytes  received 19 bytes  162.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing Web Ready/ -> /home/bjssnc3/REOS-Enterprise/branding/web/
+sending incremental file list
+.d..t...... ./
+
+sent 66 bytes  received 19 bytes  170.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:51] Syncing 99_Source_Files/ -> /home/bjssnc3/REOS-Enterprise/branding/source/
+sending incremental file list
+created directory /home/bjssnc3/REOS-Enterprise/branding/source
+cd+++++++++ ./
+
+sent 66 bytes  received 87 bytes  306.00 bytes/sec
+total size is 0  speedup is 0.00
+[2026-07-27 17:00:52] Generating asset manifest: /home/bjssnc3/REOS-Enterprise/branding/brand-assets-manifest.csv
+[2026-07-27 17:00:52] Writing REOS brand configuration: /home/bjssnc3/REOS-Enterprise/config/brand.json
+[2026-07-27 17:00:52] Brand sync complete.
+[2026-07-27 17:00:52] Manifest: /home/bjssnc3/REOS-Enterprise/branding/brand-assets-manifest.csv
+[2026-07-27 17:00:52] Config:   /home/bjssnc3/REOS-Enterprise/config/brand.json
+[2026-07-27 17:00:52] Log:      /home/bjssnc3/REOS-Enterprise/logs/brand-sync/brand-sync-20260727-170050.log

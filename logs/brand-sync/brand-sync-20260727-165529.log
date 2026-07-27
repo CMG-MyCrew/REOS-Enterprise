@@ -1,0 +1,32 @@
+[2026-07-27 16:55:29] Starting Elite REOS brand sync
+[2026-07-27 16:55:29] Source: /home/bjssnc3/Projects/ELITE-POST-CONSTRUCTION-CLEANING-SERVICE
+[2026-07-27 16:55:29] REOS:   /home/bjssnc3/REOS-Enterprise
+[2026-07-27 16:55:29] Mode:   DRY-RUN
+[2026-07-27 16:55:29] Skipping missing source: 01_Brand_Guidelines
+[2026-07-27 16:55:29] Skipping missing source: 02_Logos/Primary
+[2026-07-27 16:55:29] Skipping missing source: 02_Logos/Horizontal
+[2026-07-27 16:55:29] Skipping missing source: 02_Logos/Stacked
+[2026-07-27 16:55:29] Skipping missing source: 02_Logos/Wordmark
+[2026-07-27 16:55:29] Skipping missing source: 02_Logos/Icon
+[2026-07-27 16:55:29] Skipping missing source: 02_Logos/Monochrome
+[2026-07-27 16:55:29] Skipping missing source: 02_Logos/Embroidery
+[2026-07-27 16:55:29] Skipping missing source: 02_Logos/Favicon
+[2026-07-27 16:55:29] Skipping missing source: 02_Logos/Social Icons
+[2026-07-27 16:55:29] Skipping missing source: 03_Color_System
+[2026-07-27 16:55:29] Skipping missing source: 04_Typography
+[2026-07-27 16:55:29] Skipping missing source: 05_Brand_Patterns
+[2026-07-27 16:55:29] Skipping missing source: 06_Backgrounds
+[2026-07-27 16:55:29] Skipping missing source: 07_Mockups/Business Cards
+[2026-07-27 16:55:29] Skipping missing source: 07_Mockups/Letterhead
+[2026-07-27 16:55:29] Skipping missing source: 07_Mockups/Capability Statements
+[2026-07-27 16:55:29] Skipping missing source: 07_Mockups/Proposal Covers
+[2026-07-27 16:55:29] Skipping missing source: 07_Mockups/Presentations
+[2026-07-27 16:55:29] Skipping missing source: 07_Mockups/Social Media
+[2026-07-27 16:55:29] Skipping missing source: 07_Mockups/Email Signatures
+[2026-07-27 16:55:29] Skipping missing source: 07_Mockups/Vehicle
+[2026-07-27 16:55:29] Skipping missing source: 07_Mockups/Uniforms
+[2026-07-27 16:55:29] Skipping missing source: Print Ready
+[2026-07-27 16:55:29] Skipping missing source: Web Ready
+[2026-07-27 16:55:29] Skipping missing source: 99_Source_Files
+[2026-07-27 16:55:29] Skipping manifest generation in dry-run mode
+[2026-07-27 16:55:29] Dry run complete. No files were changed.
