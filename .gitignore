@@ -1,0 +1,49 @@
+# REOS local state
+.reos/
+logs/
+reports/
+audit/
+
+# Archives and backups
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.backup-*
+*.bak
+*.tmp
+*.temp
+*.swp
+*~
+*.reos-ui-backup-*
+
+# Secrets and environment files
+.env
+.env.*
+!.env.example
+*.env
+*credentials*
+*secret*
+*token*
+*.pem
+*.key
+service-account*.json
+**/Secrets.js
+
+# Dependencies and caches
+node_modules/
+.cache/
+coverage/
+dist/
+__pycache__/
+*.pyc
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# clasp local authentication and backups
+.clasp.json.backup-*
+.clasprc.json

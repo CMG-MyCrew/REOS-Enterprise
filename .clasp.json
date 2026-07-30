@@ -1,0 +1,16 @@
+{
+  "scriptId": "1wpynze3KbAixsT8R3fzfpJox3pHXn4Wmq0UOHXGFEfsbd-jmSWf35hhm",
+  "rootDir": "build/apps-script-brand",
+  "scriptExtensions": [
+    ".js",
+    ".gs"
+  ],
+  "htmlExtensions": [
+    ".html"
+  ],
+  "jsonExtensions": [
+    ".json"
+  ],
+  "filePushOrder": [],
+  "skipSubdirectories": false
+}

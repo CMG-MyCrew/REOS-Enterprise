@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SDK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="${REOS_UI_ENV:-$SDK_ROOT/reos-ui.env}"
+
+[[ -f "$ENV_FILE" ]] || {
+  echo "ERROR: Missing SDK environment file: $ENV_FILE" >&2
+  exit 1
+}
+
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+
+# shellcheck source=lib/common.sh
+source "$SDK_ROOT/lib/common.sh"
+
+# shellcheck source=lib/build.sh
+source "$SDK_ROOT/lib/build.sh"
+
+# shellcheck source=lib/validate.sh
+source "$SDK_ROOT/lib/validate.sh"
+
+# shellcheck source=lib/deploy.sh
+source "$SDK_ROOT/lib/deploy.sh"
+
+show_help() {
+  cat <<'HELP'
+REOS UI Build & Deploy SDK
+
+Commands:
+
+  dry-run
+      Preview the complete build without changing files.
+
+  build
+      Synchronize brand assets, UI partials and generated files.
+
+  validate
+      Validate the installed REOS UI architecture.
+
+  deploy
+      Build, validate and run enabled deployment targets.
+
+  status
+      Show SDK paths and deployment settings.
+
+  help
+      Show this help message.
+
+Examples:
+
+  ./bin/reos-ui dry-run
+  ./bin/reos-ui build
+  ./bin/reos-ui validate
+  ./bin/reos-ui deploy
+HELP
+}
+
+show_status() {
+  cat <<STATUS
+REOS UI Build & Deploy SDK
+
+REOS root:          $REOS_ROOT
+SDK root:           $SDK_ROOT
+Brand sync:         $BRAND_SYNC_SCRIPT
+Brand config:       $CONFIG_ROOT/brand.json
+HTML root:          $HTML_ROOT
+Apps Script source: $SRC_ROOT
+Clasp push enabled: $ENABLE_CLASP_PUSH
+Git commit enabled: $ENABLE_GIT_COMMIT
+Strict validation:  $STRICT_VALIDATION
+STATUS
+}
+
+run_build_pipeline() {
+  local deployment_mode="${1:-build}"
+
+  initialize_run
+
+  validate_tools
+  validate_paths
+  validate_shell_scripts
+
+  sync_brand_assets
+  sync_ui_partials
+  inject_html_includes
+  generate_brand_config
+  sync_brand_ui_adapter
+
+  validate_brand_json
+  validate_html_includes
+  validate_generated_files
+  validate_template_rendering
+
+  if [[ "$deployment_mode" == "deploy" ]]; then
+    deploy_optional_targets
+  fi
+
+  finalize_run "success"
+}
+
+command_name="${1:-help}"
+
+case "$command_name" in
+  dry-run)
+    export REOS_UI_DRY_RUN=1
+    run_build_pipeline build
+    ;;
+
+  build)
+    export REOS_UI_DRY_RUN=0
+    run_build_pipeline build
+    ;;
+
+  validate)
+    export REOS_UI_DRY_RUN=0
+    initialize_run
+    validate_all
+    finalize_run validated
+    ;;
+
+  deploy)
+    export REOS_UI_DRY_RUN=0
+    run_build_pipeline deploy
+    ;;
+
+  status)
+    show_status
+    ;;
+
+  help|-h|--help)
+    show_help
+    ;;
+
+  *)
+    echo "Unknown command: $command_name" >&2
+    echo
+    show_help
+    exit 2
+    ;;
+esac

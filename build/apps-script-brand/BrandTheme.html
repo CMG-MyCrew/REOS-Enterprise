@@ -1,0 +1,36 @@
+<script id="reos-brand-theme">
+  window.REOS = window.REOS || {};
+
+  window.REOS.applyBrandTheme = function applyBrandTheme(payload) {
+    if (!payload || !payload.cssVariables) {
+      return;
+    }
+
+    const root = document.documentElement;
+
+    Object.entries(payload.cssVariables).forEach(([name, value]) => {
+      if (
+        typeof name === 'string' &&
+        name.startsWith('--') &&
+        value !== null &&
+        value !== undefined
+      ) {
+        root.style.setProperty(name, String(value));
+      }
+    });
+
+    window.REOS.brand = payload;
+
+    document.dispatchEvent(
+      new CustomEvent('reos:brand-ready', {
+        detail: payload
+      })
+    );
+  };
+
+  <? const reosBrandPayload = getReosBrandConfig(); ?>
+
+  window.REOS.applyBrandTheme(
+    <?!= JSON.stringify(reosBrandPayload) ?>
+  );
+</script>
