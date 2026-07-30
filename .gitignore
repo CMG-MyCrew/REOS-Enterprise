@@ -47,3 +47,6 @@ Thumbs.db
 # clasp local authentication and backups
 .clasp.json.backup-*
 .clasprc.json
+
+# Local terminal sync toolkit
+elite_reos_brand_terminal_sync/
