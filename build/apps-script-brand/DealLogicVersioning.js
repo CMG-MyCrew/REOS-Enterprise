@@ -76,6 +76,13 @@ REOS.DealLogicVersioning = (function () {
     if (!dealId) throw new Error('Deal ID is required.');
     if (!REOS.Database.findById(DEALS, 'Deal ID', dealId)) throw new Error('Deal not found: ' + dealId);
 
+    var lock = LockService.getDocumentLock();
+    if (!lock) throw new Error('Deal Logic requires a spreadsheet-bound document lock.');
+    if (!lock.tryLock(30000)) {
+      throw new Error('Another Deal Logic save is already in progress. Please retry.');
+    }
+
+    try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var mode = normalizeMode_(options.analysisSaveMode);
     var metrics = REOS.DealAnalyzer.calculate(analysisInput || {});
@@ -88,6 +95,7 @@ REOS.DealLogicVersioning = (function () {
 
     var record = buildAnalysisRecord_(dealId, analysisInput || {}, metrics, {
       mode: mode,
+        isInitial: !latest,
       version: mode === 'create_version' && latest ? version + 1 : version,
       previousAnalysisId: mode === 'create_version' && latest
         ? latest['Analysis ID'] || ''
@@ -158,13 +166,19 @@ REOS.DealLogicVersioning = (function () {
 
     logPersistence_('after-write', persistence);
 
-    var score = upsertScore_(dealId, persisted, metrics);
+      var score = null;
+      var scoreSync = { attempted: true, ok: true, error: '' };
+      try { score = upsertScore_(dealId, persisted, metrics); } catch (error) { scoreSync.ok = false; scoreSync.error = error && error.message ? error.message : String(error); console.warn("Deal Logic score sync failed: " + scoreSync.error); }
     var offer = null;
+      var offerSync = { attempted: false, ok: true, error: '' };
     if (options.createDraftOffer !== false && number_(persisted.MAO) > 0) {
-      offer = upsertDraftOffer_(dealId, persisted, options, user, now);
+        offerSync.attempted = true;
+        try { offer = upsertDraftOffer_(dealId, persisted, options, user, now); } catch (error) { offerSync.ok = false; offerSync.error = error && error.message ? error.message : String(error); console.warn("Deal Logic offer sync failed: " + offerSync.error); }
     }
 
+      var pipelineSync = { attempted: false, ok: true, error: '' };
     if (options.advancePipeline !== false && REOS.AcquisitionPipeline) {
+        pipelineSync.attempted = true;
       try {
         var pipeline = REOS.AcquisitionPipeline.getPipeline(dealId) || REOS.AcquisitionPipeline.createPipeline(dealId);
         var current = String(pipeline['Current Stage'] || 'Lead');
@@ -176,7 +190,7 @@ REOS.DealLogicVersioning = (function () {
             'Deal analysis v' + persisted['Analysis Version'] + ' saved. Score ' + score.Score + ' (' + score.Grade + ').'
           );
         }
-      } catch (ignored) {}
+      } catch (error) { pipelineSync.ok = false; pipelineSync.error = error && error.message ? error.message : String(error); console.warn("Deal Logic pipeline sync failed: " + pipelineSync.error); }
     }
 
     publish_('deal.logic.saved', {
@@ -195,16 +209,41 @@ REOS.DealLogicVersioning = (function () {
       analysis: persisted,
       score: score,
       offer: offer,
+        scoreSync: scoreSync,
+        offerSync: offerSync,
+        pipelineSync: pipelineSync,
       persistence: persistence
     };
+    } finally {
+      lock.releaseLock();
+    }
   }
+
+    function syncExisting(dealId, analysis, options) {
+      ensureSheets();
+      options = options || {};
+      var analysisId = analysis && analysis["Analysis ID"];
+      var persisted = analysisId ? REOS.Database.findById(ANALYSIS, "Analysis ID", analysisId) : null;
+      if (!persisted || String(persisted["Deal ID"] || "") !== String(dealId || "")) throw new Error("Persisted deal analysis not found: " + analysisId);
+      var lock = LockService.getDocumentLock();
+      if (!lock || !lock.tryLock(30000)) throw new Error("Another Deal Logic sync is already in progress. Please retry.");
+      try {
+        var metrics = { mao: number_(persisted.MAO), roi: number_(persisted["ROI %"]), dscr: number_(persisted.DSCR), riskLevel: persisted["Risk Level"] || "", recommendation: persisted.Recommendation || "" };
+        var score = upsertScore_(dealId, persisted, metrics);
+        var offer = null;
+        if (options.createDraftOffer !== false && number_(persisted.MAO) > 0) offer = upsertDraftOffer_(dealId, persisted, options, getUser_(), new Date());
+        return { ok: true, analysis: persisted, score: score, offer: offer };
+      } finally {
+        lock.releaseLock();
+      }
+    }
 
   function buildAnalysisRecord_(dealId, input, metrics, meta) {
     return {
       'Deal ID': dealId,
       'Analysis Version': meta.version,
       'Previous Analysis ID': meta.previousAnalysisId,
-      'Save Mode': meta.mode === 'create_version' ? 'Create New Version' : 'Update Latest',
+      'Save Mode': meta.isInitial ? 'Initial Version' : (meta.mode === 'create_version' ? 'Create New Version' : 'Update Latest'),
       'Purchase Price': money_(input.purchasePrice),
       ARV: money_(input.arv),
       'Repair Cost': money_(input.repairCost),
@@ -266,8 +305,9 @@ REOS.DealLogicVersioning = (function () {
   }
 
   function upsertDraftOffer_(dealId, analysis, options, user, now) {
+      var offerType = String(options.offerType || 'Cash').toLowerCase();
     var drafts = REOS.Database.getAll(OFFERS).filter(function (row) {
-      return String(row['Deal ID'] || '') === String(dealId) && String(row.Status || '').toLowerCase() === 'draft';
+      return String(row['Deal ID'] || '') === String(dealId) && String(row.Status || '').toLowerCase() === 'draft' && String(row['Offer Type'] || '').toLowerCase() === offerType;
     });
     drafts.sort(function (a, b) {
       return timestamp_(a['Updated At'] || a['Created At']) - timestamp_(b['Updated At'] || b['Created At']);
@@ -326,7 +366,7 @@ REOS.DealLogicVersioning = (function () {
       return String(row['Deal ID'] || '') === String(dealId || '');
     });
     rows.sort(function (a, b) {
-      return timestamp_(a[primaryDate] || a[fallbackDate]) - timestamp_(b[primaryDate] || b[fallbackDate]);
+      if (sheetName === ANALYSIS) { var vd = number_(a['Analysis Version']) - number_(b['Analysis Version']); if (vd !== 0) return vd; } return timestamp_(a[primaryDate] || a[fallbackDate]) - timestamp_(b[primaryDate] || b[fallbackDate]);
     });
     return rows.length ? rows[rows.length - 1] : null;
   }
@@ -383,6 +423,7 @@ REOS.DealLogicVersioning = (function () {
 
   return {
     ensureSheets: ensureSheets,
+    syncExisting: syncExisting,
     save: save
   };
 })();

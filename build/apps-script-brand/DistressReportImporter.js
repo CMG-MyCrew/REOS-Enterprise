@@ -36,16 +36,23 @@ REOS.DistressReportImporter = (function () {
       imported++;
       created.push(deal);
 
-      if (Number(lead['Estimated Value'] || 0) > 0) {
-        REOS.DealAnalyzer.analyzeDeal(deal['Deal ID'], {
-          purchasePrice: lead['Suggested Offer'],
-          arv: lead['Estimated Value'],
-          repairCost: lead['Estimated Repairs'],
+      if (Number(lead["Estimated Value"] || 0) > 0) {
+        if (!(REOS.DealLogicVersioning && REOS.DealLogicVersioning.save)) {
+          throw new Error("Deal Logic Versioning is required for distress imports.");
+        }
+        REOS.DealLogicVersioning.save(deal["Deal ID"], {
+          purchasePrice: lead["Suggested Offer"],
+          arv: lead["Estimated Value"],
+          repairCost: lead["Estimated Repairs"],
           holdingCost: 0,
           closingCost: 0,
           financingCost: 0,
           sellingCost: 0,
           assignmentFee: 10000
+        }, {
+          analysisSaveMode: "update_latest",
+          createDraftOffer: false,
+          advancePipeline: false
         });
       }
     });

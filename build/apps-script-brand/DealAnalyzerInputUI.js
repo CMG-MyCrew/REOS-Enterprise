@@ -93,40 +93,14 @@ REOS.DealAnalyzerInputUI = (function () {
     input = normalizeRequest_(input);
     validateRequest_(input, true);
 
-    var result;
-    if (REOS.DealLogicVersioning && REOS.DealLogicVersioning.save) {
-      result = REOS.DealLogicVersioning.save(
-        input.dealId,
-        input.analysis,
-        input.options
-      );
-    } else if (REOS.AcquisitionDealIntegration && REOS.AcquisitionDealIntegration.processDeal) {
-      result = REOS.AcquisitionDealIntegration.processDeal(
-        input.dealId,
-        input.analysis,
-        {
-          createDraftOffer: input.options.createDraftOffer,
-          advancePipeline: input.options.advancePipeline,
-          offerType: input.options.offerType,
-          offerTerms: input.options.offerTerms,
-          forceReprocess: true,
-          reuseLatestAnalysis: false
-        }
-      );
-    } else {
-      var analysis = REOS.DealAnalyzer.analyzeDeal(input.dealId, input.analysis);
-      var offer = null;
-      if (input.options.createDraftOffer && number_(analysis.MAO) > 0) {
-        offer = REOS.DealAnalyzer.createOffer(input.dealId, {
-          offerType: input.options.offerType,
-          offerAmount: analysis.MAO,
-          status: 'Draft',
-          terms: input.options.offerTerms || 'Offer based on REOS calculated MAO.',
-          notes: 'Created through Deal Analyzer input interface.'
-        });
-      }
-      result = { ok: true, analysis: analysis, offer: offer };
+    if (!(REOS.DealLogicVersioning && REOS.DealLogicVersioning.save)) {
+      throw new Error("Deal Logic Versioning is required for interactive saves.");
     }
+    var result = REOS.DealLogicVersioning.save(
+      input.dealId,
+      input.analysis,
+      input.options
+    );
 
     if (REOS.AcquisitionOpportunityView && REOS.AcquisitionOpportunityView.build) {
       try { REOS.AcquisitionOpportunityView.build(); } catch (ignored) {}
@@ -213,6 +187,7 @@ REOS.DealAnalyzerInputUI = (function () {
       return String(row['Deal ID'] || '') === String(dealId || '');
     });
     rows.sort(function (a, b) {
+      if (sheetName === ANALYSIS) { var vd = number_(a['Analysis Version']) - number_(b['Analysis Version']); if (vd !== 0) return vd; }
       return timestamp_(a[primaryDate] || a[fallbackDate]) - timestamp_(b[primaryDate] || b[fallbackDate]);
     });
     return rows.length ? rows[rows.length - 1] : null;

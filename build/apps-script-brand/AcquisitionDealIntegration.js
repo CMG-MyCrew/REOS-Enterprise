@@ -67,20 +67,38 @@ REOS.AcquisitionDealIntegration = (function () {
       REOS.AcquisitionPipeline.createPipeline(dealId);
 
     var analysis = null;
-    if (options.reuseLatestAnalysis === true) {
-      analysis = getLatestAnalysis_(dealId);
-    }
-    if (!analysis) {
-      analysis = REOS.DealAnalyzer.analyzeDeal(dealId, analysisInput || {});
-    }
-
-    var score = scoreAnalysis_(analysis);
-    var scoreRow = saveScore_(dealId, analysis, score);
+    var score = null;
+    var scoreRow = null;
     var offer = null;
 
-    if (options.createDraftOffer !== false && number_(analysis.MAO) > 0) {
-      offer = createDraftOfferIfMissing_(dealId, analysis, options);
+    if (options.reuseLatestAnalysis === true) {
+      analysis = getLatestAnalysis_(dealId);
+      if (!analysis) throw new Error("No existing deal analysis found.");
+      if (!(REOS.DealLogicVersioning && REOS.DealLogicVersioning.syncExisting)) {
+        throw new Error("Deal Logic Versioning syncExisting is required for reused analyses.");
+      }
+      var synced = REOS.DealLogicVersioning.syncExisting(dealId, analysis, options);
+      analysis = synced.analysis;
+      scoreRow = synced.score;
+      offer = synced.offer;
+    } else {
+      if (!(REOS.DealLogicVersioning && REOS.DealLogicVersioning.save)) {
+        throw new Error("Deal Logic Versioning is required for deal processing.");
+      }
+      var saved = REOS.DealLogicVersioning.save(dealId, analysisInput || {}, {
+        analysisSaveMode: options.analysisSaveMode || "create_version",
+        createDraftOffer: options.createDraftOffer !== false,
+        advancePipeline: false,
+        offerType: options.offerType || "Cash",
+        offerTerms: options.offerTerms || ""
+      });
+      analysis = saved.analysis;
+      scoreRow = saved.score;
+      offer = saved.offer;
     }
+
+    if (!scoreRow) throw new Error("Deal Logic score synchronization failed.");
+    score = { score: number_(scoreRow.Score), grade: String(scoreRow.Grade || "") };
 
     if (options.advancePipeline !== false) {
       pipeline = advanceToInitialAnalysis_(dealId, pipeline, score);
@@ -281,6 +299,9 @@ REOS.AcquisitionDealIntegration = (function () {
     var rows = REOS.Database.getAll(ANALYSIS).filter(function (row) {
       return String(row['Deal ID'] || '') === String(dealId || '');
     });
+    rows.sort(function (a, b) {
+      return number_(a["Analysis Version"]) - number_(b["Analysis Version"]);
+    });
     return rows.length ? rows[rows.length - 1] : null;
   }
 
@@ -303,66 +324,7 @@ REOS.AcquisitionDealIntegration = (function () {
     return { ok: true, reason: '' };
   }
 
-  function scoreAnalysis_(analysis) {
-    var roi = number_(analysis['ROI %']);
-    var dscr = number_(analysis.DSCR);
-    var mao = number_(analysis.MAO);
-    var purchase = number_(analysis['Purchase Price']);
-    var risk = String(analysis['Risk Level'] || 'High');
-    var recommendation = String(analysis.Recommendation || 'Review');
 
-    var roiPoints = clamp_(roi, 0, 30);
-    var maoPoints = 0;
-    if (mao > 0) {
-      var discountToMao = ((mao - purchase) / mao) * 100;
-      maoPoints = clamp_(15 + discountToMao, 0, 30);
-    }
-
-    var dscrPoints = 10;
-    if (dscr >= 1.50) dscrPoints = 20;
-    else if (dscr >= 1.20) dscrPoints = 16;
-    else if (dscr > 0) dscrPoints = 6;
-
-    var riskPoints = risk === 'Low' ? 15 : (risk === 'Medium' ? 8 : 0);
-    var recommendationPoints = recommendation === 'Strong Review' ? 5 :
-      (recommendation === 'Review' ? 2 : 0);
-
-    var total = Math.round(clamp_(
-      roiPoints + maoPoints + dscrPoints + riskPoints + recommendationPoints,
-      0,
-      100
-    ));
-
-    return {
-      score: total,
-      grade: grade_(total),
-      breakdown: {
-        roiPoints: round_(roiPoints),
-        maoPoints: round_(maoPoints),
-        dscrPoints: round_(dscrPoints),
-        riskPoints: round_(riskPoints),
-        recommendationPoints: round_(recommendationPoints)
-      }
-    };
-  }
-
-  function saveScore_(dealId, analysis, score) {
-    return REOS.Database.insert(SCORES, {
-      'Deal ID': dealId,
-      'Analysis ID': analysis['Analysis ID'],
-      Score: score.score,
-      Grade: score.grade,
-      MAO: number_(analysis.MAO),
-      'Purchase Price': number_(analysis['Purchase Price']),
-      'ROI %': number_(analysis['ROI %']),
-      DSCR: number_(analysis.DSCR),
-      'Risk Level': analysis['Risk Level'] || '',
-      Recommendation: analysis.Recommendation || '',
-      'Score Breakdown JSON': json_(score.breakdown),
-      'Created At': new Date(),
-      'Updated At': new Date()
-    }, { idField: 'Score ID', idPrefix: 'DSCORE' });
-  }
 
   function saveBatchItem_(batchRunId, item) {
     return REOS.Database.insert(BATCH_ITEMS, {
@@ -378,22 +340,6 @@ REOS.AcquisitionDealIntegration = (function () {
     }, { idField: 'Batch Item ID', idPrefix: 'BITEM' });
   }
 
-  function createDraftOfferIfMissing_(dealId, analysis, options) {
-    var existing = REOS.Database.getAll(OFFERS).filter(function (row) {
-      return String(row['Deal ID'] || '') === String(dealId) &&
-        String(row.Status || '').toLowerCase() === 'draft';
-    });
-
-    if (existing.length) return existing[existing.length - 1];
-
-    return REOS.DealAnalyzer.createOffer(dealId, {
-      offerType: options.offerType || 'Cash',
-      offerAmount: analysis.MAO,
-      status: 'Draft',
-      terms: options.offerTerms || 'Offer based on REOS calculated MAO.',
-      notes: 'Auto-generated by Sprint 5.2 acquisition integration.'
-    });
-  }
 
   function advanceToInitialAnalysis_(dealId, pipeline, score) {
     var currentStage = String(pipeline['Current Stage'] || 'Lead');
@@ -427,26 +373,12 @@ REOS.AcquisitionDealIntegration = (function () {
     if (!REOS.AcquisitionPipeline) throw new Error('REOS.AcquisitionPipeline is required.');
   }
 
-  function grade_(score) {
-    if (score >= 85) return 'A';
-    if (score >= 70) return 'B';
-    if (score >= 55) return 'C';
-    if (score >= 40) return 'D';
-    return 'F';
-  }
-
-  function clamp_(value, min, max) {
-    return Math.min(Math.max(number_(value), min), max);
-  }
 
   function number_(value) {
     var parsed = Number(value || 0);
     return isFinite(parsed) ? parsed : 0;
   }
 
-  function round_(value) {
-    return Math.round((number_(value) + Number.EPSILON) * 100) / 100;
-  }
 
   function json_(value) {
     if (REOS.toJson_) return REOS.toJson_(value);
@@ -466,7 +398,6 @@ REOS.AcquisitionDealIntegration = (function () {
     processQueue: processQueue,
     getBatchSummary: getBatchSummary,
     getLatestScore: getLatestScore,
-    scoreAnalysis: scoreAnalysis_
   };
 })();
 
