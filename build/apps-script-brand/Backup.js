@@ -579,8 +579,10 @@ REOS.Backup = (function () {
       .sort()
       .forEach(function (key) {
         if (
-          /(SECRET|TOKEN|PASSWORD|PASSCODE|PRIVATE[_-]?KEY|API[_-]?KEY|CLIENT[_-]?SECRET|CREDENTIAL|AUTH[_-]?KEY)/i
-            .test(key)
+          /(^|[_-])(SECRET|TOKEN|PASSWORD|PASSCODE|CREDENTIALS?|KEY)([_-]|$)/i
+            .test(key) ||
+          /(PRIVATEKEY|APIKEY|AUTHKEY|CLIENTSECRET|ACCESSTOKEN|REFRESHTOKEN)$/i
+            .test(String(key || '').replace(/[^A-Za-z0-9]/g, ''))
         ) {
           properties[key] =
             '[REDACTED]';
