@@ -290,7 +290,7 @@ function reosInitializeAcquisitions() {
 }
 
 function showAcquisitions() {
-  const html = HtmlService.createHtmlOutputFromFile('Acquisitions')
+  const html = HtmlService.createHtmlOutputFromFile('AcquisitionsUI')
     .setWidth(1200)
     .setHeight(760);
   SpreadsheetApp.getUi().showModalDialog(html, 'REOS Acquisitions');
