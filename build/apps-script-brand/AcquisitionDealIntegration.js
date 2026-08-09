@@ -556,6 +556,85 @@ function timestamp_(value) {
     };
   }
 
+    function previewDeal(dealId) {
+    assertDependencies_();
+
+    var normalizedDealId = String(dealId || '').trim();
+    var deal = requireDeal_(normalizedDealId);
+    var evaluation = evaluateQueueCandidate_(deal, false);
+    var analysis = evaluation.analysis;
+
+    return {
+      ok: true,
+      preview: true,
+      dealId: evaluation.dealId,
+      eligible: evaluation.eligible,
+      reasonCode: evaluation.reasonCode,
+      reason: evaluation.reason,
+      analysisId: analysis ? analysis['Analysis ID'] || '' : '',
+      purchasePrice: analysis ? number_(analysis['Purchase Price']) : 0,
+      arv: analysis ? number_(analysis.ARV) : 0
+    };
+  }
+
+  function activateEligibleDeal(dealId) {
+    assertDependencies_();
+
+    var normalizedDealId = String(dealId || '').trim();
+    var deal = requireDeal_(normalizedDealId);
+    var evaluation = evaluateQueueCandidate_(deal, false);
+
+    if (!evaluation.eligible) {
+      return {
+        ok: true,
+        activated: false,
+        skipped: true,
+        dealId: evaluation.dealId,
+        reasonCode: evaluation.reasonCode,
+        reason: evaluation.reason,
+        analysisId: evaluation.analysis
+          ? evaluation.analysis['Analysis ID'] || ''
+          : ''
+      };
+    }
+
+    if (!(REOS.DealLogicVersioning &&
+          REOS.DealLogicVersioning.syncExisting)) {
+      throw new Error(
+        'Deal Logic Versioning syncExisting is required for targeted activation.'
+      );
+    }
+
+    var synced = REOS.DealLogicVersioning.syncExisting(
+      evaluation.dealId,
+      evaluation.analysis,
+      {
+        createDraftOffer: false,
+        advancePipeline: false
+      }
+    );
+
+    if (!synced.score) {
+      throw new Error('Deal Logic score synchronization failed.');
+    }
+
+    publish_('acquisition.deal.activated', {
+      dealId: evaluation.dealId,
+      analysisId: evaluation.analysis['Analysis ID'] || '',
+      scoreId: synced.score['Score ID'] || ''
+    });
+
+    return {
+      ok: true,
+      activated: true,
+      skipped: false,
+      dealId: evaluation.dealId,
+      analysis: synced.analysis,
+      score: synced.score,
+      offer: synced.offer || null
+    };
+  }
+
   function saveBatchItem_(batchRunId, item) {
     return REOS.Database.insert(BATCH_ITEMS, {
       'Batch Run ID': batchRunId,
@@ -626,6 +705,8 @@ function timestamp_(value) {
     processDeal: processDeal,
     processLatestDeal: processLatestDeal,
     previewQueue: previewQueue,
+    previewDeal: previewDeal,
+    activateEligibleDeal: activateEligibleDeal,
     processQueue: processQueue,
     getBatchSummary: getBatchSummary,
     getLatestScore: getLatestScore,
@@ -652,6 +733,26 @@ function reosSprint52PreviewQueue() {
     limit: 50,
     forceReprocess: false
   });
+  console.log(JSON.stringify(result, null, 2).slice(0, 10000));
+  return result;
+}
+
+function reosSprint52PreviewDeal(dealId) {
+  if (!String(dealId || '').trim()) {
+    throw new Error('Deal ID is required for targeted preview.');
+  }
+
+  var result = REOS.AcquisitionDealIntegration.previewDeal(dealId);
+  console.log(JSON.stringify(result, null, 2).slice(0, 10000));
+  return result;
+}
+
+function reosSprint52ActivateEligibleDeal(dealId) {
+  if (!String(dealId || '').trim()) {
+    throw new Error('Deal ID is required for targeted activation.');
+  }
+
+  var result = REOS.AcquisitionDealIntegration.activateEligibleDeal(dealId);
   console.log(JSON.stringify(result, null, 2).slice(0, 10000));
   return result;
 }
