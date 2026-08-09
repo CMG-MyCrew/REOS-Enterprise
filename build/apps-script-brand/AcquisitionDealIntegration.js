@@ -640,28 +640,11 @@ function reosSprint52EnsureSheets() {
 }
 
 function reosSprint52ProcessLatestDemo() {
-  var result = REOS.AcquisitionDealIntegration.processLatestDeal({
-    purchasePrice: 95000,
-    arv: 165000,
-    repairCost: 25000,
-    holdingCost: 4500,
-    closingCost: 3500,
-    financingCost: 2500,
-    sellingCost: 9900,
-    assignmentFee: 10000,
-    rentMonthly: 1450,
-    taxesAnnual: 2200,
-    insuranceAnnual: 1500,
-    hoaMonthly: 0,
-    loanPaymentMonthly: 750
-  }, {
-    createDraftOffer: true,
-    advancePipeline: true,
-    forceReprocess: true
-  });
-
-  console.log(JSON.stringify(result, null, 2).slice(0, 5000));
-  return result;
+  throw new Error(
+    'Direct demo deal mutation is disabled in production. ' +
+    'Run reosSprint52PreviewQueue first, then use ' +
+    'reosSprint52ProcessQueueSafe for controlled one-deal processing.'
+  );
 }
 
 function reosSprint52PreviewQueue() {
