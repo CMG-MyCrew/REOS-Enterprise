@@ -94,6 +94,8 @@ REOS.buildMenu_ = function () {
     .addItem('Open CRM Dashboard', 'showCRMDashboard')
     .addItem('Open Acquisitions', 'showAcquisitions')
     .addItem('Open Acquisitions Dashboard', 'showAcquisitionsDashboard')
+    .addItem('Preview Targeted Deal', 'reosSprint52PreviewDealPrompt')
+    .addItem('Activate Eligible Deal', 'reosSprint52ActivateEligibleDealPrompt')
     .addItem('Open Vendors', 'showVendors')
     .addItem('Open Vendor Dashboard', 'showVendorDashboard')
     .addItem('Open Properties', 'showProperties')
