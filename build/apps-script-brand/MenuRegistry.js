@@ -69,6 +69,11 @@ REOS.MenuRegistry = (function () {
       { label: 'Plugin Health Report', functionName: 'reosPluginHealthReport' }
     ]});
 
+    registerGroup({ key: 'acquisitions', label: 'Acquisitions', order: 27, items: [
+      { label: 'Preview Targeted Deal', functionName: 'reosSprint52PreviewDealPrompt' },
+      { label: 'Activate Eligible Deal', functionName: 'reosSprint52ActivateEligibleDealPrompt' }
+    ]});
+
     registerGroup({ key: 'finance', label: 'Finance', order: 30, items: [
       { label: 'Open Finance Manager', functionName: 'showFinanceManager' },
       { label: 'Open Finance Enhancements', functionName: 'showFinanceEnhancements' },
