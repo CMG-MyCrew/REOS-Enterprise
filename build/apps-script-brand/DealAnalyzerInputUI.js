@@ -50,8 +50,8 @@ REOS.DealAnalyzerInputUI = (function () {
         maoPercent: 70,
         operatingExpensePercent: 16,
         offerType: 'Cash',
-        createDraftOffer: true,
-        advancePipeline: true,
+        createDraftOffer: false,
+        advancePipeline: false,
         analysisSaveMode: 'update_latest'
       }
     };
@@ -143,8 +143,8 @@ REOS.DealAnalyzerInputUI = (function () {
         operatingExpensePercent: analysis.operatingExpensePercent
       },
       options: {
-        createDraftOffer: options.createDraftOffer !== false,
-        advancePipeline: options.advancePipeline !== false,
+        createDraftOffer: options.createDraftOffer === true,
+        advancePipeline: options.advancePipeline === true,
         offerType: String(options.offerType || 'Cash'),
         offerTerms: String(options.offerTerms || ''),
         analysisSaveMode: normalizeSaveMode_(options.analysisSaveMode)
