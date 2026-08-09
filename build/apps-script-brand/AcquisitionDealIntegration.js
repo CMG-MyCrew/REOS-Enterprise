@@ -147,13 +147,13 @@ REOS.AcquisitionDealIntegration = (function () {
     var startedAt = new Date();
     var limit = Math.max(1, Math.min(number_(options.limit) || 50, 250));
     var forceReprocess = options.forceReprocess === true;
-    var deals = REOS.Database.getAll(DEALS).slice(0, limit);
+    var deals = REOS.Database.getAll(DEALS);
 
     var run = REOS.Database.insert(BATCH_RUNS, {
       'Started At': startedAt,
       'Completed At': '',
       Status: 'Running',
-      'Total Deals': deals.length,
+      'Total Deals': 0,
       Processed: 0,
       Skipped: 0,
       Errors: 0,
@@ -172,7 +172,8 @@ REOS.AcquisitionDealIntegration = (function () {
       batchRunId: run['Batch Run ID'],
       startedAt: startedAt.toISOString(),
       completedAt: '',
-      totalDeals: deals.length,
+      totalDeals: 0,
+      attempted: 0,
       processed: 0,
       skipped: 0,
       errors: 0,
@@ -180,7 +181,12 @@ REOS.AcquisitionDealIntegration = (function () {
       items: []
     };
 
-    deals.forEach(function (deal) {
+    var attempted = 0;
+
+    for (var dealIndex = 0; dealIndex < deals.length; dealIndex++) {
+      if (attempted >= limit) break;
+
+      var deal = deals[dealIndex];
       var itemStarted = new Date();
       var dealId = String(deal['Deal ID'] || '');
       var item = {
@@ -193,6 +199,7 @@ REOS.AcquisitionDealIntegration = (function () {
         durationMs: 0,
         errorMessage: ''
       };
+      var countsTowardLimit = false;
 
       try {
         if (!dealId) {
@@ -213,7 +220,8 @@ REOS.AcquisitionDealIntegration = (function () {
             item.analysisId = latestAnalysis ? latestAnalysis['Analysis ID'] || '' : '';
             summary.skipped++;
           } else {
-            var result = processDeal(dealId, {}, {
+            countsTowardLimit = true;
+          var result = processDeal(dealId, {}, {
               createDraftOffer: options.createDraftOffer !== false,
               advancePipeline: options.advancePipeline !== false,
               offerType: options.offerType || 'Cash',
@@ -233,77 +241,186 @@ REOS.AcquisitionDealIntegration = (function () {
           }
         }
       } catch (error) {
+        countsTowardLimit = true;
         item.status = 'Error';
         item.errorMessage = error && error.message ? error.message : String(error);
         summary.errors++;
       }
 
+      if (countsTowardLimit) attempted++;
+
       item.durationMs = new Date().getTime() - itemStarted.getTime();
       summary.items.push(item);
-      saveBatchItem_(run['Batch Run ID'], item);
-    });
+
+      try {
+        saveBatchItem_(run['Batch Run ID'], item);
+      } catch (itemSaveError) {
+        summary.errors++;
+        item.errorMessage = item.errorMessage
+          ? item.errorMessage + " | Batch item persistence failed: " + itemSaveError.message
+          : "Batch item persistence failed: " + itemSaveError.message;
+      }
+    }
+
+    summary.totalDeals = summary.items.length;
+    summary.attempted = attempted;
 
     var completedAt = new Date();
     summary.completedAt = completedAt.toISOString();
     summary.durationMs = completedAt.getTime() - startedAt.getTime();
 
-    REOS.Database.update(BATCH_RUNS, 'Batch Run ID', run['Batch Run ID'], {
-      'Completed At': completedAt,
-      Status: summary.errors > 0 ? 'Completed With Errors' : 'Completed',
-      Processed: summary.processed,
-      Skipped: summary.skipped,
-      Errors: summary.errors,
-      'Duration Ms': summary.durationMs,
-      'Summary JSON': json_(summary)
-    });
+    try {
+      REOS.Database.update(BATCH_RUNS, 'Batch Run ID', run['Batch Run ID'], {
+        'Completed At': completedAt,
+        'Total Deals': summary.totalDeals,
+        Status: summary.errors > 0 ? 'Completed With Errors' : 'Completed',
+        Processed: summary.processed,
+        Skipped: summary.skipped,
+        Errors: summary.errors,
+        'Duration Ms': summary.durationMs,
+        'Summary JSON': json_(summary)
+      });
+    } catch (finalizeError) {
+      summary.ok = false;
+      summary.errors++;
+      summary.finalizationError = finalizeError && finalizeError.message
+        ? finalizeError.message
+        : String(finalizeError);
+
+      try {
+        REOS.Database.update(BATCH_RUNS, 'Batch Run ID', run['Batch Run ID'], {
+          'Completed At': completedAt,
+          'Total Deals': summary.totalDeals,
+          Status: 'Failed',
+          Processed: summary.processed,
+          Skipped: summary.skipped,
+          Errors: summary.errors,
+          'Duration Ms': summary.durationMs,
+          'Summary JSON': json_(summary)
+        });
+      } catch (statusError) {
+        throw new Error(
+          'Batch finalization failed: ' + summary.finalizationError +
+          ' | Failed to mark batch run as Failed: ' +
+          (statusError && statusError.message ? statusError.message : String(statusError))
+        );
+      }
+
+      throw finalizeError;
+    }
 
     publish_('acquisition.batch.completed', summary);
     return summary;
   }
 
   function getBatchSummary(batchRunId) {
-    ensureSheets();
-    var run = null;
+  ensureSheets();
+  var run = null;
 
-    if (batchRunId) {
-      run = REOS.Database.findById(BATCH_RUNS, 'Batch Run ID', batchRunId);
-    } else {
-      var runs = REOS.Database.getAll(BATCH_RUNS);
-      run = runs.length ? runs[runs.length - 1] : null;
-    }
+  if (batchRunId) {
+    run = REOS.Database.findById(BATCH_RUNS, 'Batch Run ID', batchRunId);
+  } else {
+    var runs = REOS.Database.getAll(BATCH_RUNS);
 
-    if (!run) {
-      return { ok: true, message: 'No batch runs found.', run: null, items: [] };
-    }
+    runs.sort(function (a, b) {
+      var startedDiff =
+        timestamp_(a['Started At']) - timestamp_(b['Started At']);
+      if (startedDiff !== 0) return startedDiff;
 
-    var items = REOS.Database.getAll(BATCH_ITEMS).filter(function (row) {
-      return String(row['Batch Run ID'] || '') === String(run['Batch Run ID'] || '');
+      var createdDiff =
+        timestamp_(a['Created At']) - timestamp_(b['Created At']);
+      if (createdDiff !== 0) return createdDiff;
+
+      return String(a['Batch Run ID'] || '').localeCompare(
+        String(b['Batch Run ID'] || '')
+      );
     });
 
+    run = runs.length ? runs[runs.length - 1] : null;
+  }
+
+  if (!run) {
     return {
       ok: true,
-      run: run,
-      items: items
+      message: 'No batch runs found.',
+      run: null,
+      items: []
     };
   }
 
+  var items = REOS.Database.getAll(BATCH_ITEMS).filter(function (row) {
+    return String(row['Batch Run ID'] || '') ===
+      String(run['Batch Run ID'] || '');
+  });
+
+  return {
+    ok: true,
+    run: run,
+    items: items
+  };
+}
+
   function getLatestScore(dealId) {
-    ensureSheets();
-    var rows = REOS.Database.getAll(SCORES).filter(function (row) {
-      return String(row['Deal ID'] || '') === String(dealId || '');
-    });
-    return rows.length ? rows[rows.length - 1] : null;
+  ensureSheets();
+
+  var rows = REOS.Database.getAll(SCORES).filter(function (row) {
+    return String(row['Deal ID'] || '') === String(dealId || '');
+  });
+
+  rows.sort(function (a, b) {
+    var updatedDiff =
+      timestamp_(a['Updated At']) - timestamp_(b['Updated At']);
+    if (updatedDiff !== 0) return updatedDiff;
+
+    var createdDiff =
+      timestamp_(a['Created At']) - timestamp_(b['Created At']);
+    if (createdDiff !== 0) return createdDiff;
+
+    return String(a['Score ID'] || '').localeCompare(
+      String(b['Score ID'] || '')
+    );
+  });
+
+  return rows.length ? rows[rows.length - 1] : null;
+}
+
+function timestamp_(value) {
+  if (!value) return 0;
+
+  if (value instanceof Date) {
+    var dateTime = value.getTime();
+    return isFinite(dateTime) ? dateTime : 0;
   }
 
+  var parsed = new Date(value).getTime();
+  return isFinite(parsed) ? parsed : 0;
+}
+
   function getLatestAnalysis_(dealId) {
-    var rows = REOS.Database.getAll(ANALYSIS).filter(function (row) {
-      return String(row['Deal ID'] || '') === String(dealId || '');
-    });
-    rows.sort(function (a, b) {
-      return number_(a["Analysis Version"]) - number_(b["Analysis Version"]);
-    });
-    return rows.length ? rows[rows.length - 1] : null;
-  }
+  var rows = REOS.Database.getAll(ANALYSIS).filter(function (row) {
+    return String(row['Deal ID'] || '') === String(dealId || '');
+  });
+
+  rows.sort(function (a, b) {
+    var versionDiff =
+      number_(a['Analysis Version']) - number_(b['Analysis Version']);
+    if (versionDiff !== 0) return versionDiff;
+
+    var updatedDiff =
+      timestamp_(a['Updated At']) - timestamp_(b['Updated At']);
+    if (updatedDiff !== 0) return updatedDiff;
+
+    var createdDiff =
+      timestamp_(a['Created At']) - timestamp_(b['Created At']);
+    if (createdDiff !== 0) return createdDiff;
+
+    return String(a['Analysis ID'] || '').localeCompare(
+      String(b['Analysis ID'] || '')
+    );
+  });
+
+  return rows.length ? rows[rows.length - 1] : null;
+}
 
   function validateAnalysisForQueue_(analysis) {
     if (!analysis) {
