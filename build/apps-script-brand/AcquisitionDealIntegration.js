@@ -577,7 +577,7 @@ function timestamp_(value) {
     };
   }
 
-  function activateEligibleDeal(dealId) {
+  function activateEligibleDeal(dealId, expectedAnalysisId) {
     assertDependencies_();
 
     var normalizedDealId = String(dealId || '').trim();
@@ -595,6 +595,32 @@ function timestamp_(value) {
         analysisId: evaluation.analysis
           ? evaluation.analysis['Analysis ID'] || ''
           : ''
+      };
+    }
+
+    var normalizedExpectedAnalysisId =
+      String(expectedAnalysisId || '').trim();
+
+    if (!normalizedExpectedAnalysisId) {
+      throw new Error(
+        'Expected Analysis ID is required for targeted activation.'
+      );
+    }
+
+    var currentAnalysisId = String(
+      evaluation.analysis['Analysis ID'] || ''
+    ).trim();
+
+    if (currentAnalysisId !== normalizedExpectedAnalysisId) {
+      return {
+        ok: true,
+        activated: false,
+        skipped: true,
+        dealId: evaluation.dealId,
+        reasonCode: 'analysis_changed',
+        reason: 'Latest analysis changed after preview. Preview the deal again before activation.',
+        analysisId: currentAnalysisId,
+        expectedAnalysisId: normalizedExpectedAnalysisId
       };
     }
 
@@ -747,13 +773,141 @@ function reosSprint52PreviewDeal(dealId) {
   return result;
 }
 
-function reosSprint52ActivateEligibleDeal(dealId) {
+function reosSprint52ActivateEligibleDeal(dealId, expectedAnalysisId) {
   if (!String(dealId || '').trim()) {
     throw new Error('Deal ID is required for targeted activation.');
   }
 
-  var result = REOS.AcquisitionDealIntegration.activateEligibleDeal(dealId);
+  if (!String(expectedAnalysisId || '').trim()) {
+    throw new Error(
+      'Expected Analysis ID is required for targeted activation.'
+    );
+  }
+
+  var result = REOS.AcquisitionDealIntegration.activateEligibleDeal(
+    dealId,
+    expectedAnalysisId
+  );
   console.log(JSON.stringify(result, null, 2).slice(0, 10000));
+  return result;
+}
+
+function reosSprint52PreviewDealPrompt() {
+  var ui = SpreadsheetApp.getUi();
+  var response = ui.prompt(
+    'Sprint 5.2 Targeted Deal Preview',
+    'Enter the exact Deal ID. This preview is read-only.',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (response.getSelectedButton() !== ui.Button.OK) {
+    return {
+      ok: true,
+      preview: true,
+      cancelled: true
+    };
+  }
+
+  var dealId = String(response.getResponseText() || '').trim();
+  if (!dealId) {
+    throw new Error('Deal ID is required for targeted preview.');
+  }
+
+  var result = REOS.AcquisitionDealIntegration.previewDeal(dealId);
+  console.log(JSON.stringify(result, null, 2).slice(0, 10000));
+
+  ui.alert(
+    'Sprint 5.2 Targeted Deal Preview',
+    JSON.stringify(result, null, 2).slice(0, 1800),
+    ui.ButtonSet.OK
+  );
+
+  return result;
+}
+
+function reosSprint52ActivateEligibleDealPrompt() {
+  var ui = SpreadsheetApp.getUi();
+  var response = ui.prompt(
+    'Sprint 5.2 Targeted Activation',
+    'Enter the exact Deal ID to preview before activation.',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (response.getSelectedButton() !== ui.Button.OK) {
+    return {
+      ok: true,
+      activated: false,
+      cancelled: true
+    };
+  }
+
+  var dealId = String(response.getResponseText() || '').trim();
+  if (!dealId) {
+    throw new Error('Deal ID is required for targeted activation.');
+  }
+
+  var preview = REOS.AcquisitionDealIntegration.previewDeal(dealId);
+  console.log(JSON.stringify(preview, null, 2).slice(0, 10000));
+
+  if (!preview.eligible) {
+    ui.alert(
+      'Deal Not Eligible',
+      'Deal ID: ' + preview.dealId + '\n' +
+      'Reason: ' + preview.reason,
+      ui.ButtonSet.OK
+    );
+
+    return {
+      ok: true,
+      activated: false,
+      skipped: true,
+      dealId: preview.dealId,
+      reasonCode: preview.reasonCode,
+      reason: preview.reason,
+      analysisId: preview.analysisId
+    };
+  }
+
+  if (!String(preview.analysisId || '').trim()) {
+    throw new Error(
+      'Eligible deal is missing an Analysis ID. Activation was not performed.'
+    );
+  }
+
+  var confirmation = ui.alert(
+    'Confirm Targeted Activation',
+    'Deal ID: ' + preview.dealId + '\n' +
+    'Analysis ID: ' + preview.analysisId + '\n' +
+    'Purchase Price: ' + preview.purchasePrice + '\n' +
+    'ARV: ' + preview.arv + '\n\n' +
+    'This will synchronize the acquisition score only. ' +
+    'It will not create a draft offer or create/advance a pipeline.',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmation !== ui.Button.YES) {
+    return {
+      ok: true,
+      activated: false,
+      cancelled: true,
+      dealId: preview.dealId,
+      analysisId: preview.analysisId
+    };
+  }
+
+  var result = REOS.AcquisitionDealIntegration.activateEligibleDeal(
+    preview.dealId,
+    preview.analysisId
+  );
+
+  console.log(JSON.stringify(result, null, 2).slice(0, 10000));
+
+  ui.alert(
+    'Sprint 5.2 Targeted Activation Result',
+    JSON.stringify(result, null, 2).slice(0, 1800),
+    ui.ButtonSet.OK
+  );
+
   return result;
 }
 
