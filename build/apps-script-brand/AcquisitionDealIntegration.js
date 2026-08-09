@@ -140,6 +140,66 @@ REOS.AcquisitionDealIntegration = (function () {
    * - Deal must have an existing analysis with Purchase Price and ARV > 0.
    * - Existing analysis is reused to prevent duplicate analysis rows.
    */
+  function previewQueue(options) {
+    assertDependencies_();
+    options = options || {};
+
+    var startedAt = new Date();
+    var limit = Math.max(1, Math.min(number_(options.limit) || 50, 250));
+    var forceReprocess = options.forceReprocess === true;
+    var deals = REOS.Database.getAll(DEALS);
+
+    var summary = {
+      ok: true,
+      preview: true,
+      startedAt: startedAt.toISOString(),
+      completedAt: '',
+      scanned: 0,
+      eligible: 0,
+      wouldProcess: 0,
+      skipped: 0,
+      skippedByReason: {},
+      durationMs: 0,
+      items: []
+    };
+
+    for (var dealIndex = 0; dealIndex < deals.length; dealIndex++) {
+      if (summary.wouldProcess >= limit) break;
+
+      var deal = deals[dealIndex];
+      var evaluation = evaluateQueueCandidate_(deal, forceReprocess);
+      summary.scanned++;
+
+      var item = {
+        dealId: evaluation.dealId,
+        eligible: evaluation.eligible,
+        reasonCode: evaluation.reasonCode,
+        reason: evaluation.reason,
+        analysisId: evaluation.analysis
+          ? evaluation.analysis['Analysis ID'] || ''
+          : ''
+      };
+
+      if (evaluation.eligible) {
+        summary.eligible++;
+        summary.wouldProcess++;
+      } else {
+        summary.skipped++;
+        var reasonKey = evaluation.reasonCode || 'other';
+        summary.skippedByReason[reasonKey] =
+          (summary.skippedByReason[reasonKey] || 0) + 1;
+      }
+
+      summary.items.push(item);
+    }
+
+    var completedAt = new Date();
+    summary.completedAt = completedAt.toISOString();
+    summary.durationMs = completedAt.getTime() - startedAt.getTime();
+
+    return summary;
+  }
+
   function processQueue(options) {
     ensureSheets();
     options = options || {};
@@ -173,9 +233,11 @@ REOS.AcquisitionDealIntegration = (function () {
       startedAt: startedAt.toISOString(),
       completedAt: '',
       totalDeals: 0,
+      scanned: 0,
       attempted: 0,
       processed: 0,
       skipped: 0,
+      skippedByReason: {},
       errors: 0,
       durationMs: 0,
       items: []
@@ -187,6 +249,7 @@ REOS.AcquisitionDealIntegration = (function () {
       if (attempted >= limit) break;
 
       var deal = deals[dealIndex];
+      summary.scanned++;
       var itemStarted = new Date();
       var dealId = String(deal['Deal ID'] || '');
       var item = {
@@ -202,42 +265,44 @@ REOS.AcquisitionDealIntegration = (function () {
       var countsTowardLimit = false;
 
       try {
-        if (!dealId) {
+        var evaluation = evaluateQueueCandidate_(deal, forceReprocess);
+
+        if (!evaluation.eligible) {
           item.status = 'Skipped';
-          item.reason = 'Missing Deal ID.';
+          item.reason = evaluation.reason;
+          item.analysisId = evaluation.analysis
+            ? evaluation.analysis['Analysis ID'] || ''
+            : '';
           summary.skipped++;
-        } else if (!forceReprocess && getLatestScore(dealId)) {
-          item.status = 'Skipped';
-          item.reason = 'Deal already scored.';
-          summary.skipped++;
+          var skipReasonKey = evaluation.reasonCode || 'other';
+          summary.skippedByReason[skipReasonKey] =
+            (summary.skippedByReason[skipReasonKey] || 0) + 1;
         } else {
-          var latestAnalysis = getLatestAnalysis_(dealId);
-          var validation = validateAnalysisForQueue_(latestAnalysis);
+          countsTowardLimit = true;
 
-          if (!validation.ok) {
-            item.status = 'Skipped';
-            item.reason = validation.reason;
-            item.analysisId = latestAnalysis ? latestAnalysis['Analysis ID'] || '' : '';
-            summary.skipped++;
-          } else {
-            countsTowardLimit = true;
           var result = processDeal(dealId, {}, {
-              createDraftOffer: options.createDraftOffer !== false,
-              advancePipeline: options.advancePipeline !== false,
-              offerType: options.offerType || 'Cash',
-              offerTerms: options.offerTerms || '',
-              reuseLatestAnalysis: true,
-              forceReprocess: forceReprocess
-            });
+            createDraftOffer: options.createDraftOffer !== false,
+            advancePipeline: options.advancePipeline !== false,
+            offerType: options.offerType || 'Cash',
+            offerTerms: options.offerTerms || '',
+            reuseLatestAnalysis: true,
+            forceReprocess: forceReprocess
+          });
 
-            item.status = result.skipped ? 'Skipped' : 'Processed';
-            item.reason = result.reason || '';
-            item.analysisId = result.analysis ? result.analysis['Analysis ID'] || '' : '';
-            item.scoreId = result.score ? result.score['Score ID'] || '' : '';
-            item.offerId = result.offer ? result.offer['Offer ID'] || '' : '';
+          item.status = result.skipped ? 'Skipped' : 'Processed';
+          item.reason = result.reason || '';
+          item.analysisId = result.analysis
+            ? result.analysis['Analysis ID'] || ''
+            : '';
+          item.scoreId = result.score ? result.score['Score ID'] || '' : '';
+          item.offerId = result.offer ? result.offer['Offer ID'] || '' : '';
 
-            if (result.skipped) summary.skipped++;
-            else summary.processed++;
+          if (result.skipped) {
+            summary.skipped++;
+            summary.skippedByReason.process_deal_skip =
+              (summary.skippedByReason.process_deal_skip || 0) + 1;
+          } else {
+            summary.processed++;
           }
         }
       } catch (error) {
@@ -361,8 +426,11 @@ REOS.AcquisitionDealIntegration = (function () {
 }
 
   function getLatestScore(dealId) {
-  ensureSheets();
+    ensureSheets();
+    return getLatestScore_(dealId);
+  }
 
+  function getLatestScore_(dealId) {
   var rows = REOS.Database.getAll(SCORES).filter(function (row) {
     return String(row['Deal ID'] || '') === String(dealId || '');
   });
@@ -443,6 +511,51 @@ function timestamp_(value) {
 
 
 
+  function evaluateQueueCandidate_(deal, forceReprocess) {
+    var dealId = String((deal && deal['Deal ID']) || '');
+
+    if (!dealId) {
+      return {
+        eligible: false,
+        dealId: '',
+        reasonCode: 'missing_deal_id',
+        reason: 'Missing Deal ID.',
+        analysis: null
+      };
+    }
+
+    if (!forceReprocess && getLatestScore_(dealId)) {
+      return {
+        eligible: false,
+        dealId: dealId,
+        reasonCode: 'already_scored',
+        reason: 'Deal already scored.',
+        analysis: null
+      };
+    }
+
+    var latestAnalysis = getLatestAnalysis_(dealId);
+    var validation = validateAnalysisForQueue_(latestAnalysis);
+
+    if (!validation.ok) {
+      return {
+        eligible: false,
+        dealId: dealId,
+        reasonCode: latestAnalysis ? 'invalid_analysis' : 'no_analysis',
+        reason: validation.reason,
+        analysis: latestAnalysis
+      };
+    }
+
+    return {
+      eligible: true,
+      dealId: dealId,
+      reasonCode: '',
+      reason: '',
+      analysis: latestAnalysis
+    };
+  }
+
   function saveBatchItem_(batchRunId, item) {
     return REOS.Database.insert(BATCH_ITEMS, {
       'Batch Run ID': batchRunId,
@@ -512,6 +625,7 @@ function timestamp_(value) {
     ensureSheets: ensureSheets,
     processDeal: processDeal,
     processLatestDeal: processLatestDeal,
+    previewQueue: previewQueue,
     processQueue: processQueue,
     getBatchSummary: getBatchSummary,
     getLatestScore: getLatestScore,
@@ -550,15 +664,21 @@ function reosSprint52ProcessLatestDemo() {
   return result;
 }
 
-function reosSprint52ProcessQueue() {
-  var result = REOS.AcquisitionDealIntegration.processQueue({
+function reosSprint52PreviewQueue() {
+  var result = REOS.AcquisitionDealIntegration.previewQueue({
     limit: 50,
-    createDraftOffer: true,
-    advancePipeline: true,
     forceReprocess: false
   });
   console.log(JSON.stringify(result, null, 2).slice(0, 10000));
   return result;
+}
+
+function reosSprint52ProcessQueue() {
+  throw new Error(
+    'Direct bulk queue execution is disabled. ' +
+    'Run reosSprint52PreviewQueue first, then use ' +
+    'reosSprint52ProcessQueueSafe for controlled one-deal processing.'
+  );
 }
 
 function reosSprint52BatchSummary() {
