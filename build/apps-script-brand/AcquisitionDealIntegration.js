@@ -566,3 +566,14 @@ function reosSprint52BatchSummary() {
   console.log(JSON.stringify(result, null, 2).slice(0, 10000));
   return result;
 }
+
+function reosSprint52ProcessQueueSafe() {
+  var result = REOS.AcquisitionDealIntegration.processQueue({
+    limit: 1,
+    createDraftOffer: false,
+    advancePipeline: false,
+    forceReprocess: false
+  });
+  console.log(JSON.stringify(result, null, 2).slice(0, 10000));
+  return result;
+}
