@@ -39,50 +39,18 @@ REOS.MenuRegistry = (function () {
     if (initialized) return groups;
     initialized = true;
 
-    registerGroup({ key: 'operations', label: 'Operations', order: 10, items: [
-      { label: 'Run Diagnostics', functionName: 'reosRunDiagnostics' },
-      { label: 'Diagnostics Summary', functionName: 'reosDiagnosticsSummary' },
-      { label: 'Run Self-Healing', functionName: 'reosRunSelfHealing' },
-      { label: 'Run Environment Validation', functionName: 'reosRunEnvironmentValidation' },
-      { label: 'Environment Summary', functionName: 'reosEnvironmentSummary' },
-      { label: 'Run Integration Monitor', functionName: 'reosRunIntegrationMonitor' },
-      { label: 'Integration Summary', functionName: 'reosIntegrationSummary' },
-      { label: 'Run Performance Monitor', functionName: 'reosRunPerformanceMonitor' },
-      { label: 'Performance Summary', functionName: 'reosPerformanceSummary' },
-      { label: 'Run Error Scan', functionName: 'reosRunErrorScan' },
-      { label: 'Error Summary', functionName: 'reosErrorSummary' },
-      { label: 'Open Error Dashboard', functionName: 'showErrorDashboard' }
-    ]});
-
-    registerGroup({ key: 'foundation', label: 'Foundation', order: 20, items: [
+    registerGroup({ key: 'foundation', label: 'Foundation', order: 10, items: [
       { label: 'Run Phase 1 Upgrade', functionName: 'reosRunPhase1Upgrade' },
-      { label: 'Validate Phase 1 Upgrade', functionName: 'reosValidatePhase1Upgrade' },
-      { label: 'Core Diagnostics', functionName: 'reosCoreDiagnostics' },
-      { label: 'Sync Module Sheets', functionName: 'reosCoreSyncModules' },
-      { label: 'Module Health Report', functionName: 'reosModulesHealthReport' },
-      { label: 'Initialize Enabled Modules', functionName: 'reosModulesSyncEnabled' }
+      { label: 'Validate Phase 1 Upgrade', functionName: 'reosValidatePhase1Upgrade' }
     ]});
 
-    registerGroup({ key: 'plugins', label: 'Plugins', order: 25, items: [
-      { label: 'Plugin Sync', functionName: 'reosPluginSync' },
-      { label: 'Plugin Summary', functionName: 'reosPluginSummary' },
-      { label: 'Plugin Health Report', functionName: 'reosPluginHealthReport' }
-    ]});
-
-    registerGroup({ key: 'acquisitions', label: 'Acquisitions', order: 27, items: [
-      { label: 'Preview Targeted Deal', functionName: 'reosSprint52PreviewDealPrompt' },
-      { label: 'Activate Eligible Deal', functionName: 'reosSprint52ActivateEligibleDealPrompt' }
-    ]});
-
-    registerGroup({ key: 'finance', label: 'Finance', order: 30, items: [
+    registerGroup({ key: 'platform', label: 'Platform', order: 20, items: [
+      { label: 'Open Dashboard Hub', functionName: 'showDashboardHub' },
       { label: 'Open Finance Manager', functionName: 'showFinanceManager' },
       { label: 'Open Finance Enhancements', functionName: 'showFinanceEnhancements' },
       { label: 'Open Finance Dashboards', functionName: 'showFinanceDashboards' },
       { label: 'Open QuickBooks Connector', functionName: 'showQuickBooksConnector' },
-      { label: 'Open QuickBooks OAuth', functionName: 'showQuickBooksOAuth' }
-    ]});
-
-    registerGroup({ key: 'portal', label: 'Portals', order: 40, items: [
+      { label: 'Open QuickBooks OAuth', functionName: 'showQuickBooksOAuth' },
       { label: 'Open Portal Foundation', functionName: 'showPortalFoundation' },
       { label: 'Open Portal Auth', functionName: 'showPortalAuth' },
       { label: 'Open Investor Portal', functionName: 'showInvestorPortal' },
@@ -90,20 +58,50 @@ REOS.MenuRegistry = (function () {
       { label: 'Open Client/Lender Portal', functionName: 'showClientLenderPortal' }
     ]});
 
-    registerGroup({ key: 'apps', label: 'Applications', order: 50, items: [
-      { label: 'Open Dashboard Hub', functionName: 'showDashboardHub' },
-      { label: 'Open CRM', functionName: 'showCRM' },
+    registerGroup({ key: 'applications', label: 'Applications', order: 30, items: [
+      { label: 'Open Deployment Wizard', functionName: 'showDeploymentWizard' },
+      { label: 'Open Enterprise Seeder', functionName: 'showEnterpriseSeeder' },
+      { label: 'Open Operational Validator', functionName: 'showOperationalValidator' },
+      { label: 'Open Production Monitoring', functionName: 'showProductionMonitoring' },
+      { label: 'Open Release Package', functionName: 'showReleasePackage' },
+      { label: 'Open Production Launch', functionName: 'showProductionLaunch' },
+      { label: 'Open Maintenance Manager', functionName: 'showMaintenanceManager' },
+      { label: 'Open Dashboard Export', functionName: 'showDashboardExport' },
       { label: 'Open Documents', functionName: 'showDocuments' },
+      { label: 'Open AI Agents', functionName: 'showAIAgents' },
+      { label: 'Open Dashboard', functionName: 'reosOpenDashboard' },
+      { label: 'Open Executive Dashboard', functionName: 'showExecutiveDashboard' },
+      { label: 'Open CRM', functionName: 'showCRM' },
+      { label: 'Open CRM Dashboard', functionName: 'showCRMDashboard' },
+      { label: 'Open Acquisitions', functionName: 'showAcquisitions' },
+      { label: 'Open Acquisitions Dashboard', functionName: 'showAcquisitionsDashboard' },
+      { label: 'Open Deal Analyzer', functionName: 'reosOpenDealAnalyzer' },
+      { label: 'Preview Targeted Deal', functionName: 'reosSprint52PreviewDealPrompt' },
+      { label: 'Activate Eligible Deal', functionName: 'reosSprint52ActivateEligibleDealPrompt' },
+      { label: 'Open Vendors', functionName: 'showVendors' },
+      { label: 'Open Vendor Dashboard', functionName: 'showVendorDashboard' },
+      { label: 'Open Properties', functionName: 'showProperties' },
+      { label: 'Open Property Dashboard', functionName: 'showPropertyDashboard' },
       { label: 'Open Automation', functionName: 'showAutomation' },
+      { label: 'Open Automation Dashboard', functionName: 'showAutomationDashboard' },
+      { label: 'Open Automation Templates', functionName: 'showAutomationTemplates' },
+      { label: 'Open External Integrations', functionName: 'showExternalIntegrations' },
+      { label: 'Open Production Hardening', functionName: 'showProductionHardening' },
       { label: 'Open AI Workspace', functionName: 'showAI' },
+      { label: 'Open AI Dashboard', functionName: 'showAIDashboard' },
       { label: 'Open Admin', functionName: 'showAdmin' }
     ]});
 
-    registerGroup({ key: 'system', label: 'System', order: 90, items: [
-      { label: 'Menu Registry Summary', functionName: 'reosMenuRegistrySummary' },
-      { label: 'Rebuild REOS Menu', functionName: 'reosRebuildMenu' },
+    registerGroup({ key: 'acquisition_intelligence', label: 'Acquisition Intelligence', order: 40, items: [
+      { label: 'Setup Acquisition Intelligence', functionName: 'runAcquisitionSprint31Setup' },
+      { label: 'Run Acquisition Scan', functionName: 'runDailyAcquisitionScan' },
+      { label: 'Install Daily Acquisition Trigger', functionName: 'installDailyAcquisitionTrigger' }
+    ]});
+
+    registerGroup({ key: 'system', label: 'System', order: 50, items: [
+      { label: 'Initialize Workbook', functionName: 'reosInitializeWorkbook' },
       { label: 'Health Check', functionName: 'runHealthCheck' },
-      { label: 'Install / Repair REOS', functionName: 'installREOS' }
+      { label: 'Run Tests', functionName: 'reosRunTests' }
     ]});
 
     return groups;
