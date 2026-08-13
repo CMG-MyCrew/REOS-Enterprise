@@ -11,6 +11,101 @@ fi
 
 echo "Validating Apps Script build: $ROOT_DIR"
 
+# ---------------------------------------------------------------------------
+# REOS protected subsystem validation
+#
+# Critical production modules must never disappear as a side effect of an
+# unrelated build, Deal Logic change, branding update, or deployment.
+# ---------------------------------------------------------------------------
+
+PROTECTED_FILES=(
+  "ConnectorRegistry.js"
+  "AcquisitionConnectorManager.js"
+  "CSVImportEngine.js"
+  "AcquisitionIngestionOrchestrator.js"
+  "AcquisitionEngine.js"
+  "AcquisitionAutomation.js"
+  "ZillowGmailConnector.js"
+  "ZillowImportConnector.js"
+)
+
+protected_errors=0
+
+echo "Checking protected REOS acquisition subsystem..."
+
+for required_file in "${PROTECTED_FILES[@]}"; do
+  if [[ ! -f "$ROOT_DIR/$required_file" ]]; then
+    echo "ERROR: Protected REOS file missing: $required_file"
+    protected_errors=$((protected_errors + 1))
+  fi
+done
+
+# Critical connector symbols must also survive the build.
+declare -A REQUIRED_SYMBOLS=(
+  ["ConnectorRegistry.js"]="REOS.ConnectorRegistry"
+  ["AcquisitionConnectorManager.js"]="REOS.AcquisitionConnectorManager"
+)
+
+for required_file in "${!REQUIRED_SYMBOLS[@]}"; do
+  required_symbol="${REQUIRED_SYMBOLS[$required_file]}"
+
+  if [[ -f "$ROOT_DIR/$required_file" ]] &&
+     ! grep -Fq "$required_symbol" "$ROOT_DIR/$required_file"; then
+    echo "ERROR: Protected symbol missing: $required_symbol ($required_file)"
+    protected_errors=$((protected_errors + 1))
+  fi
+done
+
+CONNECTOR_REGISTRY="$ROOT_DIR/ConnectorRegistry.js"
+CONNECTOR_MANAGER="$ROOT_DIR/AcquisitionConnectorManager.js"
+
+COUNTY_CONNECTOR_KEYS=(
+  "county_csv"
+  "tax_delinquent"
+  "probate"
+  "code_violations"
+  "vacant_properties"
+  "absentee_owners"
+)
+
+if [[ -f "$CONNECTOR_REGISTRY" ]]; then
+  for connector_key in "${COUNTY_CONNECTOR_KEYS[@]}"; do
+    if ! grep -Fq "$connector_key" "$CONNECTOR_REGISTRY"; then
+      echo "ERROR: Protected county connector registry entry missing: $connector_key"
+      protected_errors=$((protected_errors + 1))
+    fi
+  done
+fi
+
+COUNTY_HANDLERS=(
+  "reosConnectorHandleCountyCsv"
+  "reosConnectorHandleTaxDelinquent"
+  "reosConnectorHandleProbate"
+  "reosConnectorHandleCodeViolations"
+  "reosConnectorHandleVacantProperties"
+  "reosConnectorHandleAbsenteeOwners"
+)
+
+if [[ -f "$CONNECTOR_MANAGER" ]]; then
+  for handler in "${COUNTY_HANDLERS[@]}"; do
+    if ! grep -Fq "$handler" "$CONNECTOR_MANAGER"; then
+      echo "ERROR: Protected county connector handler missing: $handler"
+      protected_errors=$((protected_errors + 1))
+    fi
+  done
+fi
+
+if (( protected_errors > 0 )); then
+  echo
+  echo "REOS protected subsystem validation FAILED."
+  echo "Deployment blocked to prevent acquisition/county connector regression."
+  exit 1
+fi
+
+echo "Protected REOS acquisition subsystem PASSED."
+echo
+
+
 python3 - "$ROOT_DIR" <<'PY'
 from collections import defaultdict
 from pathlib import Path

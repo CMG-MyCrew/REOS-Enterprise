@@ -64,6 +64,16 @@ printf 'Description:   %s\n' "$RELEASE_DESCRIPTION"
 log "LOCAL FILE STATUS"
 clasp status
 
+log "PRE-DEPLOYMENT VALIDATION"
+
+VALIDATOR="$REPO_ROOT/scripts/validate-apps-script-build.sh"
+
+[[ -x "$VALIDATOR" ]] ||
+  fail "Apps Script build validator is missing or not executable: $VALIDATOR"
+
+"$VALIDATOR" "$REPO_ROOT/build/apps-script-brand" ||
+  fail "Apps Script build validation failed. Production deployment blocked."
+
 log "PUSH TO APPS SCRIPT"
 clasp push
 
