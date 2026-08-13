@@ -11,6 +11,21 @@ deploy_clasp() {
   [[ -f "$REOS_ROOT/.clasp.json" ]] ||
     die "Missing clasp configuration: $REOS_ROOT/.clasp.json"
 
+  local validator="$REOS_ROOT/scripts/validate-apps-script-build.sh"
+  local apps_script_root="$REOS_ROOT/build/apps-script-brand"
+
+  [[ -x "$validator" ]] ||
+    die "Apps Script build validator is missing or not executable: $validator"
+
+  log "Validating protected Apps Script build before clasp push"
+
+  if [[ "${REOS_UI_DRY_RUN:-0}" -eq 1 ]]; then
+    run_or_preview "$validator" "$apps_script_root"
+  else
+    "$validator" "$apps_script_root" ||
+      die "Apps Script build validation failed. Clasp push blocked."
+  fi
+
   log "Pushing Apps Script project with clasp"
 
   (
