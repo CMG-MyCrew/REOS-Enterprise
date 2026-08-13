@@ -9,6 +9,18 @@ if [[ ! -d "$ROOT_DIR" ]]; then
   exit 1
 fi
 
+# The Git-tracked Apps Script application tree is authoritative for REOS v3.x.
+# Prevent accidental deployment-root drift back to src/ or another directory.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" && -f ".clasp.json" ]]; then
+  CLASP_ROOT="$(python3 -c 'import json; print(json.load(open(".clasp.json")).get("rootDir", ""))')"
+
+  if [[ "$CLASP_ROOT" != "build/apps-script-brand" ]]; then
+    echo "ERROR: .clasp.json rootDir drift detected: $CLASP_ROOT"
+    echo "Expected authoritative Apps Script root: build/apps-script-brand"
+    exit 1
+  fi
+fi
+
 echo "Validating Apps Script build: $ROOT_DIR"
 
 # ---------------------------------------------------------------------------
