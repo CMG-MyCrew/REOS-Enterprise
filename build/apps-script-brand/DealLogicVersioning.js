@@ -232,6 +232,60 @@ REOS.DealLogicVersioning = (function () {
         }
       }
 
+      /*
+       * Deal Increment 4 — controlled decision execution layer.
+       *
+       * Increment 3 remains the sole authority for deal qualification.
+       * This layer only records execution authority granted by the
+       * formal decision. Queue synchronization is deliberately non-fatal.
+       */
+      var qualifiedDealQueue = null;
+      var queueSync = {
+        attempted: false,
+        ok: true,
+        queued: false,
+        created: false,
+        queueId: '',
+        error: ''
+      };
+
+      if (
+        formalDecision &&
+        REOS.QualifiedDealQueue &&
+        typeof REOS.QualifiedDealQueue.qualify === 'function'
+      ) {
+        queueSync.attempted = true;
+
+        try {
+          var queueResult = REOS.QualifiedDealQueue.qualify(
+            formalDecision
+          );
+
+          queueSync.queued = queueResult.queued === true;
+          queueSync.created = queueResult.created === true;
+
+          qualifiedDealQueue =
+            queueResult.queue || null;
+
+          queueSync.queueId =
+            qualifiedDealQueue &&
+            qualifiedDealQueue['Queue ID']
+              ? String(qualifiedDealQueue['Queue ID'])
+              : '';
+        } catch (error) {
+          queueSync.ok = false;
+          queueSync.error =
+            error && error.message
+              ? error.message
+              : String(error);
+
+          console.warn(
+            'Deal Logic qualified deal queue sync failed: ' +
+            queueSync.error
+          );
+        }
+      }
+
     publish_('deal.logic.saved', {
       dealId: dealId,
       analysisId: persisted['Analysis ID'],
@@ -243,7 +297,9 @@ REOS.DealLogicVersioning = (function () {
         formalDecision &&
         formalDecision.decision
           ? formalDecision.decision.decision
-          : ''
+          : '',
+      qualifiedDealQueued: queueSync.queued,
+      qualifiedDealQueueId: queueSync.queueId
     });
 
     return {
@@ -258,6 +314,8 @@ REOS.DealLogicVersioning = (function () {
         pipelineSync: pipelineSync,
         formalDecision: formalDecision,
         decisionSync: decisionSync,
+        qualifiedDealQueue: qualifiedDealQueue,
+        queueSync: queueSync,
       persistence: persistence
     };
     } finally {
