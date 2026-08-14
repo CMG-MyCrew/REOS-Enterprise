@@ -132,11 +132,29 @@ REOS.DealIntelligenceDashboard = (function () {
     })[0];
     if (!row) throw new Error('AI deal not found: ' + aiDealId);
 
+    var sourceLead =
+      safeAll_('DISTRESS_LEADS')
+        .filter(function (lead) {
+          return text_(
+            lead['Distress Lead ID']
+          ) === text_(
+            row['Distress Lead ID']
+          );
+        })[0] || {};
+
     var deal = REOS.Database.insert('DEALS', {
+      'Lead ID':
+        row['Distress Lead ID'] || '',
       Address: row.Address || '',
       City: row.City || '',
       State: row.State || '',
       Source: 'AI Deal Intelligence',
+      'Seller Name':
+        sourceLead['Owner Name'] || '',
+      'Seller Email':
+        String(
+          sourceLead['Owner Email'] || ''
+        ).trim().toLowerCase(),
       'Deal Status': 'New',
       'Created At': new Date(),
       'Updated At': new Date()

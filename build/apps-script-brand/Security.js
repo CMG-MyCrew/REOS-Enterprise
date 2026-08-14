@@ -167,6 +167,12 @@ REOS.Security = (function () {
 
 REOS.Users = REOS.Security;
 
+function reosRequireOfferExecutionPermission_() {
+  return REOS.Security.requirePermission(
+    'offers:execute'
+  );
+}
+
 function reosWhoAmI() { return REOS.Security.getCurrentUser(); }
 function reosRequireAdmin() { return REOS.Security.requireAdmin(); }
 function reosAdminGetUsers() { REOS.Security.requireAdmin(); return { users: REOS.Security.getAllUsers(), roles: REOS.Security.getAvailableRoles(), currentUser: REOS.Security.getCurrentUser() }; }

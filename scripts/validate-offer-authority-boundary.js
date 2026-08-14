@@ -216,15 +216,22 @@ pass(
 
 /*
  * ----------------------------------------------------------
- * Execution workflow must validate current authority at both
- * boundaries:
+ * Increment 6 authority / delivery boundary.
+ *
+ * Current authority is enforced:
  *   Draft/Ready -> execution queue
- *   Ready -> Submitted
+ *   immediately before the irreversible delivery side effect
+ *
+ * Submitted state is then finalized only from durable Sent
+ * delivery evidence carrying exact execution provenance.
  * ----------------------------------------------------------
  */
 
 const execution =
   read('OfferExecutionWorkflow.js');
+
+const deliveryTransport =
+  read('OfferDeliveryTransport.js');
 
 assert(
   /var\s+authority\s*=\s*validateOfferAuthority_\(offer\)/.test(
@@ -234,28 +241,103 @@ assert(
 );
 
 assert(
-  /var\s+authority\s*=\s*[\r\n\s]*validateOfferAuthority_\(row\)/.test(
+  /function\s+requireSentDeliveryEvidence_\s*\(/.test(
     execution
   ),
-  'markSubmitted must revalidate execution authority.'
+  'markSubmitted must require durable delivery evidence.'
 );
 
 assert(
-  /Offer submission blocked:/.test(
+  /OfferDeliveryEvidence[\s\S]*isSentEvidence/.test(
     execution
   ),
-  'Submission must fail closed when authority is invalid.'
+  'Submission finalization must validate canonical Sent evidence.'
 );
 
 assert(
-  /QualifiedDealQueue\.validateAuthority/.test(
+  /['"]Delivery Attempt ID['"]/.test(
+    execution
+  ) &&
+  /['"]Delivery Evidence Reference['"]/.test(
     execution
   ),
-  'Execution must use the canonical qualified authority validator.'
+  'Submitted execution must persist delivery evidence provenance.'
+);
+
+const sendBoundaryStart =
+  deliveryTransport.indexOf(
+    'var sendAuthorityValidatedAt;'
+  );
+
+const preSendValidation =
+  deliveryTransport.indexOf(
+    'validateCurrentExecutionAuthority_(',
+    sendBoundaryStart
+  );
+
+const sentMessageAssignment =
+  deliveryTransport.indexOf(
+    'sentMessage =',
+    preSendValidation
+  );
+
+const gmailSend =
+  deliveryTransport.indexOf(
+    'draft.send()',
+    sentMessageAssignment
+  );
+
+assert(
+  sendBoundaryStart !== -1 &&
+  preSendValidation !== -1 &&
+  sentMessageAssignment !== -1 &&
+  gmailSend !== -1 &&
+  sendBoundaryStart <
+    preSendValidation &&
+  preSendValidation <
+    sentMessageAssignment &&
+  sentMessageAssignment <
+    gmailSend,
+  'Current qualified authority must be validated before the executable Gmail send.'
+);
+
+assert(
+  /GMAIL_MESSAGE_ID/.test(
+    deliveryTransport
+  ) &&
+  /OfferDeliveryEvidence\.recordSent/.test(
+    deliveryTransport
+  ),
+  'Gmail delivery must persist durable external message evidence.'
+);
+
+const sentEvidenceCallers =
+  productionFiles().filter(
+    function (name) {
+      if (
+        name ===
+        'OfferDeliveryEvidence.js'
+      ) {
+        return false;
+      }
+
+      return /OfferDeliveryEvidence\.recordSent\s*\(/
+        .test(
+          read(name)
+        );
+    }
+  ).sort();
+
+assert.deepStrictEqual(
+  sentEvidenceCallers,
+  [
+    'OfferDeliveryTransport.js'
+  ],
+  'Only the controlled transport adapter may create Sent delivery evidence.'
 );
 
 pass(
-  'execution queue and submission both validate current authority'
+  'delivery send enforces current authority and submission requires durable Sent evidence'
 );
 
 /*

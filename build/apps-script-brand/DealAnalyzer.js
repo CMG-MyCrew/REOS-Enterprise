@@ -14,7 +14,7 @@ REOS.DealAnalyzer = (function () {
   var FINANCIALS = 'PROPERTY_FINANCIALS';
 
   function ensureSheets() {
-    REOS.Database.ensureTable(DEALS, ['Deal ID','Address','City','State','Zip','Source','Seller Name','Deal Status','Assigned To','Created At','Updated At']);
+    REOS.Database.ensureTable(DEALS, ['Deal ID','Lead ID','Address','City','State','Zip','Source','Seller Name','Seller Email','Deal Status','Assigned To','Created At','Updated At']);
     REOS.Database.ensureTable(ANALYSIS, ['Analysis ID','Deal ID','Purchase Price','ARV','Repair Cost','Holding Cost','Closing Cost','Financing Cost','Selling Cost','Assignment Fee','Rent Monthly','Taxes Annual','Insurance Annual','HOA Monthly','MAO','Flip Profit','ROI %','Cash Required','NOI','Cap Rate %','DSCR','Recommendation','Risk Level','Summary JSON','Created At']);
     REOS.Database.ensureTable(OFFERS, ['Offer ID','Deal ID','Offer Type','Offer Amount','Status','Terms','Notes','Created At','Updated At']);
     REOS.Database.ensureTable(COMPS, ['Comp ID','Deal ID','Address','Sold Price','Sold Date','Beds','Baths','Sq Ft','Distance Miles','Source','Notes','Created At']);
@@ -26,12 +26,17 @@ REOS.DealAnalyzer = (function () {
     ensureSheets();
     input = input || {};
     var deal = REOS.Database.insert(DEALS, {
+      'Lead ID': input.leadId || '',
       Address: input.address || '',
       City: input.city || '',
       State: input.state || '',
       Zip: input.zip || '',
       Source: input.source || 'Manual',
       'Seller Name': input.sellerName || '',
+      'Seller Email':
+        String(
+          input.sellerEmail || ''
+        ).trim().toLowerCase(),
       'Deal Status': input.status || 'New',
       'Assigned To': getUser_(),
       'Created At': new Date(),

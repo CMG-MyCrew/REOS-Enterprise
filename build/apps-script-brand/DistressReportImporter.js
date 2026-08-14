@@ -12,7 +12,7 @@ REOS.DistressReportImporter = (function () {
 
   function ensureSheets() {
     REOS.Database.ensureTable(IMPORTS, ['Import ID','Source Name','Rows Found','Rows Imported','Rows Skipped','Status','Message','Created At']);
-    REOS.Database.ensureTable(LEADS, ['Distress Lead ID','Address','City','State','Zip','Owner Name','Owner Mailing Address','Distress Type','Distress Score','Estimated Value','Estimated Repairs','Suggested Offer','Lead Source','Status','Notes','Imported Deal ID','Created At','Updated At']);
+    REOS.Database.ensureTable(LEADS, ['Distress Lead ID','Address','City','State','Zip','Owner Name','Owner Email','Owner Mailing Address','Distress Type','Distress Score','Estimated Value','Estimated Repairs','Suggested Offer','Lead Source','Status','Notes','Imported Deal ID','Created At','Updated At']);
     if (REOS.DealAnalyzer && REOS.DealAnalyzer.ensureSheets) REOS.DealAnalyzer.ensureSheets();
   }
 
@@ -88,6 +88,10 @@ REOS.DistressReportImporter = (function () {
       State: input.state || '',
       Zip: input.zip || '',
       'Owner Name': input.ownerName || '',
+      'Owner Email':
+        String(
+          input.ownerEmail || ''
+        ).trim().toLowerCase(),
       'Owner Mailing Address': input.ownerMailingAddress || '',
       'Distress Type': input.distressType || '',
       'Distress Score': input.distressScore || '',
@@ -142,7 +146,9 @@ REOS.DistressReportImporter = (function () {
       state: lead.State,
       zip: lead.Zip,
       source: lead['Lead Source'] || 'Off-Market SFR Distress Report',
+      leadId: lead['Distress Lead ID'] || '',
       sellerName: lead['Owner Name'] || '',
+      sellerEmail: lead['Owner Email'] || '',
       status: 'New'
     });
   }
