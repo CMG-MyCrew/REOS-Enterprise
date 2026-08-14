@@ -193,13 +193,57 @@ REOS.DealLogicVersioning = (function () {
       } catch (error) { pipelineSync.ok = false; pipelineSync.error = error && error.message ? error.message : String(error); console.warn("Deal Logic pipeline sync failed: " + pipelineSync.error); }
     }
 
+      /*
+       * Deal Increment 3 — observational decision layer.
+       *
+       * This must not alter legacy save, offer, score, or pipeline
+       * behavior. Decision evaluation is deliberately non-fatal.
+       */
+      var formalDecision = null;
+      var decisionSync = {
+        attempted: false,
+        ok: true,
+        error: ''
+      };
+
+      if (
+        REOS.DealDecisionAdapter &&
+        typeof REOS.DealDecisionAdapter.evaluate === 'function'
+      ) {
+        decisionSync.attempted = true;
+
+        try {
+          formalDecision = REOS.DealDecisionAdapter.evaluate(
+            dealId,
+            persisted,
+            score || {}
+          );
+        } catch (error) {
+          decisionSync.ok = false;
+          decisionSync.error =
+            error && error.message
+              ? error.message
+              : String(error);
+
+          console.warn(
+            'Deal Logic formal decision evaluation failed: ' +
+            decisionSync.error
+          );
+        }
+      }
+
     publish_('deal.logic.saved', {
       dealId: dealId,
       analysisId: persisted['Analysis ID'],
       analysisVersion: persisted['Analysis Version'],
       saveMode: mode,
       offerId: offer ? offer['Offer ID'] : '',
-      scoreId: score ? score['Score ID'] : ''
+      scoreId: score ? score['Score ID'] : '',
+      formalDecision:
+        formalDecision &&
+        formalDecision.decision
+          ? formalDecision.decision.decision
+          : ''
     });
 
     return {
@@ -212,6 +256,8 @@ REOS.DealLogicVersioning = (function () {
         scoreSync: scoreSync,
         offerSync: offerSync,
         pipelineSync: pipelineSync,
+        formalDecision: formalDecision,
+        decisionSync: decisionSync,
       persistence: persistence
     };
     } finally {
