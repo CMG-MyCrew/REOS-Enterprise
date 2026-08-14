@@ -297,6 +297,45 @@ test('new BUY analysis updates existing active authority', function () {
   assert.strictEqual(activeRows('DEAL-BUY').length, 1);
 });
 
+test('strict authority validation accepts matching active authority', function () {
+  const active = activeRows('DEAL-BUY')[0];
+
+  assert(active);
+
+  const result = queue.validateAuthority({
+    queueId: active['Queue ID'],
+    dealId: 'DEAL-BUY',
+    analysisId: 'ANL-BUY-2'
+  });
+
+  assert.strictEqual(result.ok, true);
+  assert.strictEqual(result.authorized, true);
+  assert(result.queue);
+  assert.strictEqual(
+    result.queue['Queue ID'],
+    active['Queue ID']
+  );
+});
+
+test('strict authority validation rejects stale analysis provenance', function () {
+  const active = activeRows('DEAL-BUY')[0];
+
+  assert(active);
+
+  const result = queue.validateAuthority({
+    queueId: active['Queue ID'],
+    dealId: 'DEAL-BUY',
+    analysisId: 'ANL-BUY-1'
+  });
+
+  assert.strictEqual(result.ok, true);
+  assert.strictEqual(result.authorized, false);
+  assert.match(
+    result.reason,
+    /does not match Analysis ID/
+  );
+});
+
 ['REVIEW', 'RESEARCH', 'PASS'].forEach(function (value) {
   test(value + ' does not create queue authority', function () {
     const dealId = 'DEAL-' + value;
@@ -337,6 +376,30 @@ test('later REVIEW revokes existing BUY authority', function () {
   );
   assert.strictEqual(result.queue.Active, false);
   assert.strictEqual(activeRows('DEAL-BUY').length, 0);
+});
+
+test('strict authority validation rejects revoked authority', function () {
+  const revoked = rows().find(function (row) {
+    return (
+      row['Deal ID'] === 'DEAL-BUY' &&
+      row['Queue Status'] === queue.STATUS.REMOVED
+    );
+  });
+
+  assert(revoked);
+
+  const result = queue.validateAuthority({
+    queueId: revoked['Queue ID'],
+    dealId: 'DEAL-BUY',
+    analysisId: 'ANL-BUY-2'
+  });
+
+  assert.strictEqual(result.ok, true);
+  assert.strictEqual(result.authorized, false);
+  assert.match(
+    result.reason,
+    /not active offer authority/
+  );
 });
 
 test('BUY with eligibleForOffer=false cannot retain authority', function () {

@@ -1,5 +1,5 @@
-// REOS Enterprise v4.4.5
-// Sprint 7.3 Increment 3.3 - Offer Pipeline Reconciliation
+// REOS Enterprise v4.4.6
+// Deal Increment 5 - Offer Execution Authority Verification
 var REOS = REOS || {};
 
 REOS.LivePipelineVerification = (function () {
@@ -30,7 +30,7 @@ REOS.LivePipelineVerification = (function () {
     { id: 4, name: 'Run deal intelligence', fn: stageDealIntelligence_ },
     { id: 5, name: 'Generate eligible offer queue record', fn: stageOfferAutomation_ },
     { id: 6, name: 'Generate offer review record', fn: stageOfferReview_ },
-    { id: 7, name: 'Approve, publish, and build execution queue', fn: stageOfferExecution_ },
+    { id: 7, name: 'Approve, publish, and verify execution isolation', fn: stageOfferExecution_ },
     { id: 8, name: 'Verify natural-key duplicates and finalize', fn: stageFinalize_ }
   ];
 
@@ -73,7 +73,7 @@ REOS.LivePipelineVerification = (function () {
     var leadResult = createTestLead();
     var lead = leadResult.record || {};
     var state = {
-      version: '4.4.5',
+      version: '4.4.6',
       runId: 'LPVRUN-' + Utilities.formatDate(started, Session.getScriptTimeZone() || TZ, 'yyyyMMdd-HHmmss'),
       status: 'In Progress',
       stageIndex: 0,
@@ -247,14 +247,64 @@ REOS.LivePipelineVerification = (function () {
       state.offerId ? 'Approved review published to OFFERS' : 'No published offer located');
     state.checks.push(offerCheck);
 
-    invokeStage_(state.runId, 7, 'Offer execution', REOS.OfferExecutionWorkflow, 'buildQueue', [{ maxItems: 200 }]);
-    var executions = findByField_('OFFER_EXECUTION_QUEUE', 'Offer ID', state.offerId);
-    var execution = executions[0] || null;
-    if (execution) state.executionId = String(execution['Execution ID'] || '');
+    /*
+     * Deal Increment 5 authority boundary verification.
+     *
+     * OfferReviewWorkflow intentionally publishes a legacy AI offer
+     * artifact without qualified-deal provenance. That artifact may
+     * remain visible in OFFERS, but it must NOT gain new execution
+     * authority merely because it is Draft.
+     *
+     * Compare the execution-row count before and after buildQueue()
+     * so historical rows from pre-Increment-5 verification runs do
+     * not create a false result.
+     */
+    var executionsBefore = findByField_(
+      'OFFER_EXECUTION_QUEUE',
+      'Offer ID',
+      state.offerId
+    );
+
+    invokeStage_(
+      state.runId,
+      7,
+      'Offer execution authority isolation',
+      REOS.OfferExecutionWorkflow,
+      'buildQueue',
+      [{ maxItems: 200 }]
+    );
+
+    var executionsAfter = findByField_(
+      'OFFER_EXECUTION_QUEUE',
+      'Offer ID',
+      state.offerId
+    );
+
+    var newExecutionCreated =
+      executionsAfter.length >
+      executionsBefore.length;
+
+    state.executionId = '';
+
     saveState_(state);
-    return writeResult_(state.runId, 7, 'Execution queue record', 'OFFERS', 'OFFER_EXECUTION_QUEUE',
-      state.offerId, state.executionId, state.leadId, execution ? 'Pass' : 'Fail', 0,
-      execution ? 'Offer execution queue record located by Offer ID' : 'No execution queue record found for Offer ID');
+
+    return writeResult_(
+      state.runId,
+      7,
+      'Execution authority isolation',
+      'OFFERS',
+      'OFFER_EXECUTION_QUEUE',
+      state.offerId,
+      '',
+      state.leadId,
+      newExecutionCreated
+        ? 'Fail'
+        : 'Pass',
+      0,
+      newExecutionCreated
+        ? 'Unprovenanced legacy AI offer incorrectly gained execution authority'
+        : 'Unprovenanced legacy AI offer correctly blocked from new execution authority'
+    );
   }
 
   function stageFinalize_(state) {
