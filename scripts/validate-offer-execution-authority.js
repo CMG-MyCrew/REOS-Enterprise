@@ -611,6 +611,349 @@ test(
   }
 );
 
+test(
+  'active qualified execution revalidates before submission',
+  function () {
+    resetRows();
+
+    authorize(
+      'QDQ-SUBMIT',
+      'DEAL-SUBMIT',
+      'ANL-SUBMIT'
+    );
+
+    seed('OFFERS', {
+      'Offer ID': 'OFF-SUBMIT',
+      'Deal ID': 'DEAL-SUBMIT',
+      'Analysis ID': 'ANL-SUBMIT',
+      'Qualified Queue ID': 'QDQ-SUBMIT',
+      'Authority Source':
+        'QUALIFIED_DEAL_QUEUE',
+      Status: 'Draft',
+      'Offer Type': 'Cash',
+      'Offer Amount': 125000
+    });
+
+    const built =
+      workflow.buildQueue({
+        maxItems: 10
+      });
+
+    assert.strictEqual(
+      built.created,
+      1
+    );
+
+    const execution =
+      executions()[0];
+
+    assert(execution);
+
+    const result =
+      workflow.markSubmitted(
+        execution['Execution ID'],
+        {
+          recipientEmail:
+            'seller@example.com',
+          notes:
+            'Controlled authority validation test.'
+        }
+      );
+
+    assert.strictEqual(
+      result.ok,
+      true
+    );
+
+    const submitted =
+      executions()[0];
+
+    assert.strictEqual(
+      submitted['Execution Status'],
+      'Submitted'
+    );
+
+    assert(
+      submitted['Authority Validated At']
+    );
+
+    assert(
+      submitted['Submitted At']
+    );
+
+    assert.strictEqual(
+      offers()[0].Status,
+      'Submitted'
+    );
+  }
+);
+
+test(
+  'revoked authority after queue entry blocks submission',
+  function () {
+    resetRows();
+
+    authorize(
+      'QDQ-STALE-SUBMIT',
+      'DEAL-STALE-SUBMIT',
+      'ANL-STALE-SUBMIT'
+    );
+
+    seed('OFFERS', {
+      'Offer ID':
+        'OFF-STALE-SUBMIT',
+      'Deal ID':
+        'DEAL-STALE-SUBMIT',
+      'Analysis ID':
+        'ANL-STALE-SUBMIT',
+      'Qualified Queue ID':
+        'QDQ-STALE-SUBMIT',
+      'Authority Source':
+        'QUALIFIED_DEAL_QUEUE',
+      Status: 'Draft',
+      'Offer Amount': 115000
+    });
+
+    const built =
+      workflow.buildQueue({
+        maxItems: 10
+      });
+
+    assert.strictEqual(
+      built.created,
+      1
+    );
+
+    const execution =
+      executions()[0];
+
+    authorities[
+      'QDQ-STALE-SUBMIT'
+    ].active = false;
+
+    assert.throws(
+      function () {
+        workflow.markSubmitted(
+          execution['Execution ID'],
+          {
+            recipientEmail:
+              'seller@example.com'
+          }
+        );
+      },
+      /Offer submission blocked/
+    );
+
+    assert.strictEqual(
+      executions()[0][
+        'Execution Status'
+      ],
+      'Ready'
+    );
+
+    assert.strictEqual(
+      offers()[0].Status,
+      'Ready'
+    );
+  }
+);
+
+test(
+  'submission fails closed when authority validator disappears',
+  function () {
+    resetRows();
+
+    authorize(
+      'QDQ-NO-SUBMIT-VALIDATOR',
+      'DEAL-NO-SUBMIT-VALIDATOR',
+      'ANL-NO-SUBMIT-VALIDATOR'
+    );
+
+    seed('OFFERS', {
+      'Offer ID':
+        'OFF-NO-SUBMIT-VALIDATOR',
+      'Deal ID':
+        'DEAL-NO-SUBMIT-VALIDATOR',
+      'Analysis ID':
+        'ANL-NO-SUBMIT-VALIDATOR',
+      'Qualified Queue ID':
+        'QDQ-NO-SUBMIT-VALIDATOR',
+      'Authority Source':
+        'QUALIFIED_DEAL_QUEUE',
+      Status: 'Draft'
+    });
+
+    const built =
+      workflow.buildQueue({
+        maxItems: 10
+      });
+
+    assert.strictEqual(
+      built.created,
+      1
+    );
+
+    const execution =
+      executions()[0];
+
+    const saved =
+      context.REOS.QualifiedDealQueue;
+
+    context.REOS.QualifiedDealQueue = null;
+
+    try {
+      assert.throws(
+        function () {
+          workflow.markSubmitted(
+            execution['Execution ID'],
+            {}
+          );
+        },
+        /Offer submission blocked/
+      );
+    } finally {
+      context.REOS.QualifiedDealQueue =
+        saved;
+    }
+
+    assert.strictEqual(
+      executions()[0][
+        'Execution Status'
+      ],
+      'Ready'
+    );
+
+    assert.strictEqual(
+      offers()[0].Status,
+      'Ready'
+    );
+  }
+);
+
+test(
+  'submitted execution cannot be submitted a second time',
+  function () {
+    resetRows();
+
+    authorize(
+      'QDQ-ONE-SUBMIT',
+      'DEAL-ONE-SUBMIT',
+      'ANL-ONE-SUBMIT'
+    );
+
+    seed('OFFERS', {
+      'Offer ID':
+        'OFF-ONE-SUBMIT',
+      'Deal ID':
+        'DEAL-ONE-SUBMIT',
+      'Analysis ID':
+        'ANL-ONE-SUBMIT',
+      'Qualified Queue ID':
+        'QDQ-ONE-SUBMIT',
+      'Authority Source':
+        'QUALIFIED_DEAL_QUEUE',
+      Status: 'Draft'
+    });
+
+    workflow.buildQueue({
+      maxItems: 10
+    });
+
+    const execution =
+      executions()[0];
+
+    workflow.markSubmitted(
+      execution['Execution ID'],
+      {}
+    );
+
+    assert.throws(
+      function () {
+        workflow.markSubmitted(
+          execution['Execution ID'],
+          {}
+        );
+      },
+      /requires Ready execution status/
+    );
+
+    assert.strictEqual(
+      executions()[0][
+        'Execution Status'
+      ],
+      'Submitted'
+    );
+  }
+);
+
+test(
+  'response tracking remains available after submitted authority is revoked',
+  function () {
+    resetRows();
+
+    authorize(
+      'QDQ-RESPONSE',
+      'DEAL-RESPONSE',
+      'ANL-RESPONSE'
+    );
+
+    seed('OFFERS', {
+      'Offer ID':
+        'OFF-RESPONSE',
+      'Deal ID':
+        'DEAL-RESPONSE',
+      'Analysis ID':
+        'ANL-RESPONSE',
+      'Qualified Queue ID':
+        'QDQ-RESPONSE',
+      'Authority Source':
+        'QUALIFIED_DEAL_QUEUE',
+      Status: 'Draft',
+      'Offer Amount': 99000
+    });
+
+    workflow.buildQueue({
+      maxItems: 10
+    });
+
+    const execution =
+      executions()[0];
+
+    workflow.markSubmitted(
+      execution['Execution ID'],
+      {}
+    );
+
+    authorities[
+      'QDQ-RESPONSE'
+    ].active = false;
+
+    const result =
+      workflow.recordResponse(
+        execution['Execution ID'],
+        'Countered',
+        'Seller counter received.'
+      );
+
+    assert.strictEqual(
+      result.ok,
+      true
+    );
+
+    assert.strictEqual(
+      executions()[0][
+        'Execution Status'
+      ],
+      'Countered'
+    );
+
+    assert.strictEqual(
+      offers()[0].Status,
+      'Countered'
+    );
+  }
+);
+
 console.log();
 console.log(
   'Offer Execution Authority contract validation PASSED.'

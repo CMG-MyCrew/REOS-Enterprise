@@ -284,11 +284,57 @@ REOS.OfferExecutionWorkflow = (function () {
 
   function markSubmitted(executionId, details) {
     details = details || {};
+
     var row = requireExecution_(executionId);
-    var submittedAt = details.submittedAt ? new Date(details.submittedAt) : new Date();
-    var followUpAt = details.followUpAt ? new Date(details.followUpAt) : new Date(submittedAt.getTime() + 2 * 24 * 60 * 60 * 1000);
+
+    /*
+     * Deal Increment 5 — submission authority boundary.
+     *
+     * Entering the execution queue proves that authority existed
+     * when the offer became Ready. It does not grant permanent
+     * send authority.
+     *
+     * Revalidate the persisted qualified-deal authority immediately
+     * before the Ready -> Submitted transition so a revoked or stale
+     * execution row cannot be submitted.
+     */
+    if (
+      String(row['Execution Status'] || '') !==
+        'Ready'
+    ) {
+      throw new Error(
+        'Offer submission requires Ready execution status.'
+      );
+    }
+
+    var authority =
+      validateOfferAuthority_(row);
+
+    if (!authority.authorized) {
+      throw new Error(
+        'Offer submission blocked: ' +
+        authority.reason
+      );
+    }
+
+    var authorityValidatedAt = new Date();
+
+    var submittedAt =
+      details.submittedAt
+        ? new Date(details.submittedAt)
+        : new Date();
+
+    var followUpAt =
+      details.followUpAt
+        ? new Date(details.followUpAt)
+        : new Date(
+            submittedAt.getTime() +
+            2 * 24 * 60 * 60 * 1000
+          );
 
     var updated = updateStatus_(row, 'Submitted', {
+      'Authority Validated At':
+        authorityValidatedAt,
       'Recipient Name': details.recipientName || row['Recipient Name'] || '',
       'Recipient Email': details.recipientEmail || row['Recipient Email'] || '',
       'Submission Method': details.submissionMethod || row['Submission Method'] || 'Email',
