@@ -44,13 +44,16 @@ REOS.AcquisitionWorkflow = (function () {
         steps.push('Offer Generation Stage');
       }
 
-      var offers = REOS.Database.getAll('OFFERS').filter(function (r) {
-        return r['Deal ID'] === dealId;
-      });
+      if (hasSubmittedExecution_(dealId)) {
+        REOS.AcquisitionPipeline.advanceStage(
+          dealId,
+          'Offer Submitted',
+          'Submitted offer execution found.'
+        );
 
-      if (offers.length) {
-        REOS.AcquisitionPipeline.advanceStage(dealId, 'Offer Submitted', 'Offers found.');
-        steps.push('Offer Submitted Stage');
+        steps.push(
+          'Offer Submitted Stage'
+        );
       }
 
       publish_('acquisition.workflow.completed', { dealId: dealId, steps: steps });
@@ -93,6 +96,64 @@ REOS.AcquisitionWorkflow = (function () {
       complete: rows.filter(function (r) { return r.Status === 'Complete'; }).length,
       failed: rows.filter(function (r) { return r.Status === 'Failed'; }).length
     };
+  }
+
+  function hasSubmittedExecution_(dealId) {
+    var postSubmitStatuses = [
+      'Submitted',
+      'Countered',
+      'Accepted',
+      'Rejected',
+      'Expired',
+      'Withdrawn'
+    ];
+
+    return safeAll_(
+      'OFFER_EXECUTION_QUEUE'
+    ).some(function (row) {
+      if (
+        String(row['Deal ID'] || '') !==
+        String(dealId || '')
+      ) {
+        return false;
+      }
+
+      if (
+        postSubmitStatuses.indexOf(
+          String(
+            row['Execution Status'] || ''
+          )
+        ) === -1
+      ) {
+        return false;
+      }
+
+      var submittedAt =
+        row['Submitted At'];
+
+      if (!submittedAt) {
+        return false;
+      }
+
+      var submittedDate =
+        submittedAt instanceof Date
+          ? submittedAt
+          : new Date(submittedAt);
+
+      return isFinite(
+        submittedDate.getTime()
+      );
+    });
+  }
+
+  function safeAll_(sheetName) {
+    try {
+      return REOS.Database.getAll(
+        sheetName
+      ) || [];
+    } catch (error) {
+      return [];
+    }
   }
 
   function logRun_(dealId, status, steps, message) {

@@ -350,10 +350,48 @@ REOS.OfferExecutionWorkflow = (function () {
   }
 
   function recordResponse(executionId, status, notes) {
-    if (STATUSES.indexOf(status) === -1 || status === 'Ready' || status === 'Submitted') {
-      throw new Error('Invalid response status: ' + status);
+    if (
+      STATUSES.indexOf(status) === -1 ||
+      status === 'Ready' ||
+      status === 'Submitted'
+    ) {
+      throw new Error(
+        'Invalid response status: ' + status
+      );
     }
+
     var row = requireExecution_(executionId);
+
+    var currentStatus = String(
+      row['Execution Status'] || ''
+    );
+
+    if (
+      currentStatus !== 'Submitted' &&
+      currentStatus !== 'Countered'
+    ) {
+      throw new Error(
+        'Offer response requires a previously submitted execution.'
+      );
+    }
+
+    var submittedAt =
+      row['Submitted At'];
+
+    var submittedDate =
+      submittedAt instanceof Date
+        ? submittedAt
+        : new Date(submittedAt);
+
+    if (
+      !submittedAt ||
+      !isFinite(submittedDate.getTime())
+    ) {
+      throw new Error(
+        'Offer response requires a valid Submitted At timestamp.'
+      );
+    }
+
     var updated = updateStatus_(row, status, {
       'Response At': new Date(),
       'Response Notes': String(notes || '').trim()

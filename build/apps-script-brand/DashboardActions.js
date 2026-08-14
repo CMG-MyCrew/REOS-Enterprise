@@ -71,26 +71,76 @@ REOS.DashboardActions = (function () {
   function updateOfferStatus(offerId, status, notes) {
     requireText_(offerId, 'Offer ID');
     requireText_(status, 'Offer status');
-    if (OFFER_STATUSES.indexOf(status) === -1) throw new Error('Invalid offer status: ' + status);
 
-    var offer = findOne_('OFFERS', 'Offer ID', offerId);
-    if (!offer) throw new Error('Offer not found: ' + offerId);
+    if (OFFER_STATUSES.indexOf(status) === -1) {
+      throw new Error(
+        'Invalid offer status: ' + status
+      );
+    }
+
+    var offer = findOne_(
+      'OFFERS',
+      'Offer ID',
+      offerId
+    );
+
+    if (!offer) {
+      throw new Error(
+        'Offer not found: ' + offerId
+      );
+    }
+
+    /*
+     * Deal Increment 5 — execution lifecycle authority.
+     *
+     * Operational Dashboard may annotate an offer but cannot
+     * manufacture execution lifecycle transitions. Ready,
+     * Submitted, response, and terminal states belong to
+     * OfferExecutionWorkflow.
+     */
+    if (
+      String(status || '') !==
+      String(offer.Status || '')
+    ) {
+      throw new Error(
+        'Offer status transitions are managed by OfferExecutionWorkflow.'
+      );
+    }
 
     var updates = {
-      Status: status,
       'Updated At': new Date()
     };
-    if (notes !== undefined && notes !== null && String(notes).trim()) updates.Notes = String(notes).trim();
 
-    var result = REOS.Database.update('OFFERS', 'Offer ID', offerId, updates);
-    publish_('dashboard.offer.status.changed', {
-      offerId: offerId,
-      dealId: offer['Deal ID'] || '',
-      previousStatus: offer.Status || '',
-      newStatus: status
-    });
+    if (
+      notes !== undefined &&
+      notes !== null &&
+      String(notes).trim()
+    ) {
+      updates.Notes =
+        String(notes).trim();
+    }
 
-    return { ok: true, action: 'offer.status.changed', result: clean_(result) };
+    var result = REOS.Database.update(
+      'OFFERS',
+      'Offer ID',
+      offerId,
+      updates
+    );
+
+    publish_(
+      'dashboard.offer.updated',
+      {
+        offerId: offerId,
+        dealId: offer['Deal ID'] || '',
+        status: offer.Status || ''
+      }
+    );
+
+    return {
+      ok: true,
+      action: 'offer.updated',
+      result: clean_(result)
+    };
   }
 
   function addDealNote(dealId, note) {

@@ -954,6 +954,177 @@ test(
   }
 );
 
+test(
+  'Ready execution cannot record a response before submission',
+  function () {
+    resetRows();
+
+    authorize(
+      'QDQ-NO-EARLY-RESPONSE',
+      'DEAL-NO-EARLY-RESPONSE',
+      'ANL-NO-EARLY-RESPONSE'
+    );
+
+    seed('OFFERS', {
+      'Offer ID':
+        'OFF-NO-EARLY-RESPONSE',
+      'Deal ID':
+        'DEAL-NO-EARLY-RESPONSE',
+      'Analysis ID':
+        'ANL-NO-EARLY-RESPONSE',
+      'Qualified Queue ID':
+        'QDQ-NO-EARLY-RESPONSE',
+      'Authority Source':
+        'QUALIFIED_DEAL_QUEUE',
+      Status: 'Draft'
+    });
+
+    workflow.buildQueue({
+      maxItems: 10
+    });
+
+    const execution =
+      executions()[0];
+
+    assert.strictEqual(
+      execution['Execution Status'],
+      'Ready'
+    );
+
+    assert.throws(
+      function () {
+        workflow.recordResponse(
+          execution['Execution ID'],
+          'Accepted',
+          'Must not bypass submission.'
+        );
+      },
+      /previously submitted execution/
+    );
+
+    assert.strictEqual(
+      executions()[0][
+        'Execution Status'
+      ],
+      'Ready'
+    );
+
+    assert.strictEqual(
+      offers()[0].Status,
+      'Ready'
+    );
+  }
+);
+
+test(
+  'forged Submitted status without Submitted At cannot record response',
+  function () {
+    resetRows();
+
+    seed(
+      'OFFER_EXECUTION_QUEUE',
+      {
+        'Execution ID':
+          'OEXEC-FORGED',
+        'Offer ID':
+          'OFF-FORGED',
+        'Deal ID':
+          'DEAL-FORGED',
+        'Execution Status':
+          'Submitted',
+        'Submitted At': ''
+      }
+    );
+
+    assert.throws(
+      function () {
+        workflow.recordResponse(
+          'OEXEC-FORGED',
+          'Accepted',
+          'Forged lifecycle.'
+        );
+      },
+      /valid Submitted At timestamp/
+    );
+
+    assert.strictEqual(
+      executions()[0][
+        'Execution Status'
+      ],
+      'Submitted'
+    );
+  }
+);
+
+test(
+  'Countered execution may record a later response after submission',
+  function () {
+    resetRows();
+
+    authorize(
+      'QDQ-MULTI-RESPONSE',
+      'DEAL-MULTI-RESPONSE',
+      'ANL-MULTI-RESPONSE'
+    );
+
+    seed('OFFERS', {
+      'Offer ID':
+        'OFF-MULTI-RESPONSE',
+      'Deal ID':
+        'DEAL-MULTI-RESPONSE',
+      'Analysis ID':
+        'ANL-MULTI-RESPONSE',
+      'Qualified Queue ID':
+        'QDQ-MULTI-RESPONSE',
+      'Authority Source':
+        'QUALIFIED_DEAL_QUEUE',
+      Status: 'Draft'
+    });
+
+    workflow.buildQueue({
+      maxItems: 10
+    });
+
+    const execution =
+      executions()[0];
+
+    workflow.markSubmitted(
+      execution['Execution ID'],
+      {}
+    );
+
+    workflow.recordResponse(
+      execution['Execution ID'],
+      'Countered',
+      'Seller countered.'
+    );
+
+    const accepted =
+      workflow.recordResponse(
+        execution['Execution ID'],
+        'Accepted',
+        'Counter accepted.'
+      );
+
+    assert.strictEqual(
+      accepted.ok,
+      true
+    );
+
+    assert.strictEqual(
+      executions()[0][
+        'Execution Status'
+      ],
+      'Accepted'
+    );
+
+    assert.strictEqual(
+      offers()[0].Status,
+      'Accepted'
+    );
+  }
+);
+
 console.log();
 console.log(
   'Offer Execution Authority contract validation PASSED.'
