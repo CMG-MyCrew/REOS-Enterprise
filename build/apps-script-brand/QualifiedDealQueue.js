@@ -141,6 +141,98 @@ REOS.QualifiedDealQueue = (function () {
     return findActiveByDeal_(String(dealId || ''));
   }
 
+  /**
+   * Validates persisted qualified-deal authority by provenance.
+   *
+   * Queue ID, Deal ID, and Analysis ID must all match the same
+   * currently-active BUY authority record.
+   */
+  function validateAuthority(reference) {
+    reference = reference || {};
+
+    assertDependencies_();
+    ensureTable();
+
+    var queueId = String(
+      reference.queueId || ''
+    ).trim();
+
+    var dealId = String(
+      reference.dealId || ''
+    ).trim();
+
+    var analysisId = String(
+      reference.analysisId || ''
+    ).trim();
+
+    if (!queueId || !dealId || !analysisId) {
+      return {
+        ok: true,
+        authorized: false,
+        queue: null,
+        reason:
+          'Qualified authority requires Queue ID, Deal ID, and Analysis ID.'
+      };
+    }
+
+    var row = REOS.Database.findById(
+      TABLE,
+      'Queue ID',
+      queueId
+    );
+
+    if (!row) {
+      return {
+        ok: true,
+        authorized: false,
+        queue: null,
+        reason: 'Qualified queue record not found.'
+      };
+    }
+
+    if (
+      String(row['Deal ID'] || '') !== dealId
+    ) {
+      return {
+        ok: true,
+        authorized: false,
+        queue: row,
+        reason:
+          'Qualified queue authority does not match Deal ID.'
+      };
+    }
+
+    if (
+      String(row['Analysis ID'] || '') !== analysisId
+    ) {
+      return {
+        ok: true,
+        authorized: false,
+        queue: row,
+        reason:
+          'Qualified queue authority does not match Analysis ID.'
+      };
+    }
+
+    if (!isAuthorityRecord_(row)) {
+      return {
+        ok: true,
+        authorized: false,
+        queue: row,
+        reason:
+          'Qualified queue record is not active offer authority.'
+      };
+    }
+
+    return {
+      ok: true,
+      authorized: true,
+      queue: row,
+      reason:
+        'Active qualified-deal authority confirmed.'
+    };
+  }
+
   function listPending() {
     assertDependencies_();
     ensureTable();
@@ -160,6 +252,20 @@ REOS.QualifiedDealQueue = (function () {
     return revokeActive_(
       String(dealId || ''),
       reason || 'Removed from qualified-deal queue.'
+    );
+  }
+
+  function isAuthorityRecord_(row) {
+    return !!(
+      row &&
+      row.Active === true &&
+      String(
+        row['Queue Status'] || ''
+      ) === STATUS.PENDING &&
+      String(
+        row.Decision || ''
+      ) === 'BUY' &&
+      row['Eligible For Offer'] === true
     );
   }
 
@@ -358,6 +464,7 @@ REOS.QualifiedDealQueue = (function () {
       !REOS.Database ||
       typeof REOS.Database.ensureTable !== 'function' ||
       typeof REOS.Database.getAll !== 'function' ||
+      typeof REOS.Database.findById !== 'function' ||
       typeof REOS.Database.insert !== 'function' ||
       typeof REOS.Database.update !== 'function'
     ) {
@@ -375,6 +482,7 @@ REOS.QualifiedDealQueue = (function () {
     ensureTable: ensureTable,
     qualify: qualify,
     getByDealId: getByDealId,
+    validateAuthority: validateAuthority,
     listPending: listPending,
     remove: remove
   };

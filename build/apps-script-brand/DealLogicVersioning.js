@@ -25,7 +25,8 @@ REOS.DealLogicVersioning = (function () {
   ];
 
   var OFFER_HEADERS = [
-    'Offer ID','Deal ID','Analysis ID','Offer Type','Offer Amount','Status','Terms','Notes',
+    'Offer ID','Deal ID','Analysis ID','Qualified Queue ID','Authority Source',
+    'Authority Validated At','Offer Type','Offer Amount','Status','Terms','Notes',
     'Created By','Created At','Updated By','Updated At'
   ];
 
@@ -532,7 +533,9 @@ REOS.DealLogicVersioning = (function () {
     var authorized =
       hasQualifiedOfferAuthority_(
         queueSync,
-        qualifiedDealQueue
+        qualifiedDealQueue,
+        dealId,
+        persisted['Analysis ID']
       );
 
     var offer = null;
@@ -563,6 +566,7 @@ REOS.DealLogicVersioning = (function () {
         offer = upsertDraftOffer_(
           dealId,
           persisted,
+          qualifiedDealQueue,
           options,
           user,
           now
@@ -597,22 +601,35 @@ REOS.DealLogicVersioning = (function () {
 
   function hasQualifiedOfferAuthority_(
     queueSync,
-    qualifiedDealQueue
+    qualifiedDealQueue,
+    dealId,
+    analysisId
   ) {
+    if (
+      !queueSync ||
+      queueSync.attempted !== true ||
+      queueSync.ok !== true ||
+      !qualifiedDealQueue ||
+      !REOS.QualifiedDealQueue ||
+      typeof REOS.QualifiedDealQueue.validateAuthority !==
+        'function'
+    ) {
+      return false;
+    }
+
+    var validation =
+      REOS.QualifiedDealQueue.validateAuthority({
+        queueId: String(
+          qualifiedDealQueue['Queue ID'] || ''
+        ),
+        dealId: String(dealId || ''),
+        analysisId: String(analysisId || '')
+      });
+
     return !!(
-      queueSync &&
-      queueSync.attempted === true &&
-      queueSync.ok === true &&
-      qualifiedDealQueue &&
-      qualifiedDealQueue.Active === true &&
-      String(
-        qualifiedDealQueue['Queue Status'] || ''
-      ) === 'Pending' &&
-      String(
-        qualifiedDealQueue.Decision || ''
-      ) === 'BUY' &&
-      qualifiedDealQueue['Eligible For Offer'] ===
-        true
+      validation &&
+      validation.ok === true &&
+      validation.authorized === true
     );
   }
 
@@ -682,7 +699,14 @@ REOS.DealLogicVersioning = (function () {
     return REOS.Database.insert(SCORES, record, { idField: 'Score ID', idPrefix: 'DSCORE' });
   }
 
-  function upsertDraftOffer_(dealId, analysis, options, user, now) {
+  function upsertDraftOffer_(
+    dealId,
+    analysis,
+    qualifiedDealQueue,
+    options,
+    user,
+    now
+  ) {
       var offerType = String(options.offerType || 'Cash').toLowerCase();
     var drafts = REOS.Database.getAll(OFFERS).filter(function (row) {
       return String(row['Deal ID'] || '') === String(dealId) && String(row.Status || '').toLowerCase() === 'draft' && String(row['Offer Type'] || '').toLowerCase() === offerType;
@@ -694,6 +718,11 @@ REOS.DealLogicVersioning = (function () {
     var record = {
       'Deal ID': dealId,
       'Analysis ID': analysis['Analysis ID'],
+      'Qualified Queue ID': String(
+        qualifiedDealQueue['Queue ID'] || ''
+      ),
+      'Authority Source': 'QUALIFIED_DEAL_QUEUE',
+      'Authority Validated At': now,
       'Offer Type': options.offerType || 'Cash',
       'Offer Amount': number_(analysis.MAO),
       Status: 'Draft',
