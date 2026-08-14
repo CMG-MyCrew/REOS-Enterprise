@@ -248,6 +248,73 @@ REOS.OfferDeliveryEvidence = (function () {
       };
     }
 
+    /*
+     * Deal Increment 6 — duplicate-delivery boundary.
+     *
+     * One execution may have only one active, successful, or
+     * uncertain delivery chain. Supplying a different idempotency
+     * key must never become a way to send the same execution twice.
+     *
+     * A definite Failed attempt may be retried, but only through an
+     * explicitly new idempotency key.
+     */
+    var executionAttempts =
+      safeAll_().filter(
+        function (row) {
+          return String(
+            row['Execution ID'] || ''
+          ) === String(
+            execution['Execution ID'] || ''
+          );
+        }
+      );
+
+    var blockingAttempt =
+      executionAttempts.filter(
+        function (row) {
+          return [
+            STATUS.PREPARED,
+            STATUS.SENDING,
+            STATUS.SENT,
+            STATUS.UNCERTAIN
+          ].indexOf(
+            String(
+              row['Delivery Status'] || ''
+            )
+          ) !== -1;
+        }
+      )[0] || null;
+
+    if (blockingAttempt) {
+      throw new Error(
+        'Execution already has ' +
+        String(
+          blockingAttempt['Delivery Status'] || ''
+        ) +
+        ' delivery evidence. A second delivery attempt is not allowed.'
+      );
+    }
+
+    var hasFailedAttempt =
+      executionAttempts.some(
+        function (row) {
+          return String(
+            row['Delivery Status'] || ''
+          ) === STATUS.FAILED;
+        }
+      );
+
+    if (
+      hasFailedAttempt &&
+      !String(
+        details.idempotencyKey || ''
+      ).trim()
+    ) {
+      throw new Error(
+        'Retry after Failed delivery requires an explicit new Idempotency Key.'
+      );
+    }
+
     var now = new Date();
 
     var created =

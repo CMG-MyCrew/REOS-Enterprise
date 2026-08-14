@@ -904,6 +904,190 @@ test(
   }
 );
 
+
+test(
+  'Sent evidence cannot be bypassed with a different idempotency key',
+  function () {
+    const execution =
+      readyExecution();
+
+    authorize(execution);
+
+    const attemptId =
+      delivery.prepare(
+        execution['Execution ID'],
+        {}
+      ).record[
+        'Delivery Attempt ID'
+      ];
+
+    delivery.markSending(
+      attemptId,
+      {}
+    );
+
+    delivery.recordSent(
+      attemptId,
+      {
+        type:
+          'GMAIL_MESSAGE_ID',
+        reference:
+          'gmail-message-original'
+      }
+    );
+
+    assert.throws(
+      function () {
+        delivery.prepare(
+          execution['Execution ID'],
+          {
+            method:
+              'Email',
+            idempotencyKey:
+              'alternate-key'
+          }
+        );
+      },
+      /second delivery attempt is not allowed/
+    );
+
+    assert.strictEqual(
+      rows.length,
+      1
+    );
+  }
+);
+
+test(
+  'Uncertain evidence cannot be bypassed with a different idempotency key',
+  function () {
+    const execution =
+      readyExecution();
+
+    authorize(execution);
+
+    const attemptId =
+      delivery.prepare(
+        execution['Execution ID'],
+        {}
+      ).record[
+        'Delivery Attempt ID'
+      ];
+
+    delivery.markSending(
+      attemptId,
+      {}
+    );
+
+    delivery.recordUncertain(
+      attemptId,
+      {
+        notes:
+          'Transport result unknown.'
+      }
+    );
+
+    assert.throws(
+      function () {
+        delivery.prepare(
+          execution['Execution ID'],
+          {
+            method:
+              'Email',
+            idempotencyKey:
+              'alternate-uncertain-key'
+          }
+        );
+      },
+      /second delivery attempt is not allowed/
+    );
+
+    assert.strictEqual(
+      rows.length,
+      1
+    );
+  }
+);
+
+test(
+  'definite Failed evidence allows explicit new delivery attempt',
+  function () {
+    const execution =
+      readyExecution();
+
+    authorize(execution);
+
+    const first =
+      delivery.prepare(
+        execution['Execution ID'],
+        {}
+      ).record;
+
+    delivery.markSending(
+      first[
+        'Delivery Attempt ID'
+      ],
+      {}
+    );
+
+    delivery.recordFailed(
+      first[
+        'Delivery Attempt ID'
+      ],
+      {
+        error:
+          'Known transport failure.'
+      }
+    );
+
+    const same =
+      delivery.prepare(
+        execution['Execution ID'],
+        {}
+      );
+
+    assert.strictEqual(
+      same.created,
+      false
+    );
+
+    assert.strictEqual(
+      same.record[
+        'Delivery Status'
+      ],
+      'Failed'
+    );
+
+    const retry =
+      delivery.prepare(
+        execution['Execution ID'],
+        {
+          method:
+            'Email',
+          idempotencyKey:
+            'explicit-retry-key'
+        }
+      );
+
+    assert.strictEqual(
+      retry.created,
+      true
+    );
+
+    assert.strictEqual(
+      retry.record[
+        'Delivery Status'
+      ],
+      'Prepared'
+    );
+
+    assert.strictEqual(
+      rows.length,
+      2
+    );
+  }
+);
+
 console.log();
 console.log(
   'Offer Delivery Evidence contract validation PASSED.'
