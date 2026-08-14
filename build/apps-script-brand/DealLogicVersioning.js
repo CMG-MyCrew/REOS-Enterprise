@@ -677,6 +677,7 @@ REOS.DealLogicVersioning = (function () {
     var now = new Date();
     var record = {
       'Deal ID': dealId,
+      'Lead ID': deal['Lead ID'] || '',
       'Analysis ID': analysis['Analysis ID'],
       Score: score.score,
       Grade: score.grade,
@@ -707,7 +708,18 @@ REOS.DealLogicVersioning = (function () {
     user,
     now
   ) {
-      var offerType = String(options.offerType || 'Cash').toLowerCase();
+    var offerType =
+      String(
+        options.offerType || 'Cash'
+      ).toLowerCase();
+
+    var deal =
+      REOS.Database.findById(
+        'DEALS',
+        'Deal ID',
+        dealId
+      ) || {};
+
     var drafts = REOS.Database.getAll(OFFERS).filter(function (row) {
       return String(row['Deal ID'] || '') === String(dealId) && String(row.Status || '').toLowerCase() === 'draft' && String(row['Offer Type'] || '').toLowerCase() === offerType;
     });

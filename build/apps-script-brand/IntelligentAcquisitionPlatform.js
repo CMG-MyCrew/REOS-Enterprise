@@ -21,7 +21,7 @@ REOS.IntelligentAcquisition = (function () {
 
   function ensureSheets() {
     REOS.Database.ensureTable(LEADS, [
-      'Lead ID','External ID','Source','Address','City','State','Zip','Owner Name',
+      'Lead ID','External ID','Source','Address','City','State','Zip','Owner Name','Owner Email',
       'Property Type','Distress Type','Tax Delinquent','Probate','Code Violation',
       'Vacant','Absentee Owner','Foreclosure','Equity %','Estimated Value',
       'Estimated Debt','Estimated Repairs','Asking Price','Motivation Score',
@@ -76,6 +76,13 @@ REOS.IntelligentAcquisition = (function () {
           State: state,
           Zip: zip,
           'Owner Name': first_(r, ['Owner Name','Seller Name','Owner']),
+          'Owner Email':
+            String(
+              first_(
+                r,
+                ['Owner Email','Seller Email','Email']
+              ) || ''
+            ).trim().toLowerCase(),
           'Property Type': first_(r, ['Property Type']) || 'Single Family',
           'Distress Type': first_(r, ['Distress Type','Signal','Lead Type']),
           'Tax Delinquent': bool_(first_(r, ['Tax Delinquent','Tax Delinquency'])),
@@ -189,12 +196,17 @@ REOS.IntelligentAcquisition = (function () {
     if (lead['Promoted Deal ID']) return { skipped: true, reason: 'Already promoted', dealId: lead['Promoted Deal ID'] };
 
     var deal = REOS.Database.insert('DEALS', {
+      'Lead ID': lead['Lead ID'] || '',
       Address: lead.Address || '',
       City: lead.City || '',
       State: lead.State || '',
       Zip: lead.Zip || '',
       Source: 'Intelligent Acquisition: ' + (lead.Source || 'Unknown'),
       'Seller Name': lead['Owner Name'] || '',
+      'Seller Email':
+        String(
+          lead['Owner Email'] || ''
+        ).trim().toLowerCase(),
       'Deal Status': 'New',
       'Assigned To': assignedTo || currentUser_(),
       'Created At': new Date(),

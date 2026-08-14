@@ -154,7 +154,10 @@ REOS.OfferExecutionWorkflow = (function () {
           offer['Qualified Queue ID'] || '',
         'Authority Source':
           offer['Authority Source'] || '',
-        'Lead ID': offer['Lead ID'] || '',
+        'Lead ID':
+          offer['Lead ID'] ||
+          deal['Lead ID'] ||
+          '',
         Address: deal.Address || offer.Address || '',
         'Offer Type': offer['Offer Type'] || 'Acquisition',
         'Offer Amount': Number(offer['Offer Amount'] || 0),

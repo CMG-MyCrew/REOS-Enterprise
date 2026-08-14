@@ -197,12 +197,37 @@ REOS.OfferDeliveryEvidence = (function () {
         ''
       ).trim();
 
-    var recipientEmail =
+    var persistedRecipientEmail =
       normalizeEmail_(
-        details.recipientEmail ||
         execution['Recipient Email'] ||
         ''
       );
+
+    var requestedRecipientEmail =
+      normalizeEmail_(
+        details.recipientEmail ||
+        ''
+      );
+
+    if (
+      method === 'Email' &&
+      requestedRecipientEmail &&
+      requestedRecipientEmail !==
+        persistedRecipientEmail
+    ) {
+      throw new Error(
+        'Email recipient override is not allowed. Use the persisted execution Recipient Email.'
+      );
+    }
+
+    var recipientEmail =
+      method === 'Email'
+        ? persistedRecipientEmail
+        : normalizeEmail_(
+            details.recipientEmail ||
+            execution['Recipient Email'] ||
+            ''
+          );
 
     if (
       method === 'Email' &&
