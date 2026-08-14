@@ -11,10 +11,12 @@ REOS.OfferExecutionWorkflow = (function () {
   var STATUSES = ['Ready','Submitted','Countered','Accepted','Rejected','Expired','Withdrawn'];
 
   var QUEUE_HEADERS = [
-    'Execution ID','Offer ID','Deal ID','Lead ID','Address','Offer Type','Offer Amount',
-    'Execution Status','Recipient Name','Recipient Email','Submission Method','Submitted At',
-    'Follow Up At','Response At','Response Notes','Assigned To','Published Document URL',
-    'Created At','Updated At'
+    'Execution ID','Offer ID','Deal ID','Analysis ID','Qualified Queue ID',
+    'Authority Source','Lead ID','Address','Offer Type','Offer Amount',
+    'Execution Status','Authority Validated At',
+    'Recipient Name','Recipient Email','Submission Method','Submitted At',
+    'Follow Up At','Response At','Response Notes','Assigned To',
+    'Published Document URL','Created At','Updated At'
   ];
 
   var LOG_HEADERS = [
@@ -23,19 +25,71 @@ REOS.OfferExecutionWorkflow = (function () {
   ];
 
   function ensureSheets() {
-    REOS.Database.ensureTable(QUEUE, QUEUE_HEADERS);
-    REOS.Database.ensureTable(LOG, LOG_HEADERS);
-    return { ok: true, queue: QUEUE, log: LOG };
+    ensureColumns_(QUEUE, QUEUE_HEADERS);
+    ensureColumns_(LOG, LOG_HEADERS);
+
+    return {
+      ok: true,
+      queue: QUEUE,
+      log: LOG
+    };
+  }
+
+  function ensureColumns_(sheetName, requiredHeaders) {
+    var sheet = REOS.Database.ensureTable(
+      sheetName,
+      requiredHeaders
+    );
+
+    var existing =
+      REOS.Database.getHeaders(sheetName);
+
+    var missing = requiredHeaders.filter(
+      function (header) {
+        return existing.indexOf(header) === -1;
+      }
+    );
+
+    if (missing.length) {
+      var startColumn =
+        Math.max(
+          sheet.getLastColumn(),
+          existing.length,
+          0
+        ) + 1;
+
+      sheet
+        .getRange(
+          1,
+          startColumn,
+          1,
+          missing.length
+        )
+        .setValues([missing])
+        .setFontWeight('bold')
+        .setWrap(true);
+    }
+
+    return sheet;
   }
 
   function buildQueue(options) {
     ensureSheets();
     options = Object.assign({ maxItems: 200 }, options || {});
 
+    var requestedMaxItems =
+      Number(options.maxItems);
+
+    var maxItems =
+      isFinite(requestedMaxItems) &&
+      requestedMaxItems > 0
+        ? Math.floor(requestedMaxItems)
+        : 200;
+
     var offers = safeAll_(SOURCE).filter(function (row) {
       var status = String(row.Status || 'Draft');
       return status === 'Draft' || status === 'Ready';
-    }).slice(0, Number(options.maxItems || 200));
+    });
 
     var existing = {};
     safeAll_(QUEUE).forEach(function (row) {
@@ -44,20 +98,67 @@ REOS.OfferExecutionWorkflow = (function () {
 
     var created = [];
     var skipped = 0;
+    var unauthorized = [];
+    var unauthorizedCount = 0;
 
-    offers.forEach(function (offer) {
+    offers.some(function (offer) {
+      if (created.length >= maxItems) {
+        return true;
+      }
+
       var offerId = String(offer['Offer ID'] || '');
-      if (!offerId || existing[offerId]) { skipped++; return; }
 
-      var deal = findOne_('DEALS', 'Deal ID', offer['Deal ID']) || {};
+      if (!offerId || existing[offerId]) {
+        skipped++;
+        return;
+      }
+
+      var authority = validateOfferAuthority_(offer);
+
+      if (!authority.authorized) {
+        skipped++;
+        unauthorizedCount++;
+
+        if (unauthorized.length < maxItems) {
+          unauthorized.push({
+            offerId: offerId,
+            dealId: String(
+              offer['Deal ID'] || ''
+            ),
+            analysisId: String(
+              offer['Analysis ID'] || ''
+            ),
+            queueId: String(
+              offer['Qualified Queue ID'] || ''
+            ),
+            reason: authority.reason
+          });
+        }
+
+        return false;
+      }
+
+      var deal = findOne_(
+        'DEALS',
+        'Deal ID',
+        offer['Deal ID']
+      ) || {};
+
+      var authorityValidatedAt = new Date();
       var row = REOS.Database.insert(QUEUE, {
         'Offer ID': offerId,
         'Deal ID': offer['Deal ID'] || '',
+        'Analysis ID': offer['Analysis ID'] || '',
+        'Qualified Queue ID':
+          offer['Qualified Queue ID'] || '',
+        'Authority Source':
+          offer['Authority Source'] || '',
         'Lead ID': offer['Lead ID'] || '',
         Address: deal.Address || offer.Address || '',
         'Offer Type': offer['Offer Type'] || 'Acquisition',
         'Offer Amount': Number(offer['Offer Amount'] || 0),
         'Execution Status': 'Ready',
+        'Authority Validated At': authorityValidatedAt,
         'Recipient Name': deal['Seller Name'] || '',
         'Recipient Email': deal['Seller Email'] || '',
         'Submission Method': 'Email',
@@ -79,9 +180,106 @@ REOS.OfferExecutionWorkflow = (function () {
       log_(row, 'Queue Created', '', 'Ready', 'Offer added to execution queue.');
       existing[offerId] = true;
       created.push(row);
+
+      return false;
     });
 
-    return { ok: true, source: offers.length, created: created.length, skipped: skipped, records: clean_(created) };
+    return {
+      ok: true,
+      source: offers.length,
+      created: created.length,
+      skipped: skipped,
+      unauthorized: unauthorizedCount,
+      unauthorizedDetails: clean_(unauthorized),
+      records: clean_(created)
+    };
+  }
+
+  function validateOfferAuthority_(offer) {
+    offer = offer || {};
+
+    if (
+      String(offer['Authority Source'] || '') !==
+        'QUALIFIED_DEAL_QUEUE'
+    ) {
+      return {
+        authorized: false,
+        reason:
+          'Offer does not declare qualified-deal authority.'
+      };
+    }
+
+    if (
+      !offer['Qualified Queue ID'] ||
+      !offer['Deal ID'] ||
+      !offer['Analysis ID']
+    ) {
+      return {
+        authorized: false,
+        reason:
+          'Offer is missing qualified authority provenance.'
+      };
+    }
+
+    if (
+      !REOS.QualifiedDealQueue ||
+      typeof REOS.QualifiedDealQueue.validateAuthority !==
+        'function'
+    ) {
+      return {
+        authorized: false,
+        reason:
+          'Qualified-deal authority validator is unavailable.'
+      };
+    }
+
+    try {
+      var validation =
+        REOS.QualifiedDealQueue.validateAuthority({
+          queueId: String(
+            offer['Qualified Queue ID'] || ''
+          ),
+          dealId: String(
+            offer['Deal ID'] || ''
+          ),
+          analysisId: String(
+            offer['Analysis ID'] || ''
+          )
+        });
+
+      if (
+        !validation ||
+        validation.ok !== true ||
+        validation.authorized !== true
+      ) {
+        return {
+          authorized: false,
+          reason:
+            validation && validation.reason
+              ? String(validation.reason)
+              : 'Qualified-deal authority was not confirmed.'
+        };
+      }
+
+      return {
+        authorized: true,
+        queue: validation.queue || null,
+        reason:
+          validation.reason ||
+          'Qualified-deal authority confirmed.'
+      };
+    } catch (error) {
+      return {
+        authorized: false,
+        reason:
+          'Qualified-deal authority validation failed: ' +
+          (
+            error && error.message
+              ? error.message
+              : String(error)
+          )
+      };
+    }
   }
 
   function markSubmitted(executionId, details) {
