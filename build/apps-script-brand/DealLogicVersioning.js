@@ -167,123 +167,120 @@ REOS.DealLogicVersioning = (function () {
     logPersistence_('after-write', persistence);
 
       var score = null;
-      var scoreSync = { attempted: true, ok: true, error: '' };
-      try { score = upsertScore_(dealId, persisted, metrics); } catch (error) { scoreSync.ok = false; scoreSync.error = error && error.message ? error.message : String(error); console.warn("Deal Logic score sync failed: " + scoreSync.error); }
-    var offer = null;
-      var offerSync = { attempted: false, ok: true, error: '' };
-    if (options.createDraftOffer !== false && number_(persisted.MAO) > 0) {
-        offerSync.attempted = true;
-        try { offer = upsertDraftOffer_(dealId, persisted, options, user, now); } catch (error) { offerSync.ok = false; offerSync.error = error && error.message ? error.message : String(error); console.warn("Deal Logic offer sync failed: " + offerSync.error); }
-    }
-
-      var pipelineSync = { attempted: false, ok: true, error: '' };
-    if (options.advancePipeline !== false && REOS.AcquisitionPipeline) {
-        pipelineSync.attempted = true;
-      try {
-        var pipeline = REOS.AcquisitionPipeline.getPipeline(dealId) || REOS.AcquisitionPipeline.createPipeline(dealId);
-        var current = String(pipeline['Current Stage'] || 'Lead');
-        var stages = REOS.AcquisitionPipeline.STAGES || ['Lead','Property Review','Initial Analysis'];
-        if (stages.indexOf(current) < stages.indexOf('Initial Analysis')) {
-          REOS.AcquisitionPipeline.advanceStage(
-            dealId,
-            'Initial Analysis',
-            'Deal analysis v' + persisted['Analysis Version'] + ' saved. Score ' + score.Score + ' (' + score.Grade + ').'
-          );
-        }
-      } catch (error) { pipelineSync.ok = false; pipelineSync.error = error && error.message ? error.message : String(error); console.warn("Deal Logic pipeline sync failed: " + pipelineSync.error); }
-    }
-
-      /*
-       * Deal Increment 3 — observational decision layer.
-       *
-       * This must not alter legacy save, offer, score, or pipeline
-       * behavior. Decision evaluation is deliberately non-fatal.
-       */
-      var formalDecision = null;
-      var decisionSync = {
-        attempted: false,
+      var scoreSync = {
+        attempted: true,
         ok: true,
         error: ''
       };
 
-      if (
-        REOS.DealDecisionAdapter &&
-        typeof REOS.DealDecisionAdapter.evaluate === 'function'
-      ) {
-        decisionSync.attempted = true;
+      try {
+        score = upsertScore_(
+          dealId,
+          persisted,
+          metrics
+        );
+      } catch (error) {
+        scoreSync.ok = false;
+        scoreSync.error =
+          error && error.message
+            ? error.message
+            : String(error);
 
-        try {
-          formalDecision = REOS.DealDecisionAdapter.evaluate(
-            dealId,
-            persisted,
-            score || {}
-          );
-        } catch (error) {
-          decisionSync.ok = false;
-          decisionSync.error =
-            error && error.message
-              ? error.message
-              : String(error);
-
-          console.warn(
-            'Deal Logic formal decision evaluation failed: ' +
-            decisionSync.error
-          );
-        }
+        console.warn(
+          'Deal Logic score sync failed: ' +
+          scoreSync.error
+        );
       }
 
       /*
-       * Deal Increment 4 — controlled decision execution layer.
+       * Deal Increment 4 — qualified execution authority.
        *
-       * Increment 3 remains the sole authority for deal qualification.
-       * This layer only records execution authority granted by the
-       * formal decision. Queue synchronization is deliberately non-fatal.
+       * The qualified-deal queue record is the auditable execution
+       * authority for draft-offer preparation.
+       *
+       * MAO remains only a defensive amount prerequisite.
        */
-      var qualifiedDealQueue = null;
-      var queueSync = {
+      var executionSync =
+        synchronizeQualifiedExecution_(
+          dealId,
+          persisted,
+          score,
+          options,
+          user,
+          now
+        );
+
+      var offer = executionSync.offer;
+      var offerSync = executionSync.offerSync;
+      var formalDecision =
+        executionSync.formalDecision;
+      var decisionSync =
+        executionSync.decisionSync;
+      var qualifiedDealQueue =
+        executionSync.qualifiedDealQueue;
+      var queueSync =
+        executionSync.queueSync;
+
+      /*
+       * Pipeline synchronization deliberately follows qualified
+       * execution synchronization. Pipeline progression depends on
+       * the persisted analysis and score, not draft-offer creation.
+       */
+      var pipelineSync = {
         attempted: false,
         ok: true,
-        queued: false,
-        created: false,
-        revoked: false,
-        queueId: '',
         error: ''
       };
 
       if (
-        formalDecision &&
-        REOS.QualifiedDealQueue &&
-        typeof REOS.QualifiedDealQueue.qualify === 'function'
+        options.advancePipeline !== false &&
+        REOS.AcquisitionPipeline
       ) {
-        queueSync.attempted = true;
+        pipelineSync.attempted = true;
 
         try {
-          var queueResult = REOS.QualifiedDealQueue.qualify(
-            formalDecision
+          var pipeline =
+            REOS.AcquisitionPipeline.getPipeline(dealId) ||
+            REOS.AcquisitionPipeline.createPipeline(dealId);
+
+          var current = String(
+            pipeline['Current Stage'] || 'Lead'
           );
 
-          queueSync.queued = queueResult.queued === true;
-          queueSync.created = queueResult.created === true;
-          queueSync.revoked = queueResult.revoked === true;
+          var stages =
+            REOS.AcquisitionPipeline.STAGES ||
+            [
+              'Lead',
+              'Property Review',
+              'Initial Analysis'
+            ];
 
-          qualifiedDealQueue =
-            queueResult.queue || null;
-
-          queueSync.queueId =
-            qualifiedDealQueue &&
-            qualifiedDealQueue['Queue ID']
-              ? String(qualifiedDealQueue['Queue ID'])
-              : '';
+          if (
+            stages.indexOf(current) <
+            stages.indexOf('Initial Analysis')
+          ) {
+            REOS.AcquisitionPipeline.advanceStage(
+              dealId,
+              'Initial Analysis',
+              'Deal analysis v' +
+                persisted['Analysis Version'] +
+                ' saved. Score ' +
+                score.Score +
+                ' (' +
+                score.Grade +
+                ').'
+            );
+          }
         } catch (error) {
-          queueSync.ok = false;
-          queueSync.error =
+          pipelineSync.ok = false;
+          pipelineSync.error =
             error && error.message
               ? error.message
               : String(error);
 
           console.warn(
-            'Deal Logic qualified deal queue sync failed: ' +
-            queueSync.error
+            'Deal Logic pipeline sync failed: ' +
+            pipelineSync.error
           );
         }
       }
@@ -329,21 +326,295 @@ REOS.DealLogicVersioning = (function () {
     function syncExisting(dealId, analysis, options) {
       ensureSheets();
       options = options || {};
-      var analysisId = analysis && analysis["Analysis ID"];
-      var persisted = analysisId ? REOS.Database.findById(ANALYSIS, "Analysis ID", analysisId) : null;
-      if (!persisted || String(persisted["Deal ID"] || "") !== String(dealId || "")) throw new Error("Persisted deal analysis not found: " + analysisId);
+
+      var analysisId =
+        analysis &&
+        analysis['Analysis ID'];
+
+      var persisted = analysisId
+        ? REOS.Database.findById(
+            ANALYSIS,
+            'Analysis ID',
+            analysisId
+          )
+        : null;
+
+      if (
+        !persisted ||
+        String(persisted['Deal ID'] || '') !==
+          String(dealId || '')
+      ) {
+        throw new Error(
+          'Persisted deal analysis not found: ' +
+          analysisId
+        );
+      }
+
       var lock = LockService.getDocumentLock();
-      if (!lock || !lock.tryLock(30000)) throw new Error("Another Deal Logic sync is already in progress. Please retry.");
+
+      if (
+        !lock ||
+        !lock.tryLock(30000)
+      ) {
+        throw new Error(
+          'Another Deal Logic sync is already in progress. Please retry.'
+        );
+      }
+
       try {
-        var metrics = { mao: number_(persisted.MAO), roi: number_(persisted["ROI %"]), dscr: number_(persisted.DSCR), riskLevel: persisted["Risk Level"] || "", recommendation: persisted.Recommendation || "" };
-        var score = upsertScore_(dealId, persisted, metrics);
-        var offer = null;
-        if (options.createDraftOffer !== false && number_(persisted.MAO) > 0) offer = upsertDraftOffer_(dealId, persisted, options, getUser_(), new Date());
-        return { ok: true, analysis: persisted, score: score, offer: offer };
+        var metrics = {
+          mao: number_(persisted.MAO),
+          roi: number_(persisted['ROI %']),
+          dscr: number_(persisted.DSCR),
+          riskLevel:
+            persisted['Risk Level'] || '',
+          recommendation:
+            persisted.Recommendation || ''
+        };
+
+        var score = upsertScore_(
+          dealId,
+          persisted,
+          metrics
+        );
+
+        var user = getUser_();
+        var now = new Date();
+
+        var executionSync =
+          synchronizeQualifiedExecution_(
+            dealId,
+            persisted,
+            score,
+            options,
+            user,
+            now
+          );
+
+        return {
+          ok: true,
+          analysis: persisted,
+          score: score,
+          offer: executionSync.offer,
+          offerSync: executionSync.offerSync,
+          formalDecision:
+            executionSync.formalDecision,
+          decisionSync:
+            executionSync.decisionSync,
+          qualifiedDealQueue:
+            executionSync.qualifiedDealQueue,
+          queueSync:
+            executionSync.queueSync
+        };
       } finally {
         lock.releaseLock();
       }
     }
+
+  function synchronizeQualifiedExecution_(
+    dealId,
+    persisted,
+    score,
+    options,
+    user,
+    now
+  ) {
+    options = options || {};
+
+    /*
+     * Increment 3 — formal qualification authority.
+     */
+    var formalDecision = null;
+
+    var decisionSync = {
+      attempted: false,
+      ok: true,
+      error: ''
+    };
+
+    if (
+      REOS.DealDecisionAdapter &&
+      typeof REOS.DealDecisionAdapter.evaluate ===
+        'function'
+    ) {
+      decisionSync.attempted = true;
+
+      try {
+        formalDecision =
+          REOS.DealDecisionAdapter.evaluate(
+            dealId,
+            persisted,
+            score || {}
+          );
+      } catch (error) {
+        decisionSync.ok = false;
+        decisionSync.error =
+          error && error.message
+            ? error.message
+            : String(error);
+
+        console.warn(
+          'Deal Logic formal decision evaluation failed: ' +
+          decisionSync.error
+        );
+      }
+    }
+
+    /*
+     * Increment 4 — persist / synchronize execution authority.
+     */
+    var qualifiedDealQueue = null;
+
+    var queueSync = {
+      attempted: false,
+      ok: true,
+      queued: false,
+      created: false,
+      revoked: false,
+      queueId: '',
+      error: ''
+    };
+
+    if (
+      formalDecision &&
+      REOS.QualifiedDealQueue &&
+      typeof REOS.QualifiedDealQueue.qualify ===
+        'function'
+    ) {
+      queueSync.attempted = true;
+
+      try {
+        var queueResult =
+          REOS.QualifiedDealQueue.qualify(
+            formalDecision
+          );
+
+        queueSync.queued =
+          queueResult.queued === true;
+
+        queueSync.created =
+          queueResult.created === true;
+
+        queueSync.revoked =
+          queueResult.revoked === true;
+
+        qualifiedDealQueue =
+          queueResult.queue || null;
+
+        queueSync.queueId =
+          qualifiedDealQueue &&
+          qualifiedDealQueue['Queue ID']
+            ? String(
+                qualifiedDealQueue['Queue ID']
+              )
+            : '';
+      } catch (error) {
+        queueSync.ok = false;
+        queueSync.error =
+          error && error.message
+            ? error.message
+            : String(error);
+
+        console.warn(
+          'Deal Logic qualified deal queue sync failed: ' +
+          queueSync.error
+        );
+      }
+    }
+
+    /*
+     * The queue record itself is the execution authority.
+     *
+     * queueSync.queued is intentionally NOT the authority gate.
+     * It describes the synchronization result and must not replace
+     * inspection of the persisted authority record.
+     */
+    var authorized =
+      hasQualifiedOfferAuthority_(
+        queueSync,
+        qualifiedDealQueue
+      );
+
+    var offer = null;
+
+    var offerSync = {
+      attempted: false,
+      ok: true,
+      authorized: authorized,
+      reason: '',
+      error: ''
+    };
+
+    if (options.createDraftOffer === false) {
+      offerSync.reason =
+        'Draft offer creation disabled by caller.';
+    } else if (!authorized) {
+      offerSync.reason =
+        queueSync.ok === false
+          ? 'Qualified-deal queue synchronization failed.'
+          : 'No active qualified-deal queue authority.';
+    } else if (number_(persisted.MAO) <= 0) {
+      offerSync.reason =
+        'Qualified deal has no positive MAO for offer preparation.';
+    } else {
+      offerSync.attempted = true;
+
+      try {
+        offer = upsertDraftOffer_(
+          dealId,
+          persisted,
+          options,
+          user,
+          now
+        );
+
+        offerSync.reason =
+          'Draft offer prepared under qualified-deal queue authority.';
+      } catch (error) {
+        offerSync.ok = false;
+        offerSync.error =
+          error && error.message
+            ? error.message
+            : String(error);
+
+        console.warn(
+          'Deal Logic offer sync failed: ' +
+          offerSync.error
+        );
+      }
+    }
+
+    return {
+      formalDecision: formalDecision,
+      decisionSync: decisionSync,
+      qualifiedDealQueue:
+        qualifiedDealQueue,
+      queueSync: queueSync,
+      offer: offer,
+      offerSync: offerSync
+    };
+  }
+
+  function hasQualifiedOfferAuthority_(
+    queueSync,
+    qualifiedDealQueue
+  ) {
+    return !!(
+      queueSync &&
+      queueSync.attempted === true &&
+      queueSync.ok === true &&
+      qualifiedDealQueue &&
+      qualifiedDealQueue.Active === true &&
+      String(
+        qualifiedDealQueue['Queue Status'] || ''
+      ) === 'Pending' &&
+      String(
+        qualifiedDealQueue.Decision || ''
+      ) === 'BUY' &&
+      qualifiedDealQueue['Eligible For Offer'] ===
+        true
+    );
+  }
 
   function buildAnalysisRecord_(dealId, input, metrics, meta) {
     return {
