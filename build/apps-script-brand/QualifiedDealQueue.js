@@ -70,9 +70,16 @@ REOS.QualifiedDealQueue = (function () {
       result.decision !== 'BUY' ||
       result.eligibleForOffer !== true
     ) {
+      var revoked = revokeActive_(
+        dealId,
+        buildRevocationReason_(result)
+      );
+
       return {
         ok: true,
         queued: false,
+        revoked: revoked.removed === true,
+        queue: revoked.queue || null,
         reason: 'Decision does not grant qualified-deal queue authority.',
         dealId: dealId,
         analysisId: analysisId,
@@ -150,12 +157,20 @@ REOS.QualifiedDealQueue = (function () {
     assertDependencies_();
     ensureTable();
 
+    return revokeActive_(
+      String(dealId || ''),
+      reason || 'Removed from qualified-deal queue.'
+    );
+  }
+
+  function revokeActive_(dealId, reason) {
     var existing = findActiveByDeal_(String(dealId || ''));
 
     if (!existing) {
       return {
         ok: true,
         removed: false,
+        queue: null,
         reason: 'No active qualified-deal queue entry found.'
       };
     }
@@ -183,6 +198,15 @@ REOS.QualifiedDealQueue = (function () {
         existing['Queue ID']
       )
     };
+  }
+
+  function buildRevocationReason_(result) {
+    return (
+      'Queue authority revoked by formal decision: ' +
+      String(result.decision || 'UNKNOWN') +
+      '; eligibleForOffer=' +
+      String(result.eligibleForOffer === true)
+    );
   }
 
   function buildRecord_(formalDecision, options, now) {

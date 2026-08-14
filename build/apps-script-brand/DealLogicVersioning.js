@@ -245,6 +245,7 @@ REOS.DealLogicVersioning = (function () {
         ok: true,
         queued: false,
         created: false,
+        revoked: false,
         queueId: '',
         error: ''
       };
@@ -263,6 +264,7 @@ REOS.DealLogicVersioning = (function () {
 
           queueSync.queued = queueResult.queued === true;
           queueSync.created = queueResult.created === true;
+          queueSync.revoked = queueResult.revoked === true;
 
           qualifiedDealQueue =
             queueResult.queue || null;
@@ -299,6 +301,7 @@ REOS.DealLogicVersioning = (function () {
           ? formalDecision.decision.decision
           : '',
       qualifiedDealQueued: queueSync.queued,
+      qualifiedDealQueueRevoked: queueSync.revoked,
       qualifiedDealQueueId: queueSync.queueId
     });
 
