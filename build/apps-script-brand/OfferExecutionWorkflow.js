@@ -14,6 +14,7 @@ REOS.OfferExecutionWorkflow = (function () {
     'Execution ID','Offer ID','Deal ID','Analysis ID','Qualified Queue ID',
     'Authority Source','Lead ID','Address','Offer Type','Offer Amount',
     'Execution Status','Authority Validated At',
+    'Delivery Attempt ID','Delivery Evidence Type','Delivery Evidence Reference',
     'Recipient Name','Recipient Email','Submission Method','Submitted At',
     'Follow Up At','Response At','Response Notes','Assigned To',
     'Published Document URL','Created At','Updated At'
@@ -285,68 +286,242 @@ REOS.OfferExecutionWorkflow = (function () {
   function markSubmitted(executionId, details) {
     details = details || {};
 
-    var row = requireExecution_(executionId);
+    var row =
+      requireExecution_(
+        executionId
+      );
 
     /*
-     * Deal Increment 5 — submission authority boundary.
+     * Deal Increment 6 — evidence-backed submission boundary.
      *
-     * Entering the execution queue proves that authority existed
-     * when the offer became Ready. It does not grant permanent
-     * send authority.
+     * Current qualified authority is checked immediately before the
+     * external delivery side effect by OfferDeliveryTransport.
      *
-     * Revalidate the persisted qualified-deal authority immediately
-     * before the Ready -> Submitted transition so a revoked or stale
-     * execution row cannot be submitted.
+     * After a genuine send, current authority may later change.
+     * Finalization therefore relies on historical Sent delivery
+     * evidence rather than re-running current QDQ authority.
      */
     if (
-      String(row['Execution Status'] || '') !==
-        'Ready'
+      String(
+        row['Execution Status'] || ''
+      ) !== 'Ready'
     ) {
       throw new Error(
         'Offer submission requires Ready execution status.'
       );
     }
 
-    var authority =
-      validateOfferAuthority_(row);
+    requireText_(
+      details.deliveryAttemptId,
+      'Delivery Attempt ID'
+    );
 
-    if (!authority.authorized) {
+    var delivery =
+      requireSentDeliveryEvidence_(
+        row,
+        details.deliveryAttemptId
+      );
+
+    var submittedAt =
+      requiredDate_(
+        delivery['Sent At'],
+        'Sent At'
+      );
+
+    var authorityValidatedAt =
+      requiredDate_(
+        delivery[
+          'Send Authority Validated At'
+        ],
+        'Send Authority Validated At'
+      );
+
+    if (
+      submittedAt.getTime() <
+      authorityValidatedAt.getTime()
+    ) {
       throw new Error(
-        'Offer submission blocked: ' +
-        authority.reason
+        'Submission evidence predates send authority validation.'
       );
     }
 
-    var authorityValidatedAt = new Date();
-
-    var submittedAt =
-      details.submittedAt
-        ? new Date(details.submittedAt)
-        : new Date();
-
     var followUpAt =
       details.followUpAt
-        ? new Date(details.followUpAt)
+        ? requiredDate_(
+            details.followUpAt,
+            'Follow Up At'
+          )
         : new Date(
             submittedAt.getTime() +
             2 * 24 * 60 * 60 * 1000
           );
 
-    var updated = updateStatus_(row, 'Submitted', {
-      'Authority Validated At':
-        authorityValidatedAt,
-      'Recipient Name': details.recipientName || row['Recipient Name'] || '',
-      'Recipient Email': details.recipientEmail || row['Recipient Email'] || '',
-      'Submission Method': details.submissionMethod || row['Submission Method'] || 'Email',
-      'Submitted At': submittedAt,
-      'Follow Up At': followUpAt,
-      'Published Document URL': details.documentUrl || row['Published Document URL'] || '',
-      'Response Notes': details.notes || row['Response Notes'] || ''
-    }, details.notes || 'Offer submitted.');
+    var updated =
+      updateStatus_(
+        row,
+        'Submitted',
+        {
+          'Authority Validated At':
+            authorityValidatedAt,
+          'Delivery Attempt ID':
+            delivery[
+              'Delivery Attempt ID'
+            ],
+          'Delivery Evidence Type':
+            delivery[
+              'Evidence Type'
+            ],
+          'Delivery Evidence Reference':
+            delivery[
+              'Evidence Reference'
+            ],
+          'Recipient Name':
+            delivery[
+              'Recipient Name'
+            ] ||
+            row[
+              'Recipient Name'
+            ] ||
+            '',
+          'Recipient Email':
+            delivery[
+              'Recipient Email'
+            ] ||
+            row[
+              'Recipient Email'
+            ] ||
+            '',
+          'Submission Method':
+            delivery[
+              'Delivery Method'
+            ] ||
+            row[
+              'Submission Method'
+            ] ||
+            '',
+          'Submitted At':
+            submittedAt,
+          'Follow Up At':
+            followUpAt,
+          'Published Document URL':
+            delivery[
+              'Document URL'
+            ] ||
+            row[
+              'Published Document URL'
+            ] ||
+            '',
+          'Response Notes':
+            details.notes ||
+            row[
+              'Response Notes'
+            ] ||
+            ''
+        },
+        details.notes ||
+          'Offer submission finalized from durable delivery evidence.'
+      );
 
-    createFollowUpTask_(updated);
-    advancePipeline_(updated['Deal ID'], 'Offer Submitted', 'Offer marked submitted from execution workflow.');
-    return { ok: true, record: clean_(updated) };
+    createFollowUpTask_(
+      updated
+    );
+
+    advancePipeline_(
+      updated['Deal ID'],
+      'Offer Submitted',
+      'Offer submission finalized from durable delivery evidence.'
+    );
+
+    return {
+      ok: true,
+      deliveryAttemptId:
+        delivery[
+          'Delivery Attempt ID'
+        ],
+      record:
+        clean_(updated)
+    };
+  }
+
+  function requireSentDeliveryEvidence_(
+    execution,
+    attemptId
+  ) {
+    if (
+      !REOS.OfferDeliveryEvidence ||
+      typeof REOS.OfferDeliveryEvidence.get !==
+        'function' ||
+      typeof REOS.OfferDeliveryEvidence.isSentEvidence !==
+        'function'
+    ) {
+      throw new Error(
+        'Offer submission blocked: delivery evidence service is unavailable.'
+      );
+    }
+
+    var attempt =
+      REOS.OfferDeliveryEvidence.get(
+        String(
+          attemptId || ''
+        )
+      );
+
+    if (
+      !attempt ||
+      REOS.OfferDeliveryEvidence
+        .isSentEvidence(
+          attempt
+        ) !== true
+    ) {
+      throw new Error(
+        'Offer submission blocked: valid Sent delivery evidence is required.'
+      );
+    }
+
+    [
+      'Execution ID',
+      'Offer ID',
+      'Deal ID',
+      'Analysis ID',
+      'Qualified Queue ID',
+      'Authority Source'
+    ].forEach(
+      function (field) {
+        if (
+          String(
+            attempt[field] || ''
+          ) !==
+          String(
+            execution[field] || ''
+          )
+        ) {
+          throw new Error(
+            'Offer submission blocked: delivery evidence provenance mismatch for ' +
+            field +
+            '.'
+          );
+        }
+      }
+    );
+
+    if (
+      String(
+        attempt[
+          'Delivery Method'
+        ] || ''
+      ) === 'Email' &&
+      String(
+        attempt[
+          'Evidence Type'
+        ] || ''
+      ) !== 'GMAIL_MESSAGE_ID'
+    ) {
+      throw new Error(
+        'Offer submission blocked: email delivery requires Gmail message evidence.'
+      );
+    }
+
+    return attempt;
   }
 
   function recordResponse(executionId, status, notes) {
@@ -514,6 +689,35 @@ REOS.OfferExecutionWorkflow = (function () {
   function safeAll_(sheet) { try { return REOS.Database.getAll(sheet) || []; } catch (e) { return []; } }
   function findOne_(sheet, field, value) { return safeAll_(sheet).filter(function (r) { return r[field] === value; })[0] || null; }
   function count_(rows, field, value) { return rows.filter(function (r) { return r[field] === value; }).length; }
+  function requiredDate_(value, label) {
+    if (
+      value === null ||
+      value === undefined ||
+      value === ''
+    ) {
+      throw new Error(
+        label + ' is required.'
+      );
+    }
+
+    var date =
+      value instanceof Date
+        ? value
+        : new Date(value);
+
+    if (
+      !isFinite(
+        date.getTime()
+      )
+    ) {
+      throw new Error(
+        'Invalid ' + label + '.'
+      );
+    }
+
+    return date;
+  }
+
   function requireText_(value, label) { if (value === null || value === undefined || String(value).trim() === '') throw new Error(label + ' is required.'); }
   function currentUser_() { try { return Session.getActiveUser().getEmail() || ''; } catch (e) { return ''; } }
   function clean_(value) { return JSON.parse(JSON.stringify(value || null, function (k, v) { return v instanceof Date ? v.toISOString() : v; })); }

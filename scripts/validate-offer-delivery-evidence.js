@@ -326,6 +326,7 @@ test(
       'Idempotency Key',
       'Delivery Status',
       'Attempted At',
+      'Send Authority Validated At',
       'Sent At',
       'Evidence Type',
       'Evidence Reference',
@@ -745,6 +746,8 @@ test(
       delivery.recordSent(
         attemptId,
         {
+          authorityValidatedAt:
+            new Date(),
           type:
             'GMAIL_SEND',
           reference:
@@ -880,6 +883,8 @@ test(
     delivery.recordSent(
       attemptId,
       {
+        authorityValidatedAt:
+          new Date(),
         type:
           'GMAIL_SEND',
         reference:
@@ -929,6 +934,8 @@ test(
     delivery.recordSent(
       attemptId,
       {
+        authorityValidatedAt:
+          new Date(),
         type:
           'GMAIL_MESSAGE_ID',
         reference:
@@ -1084,6 +1091,45 @@ test(
     assert.strictEqual(
       rows.length,
       2
+    );
+  }
+);
+
+
+test(
+  'Sent evidence requires send-time authority validation proof',
+  function () {
+    const execution =
+      readyExecution();
+
+    authorize(execution);
+
+    const attemptId =
+      delivery.prepare(
+        execution['Execution ID'],
+        {}
+      ).record[
+        'Delivery Attempt ID'
+      ];
+
+    delivery.markSending(
+      attemptId,
+      {}
+    );
+
+    assert.throws(
+      function () {
+        delivery.recordSent(
+          attemptId,
+          {
+            type:
+              'GMAIL_MESSAGE_ID',
+            reference:
+              'gmail-without-authority-time'
+          }
+        );
+      },
+      /Send Authority Validated At is required/
     );
   }
 );

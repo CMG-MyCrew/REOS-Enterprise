@@ -42,6 +42,7 @@ REOS.OfferDeliveryEvidence = (function () {
     'Idempotency Key',
     'Delivery Status',
     'Attempted At',
+    'Send Authority Validated At',
     'Sent At',
     'Evidence Type',
     'Evidence Reference',
@@ -416,6 +417,37 @@ REOS.OfferDeliveryEvidence = (function () {
   ) {
     evidence = evidence || {};
 
+    /*
+     * Enforce the delivery state machine before validating the
+     * payload for the requested transition.
+     *
+     * Prepared -> Sent must always fail as a transition violation;
+     * only Sending may be converted into durable Sent evidence.
+     */
+    var currentAttempt =
+      requireAttempt_(
+        attemptId
+      );
+
+    var currentStatus =
+      String(
+        currentAttempt[
+          'Delivery Status'
+        ] || ''
+      );
+
+    if (
+      currentStatus !==
+        STATUS.SENDING
+    ) {
+      throw new Error(
+        'Invalid delivery transition: ' +
+        currentStatus +
+        ' -> ' +
+        STATUS.SENT
+      );
+    }
+
     requireText_(
       evidence.type,
       'Evidence Type'
@@ -426,14 +458,34 @@ REOS.OfferDeliveryEvidence = (function () {
       'Evidence Reference'
     );
 
+    var sendAuthorityValidatedAt =
+      requiredDate_(
+        evidence.authorityValidatedAt,
+        'Send Authority Validated At'
+      );
+
+    var sentAt =
+      validDateOrNow_(
+        evidence.sentAt
+      );
+
+    if (
+      sentAt.getTime() <
+      sendAuthorityValidatedAt.getTime()
+    ) {
+      throw new Error(
+        'Sent At cannot precede send authority validation.'
+      );
+    }
+
     return transition_(
       attemptId,
       STATUS.SENT,
       {
+        'Send Authority Validated At':
+          sendAuthorityValidatedAt,
         'Sent At':
-          validDateOrNow_(
-            evidence.sentAt
-          ),
+          sentAt,
         'Evidence Type':
           String(
             evidence.type
@@ -644,6 +696,27 @@ REOS.OfferDeliveryEvidence = (function () {
       return false;
     }
 
+    var sendAuthorityValidatedAt =
+      attempt[
+        'Send Authority Validated At'
+      ];
+
+    var authorityDate =
+      sendAuthorityValidatedAt instanceof Date
+        ? sendAuthorityValidatedAt
+        : new Date(
+            sendAuthorityValidatedAt
+          );
+
+    if (
+      !sendAuthorityValidatedAt ||
+      !isFinite(
+        authorityDate.getTime()
+      )
+    ) {
+      return false;
+    }
+
     var sentAt =
       attempt['Sent At'];
 
@@ -656,7 +729,9 @@ REOS.OfferDeliveryEvidence = (function () {
       sentAt &&
       isFinite(
         sentDate.getTime()
-      )
+      ) &&
+      sentDate.getTime() >=
+        authorityDate.getTime()
     );
   }
 
@@ -875,6 +950,38 @@ REOS.OfferDeliveryEvidence = (function () {
         documentUrl || ''
       )
     ].join('|');
+  }
+
+  function requiredDate_(
+    value,
+    label
+  ) {
+    if (
+      value === undefined ||
+      value === null ||
+      value === ''
+    ) {
+      throw new Error(
+        label + ' is required.'
+      );
+    }
+
+    var date =
+      value instanceof Date
+        ? value
+        : new Date(value);
+
+    if (
+      !isFinite(
+        date.getTime()
+      )
+    ) {
+      throw new Error(
+        'Invalid ' + label + '.'
+      );
+    }
+
+    return date;
   }
 
   function validDateOrNow_(

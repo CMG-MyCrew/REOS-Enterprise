@@ -14,6 +14,7 @@ const MODULE_PATH = path.resolve(
 
 const tables = Object.create(null);
 const authorities = Object.create(null);
+const sentEvidence = Object.create(null);
 let nextId = 1;
 
 function clone(value) {
@@ -193,6 +194,56 @@ const context = {
     Database: database,
     QualifiedDealQueue: qualifiedDealQueue,
 
+    OfferDeliveryEvidence: {
+      get: function (attemptId) {
+        return sentEvidence[
+          String(attemptId || '')
+        ]
+          ? clone(
+              sentEvidence[
+                String(attemptId || '')
+              ]
+            )
+          : null;
+      },
+
+      isSentEvidence: function (attempt) {
+        if (!attempt) return false;
+
+        const authorityAt =
+          new Date(
+            attempt[
+              'Send Authority Validated At'
+            ] || ''
+          );
+
+        const sentAt =
+          new Date(
+            attempt['Sent At'] || ''
+          );
+
+        return !!(
+          attempt[
+            'Delivery Status'
+          ] === 'Sent' &&
+          attempt[
+            'Evidence Type'
+          ] &&
+          attempt[
+            'Evidence Reference'
+          ] &&
+          isFinite(
+            authorityAt.getTime()
+          ) &&
+          isFinite(
+            sentAt.getTime()
+          ) &&
+          sentAt.getTime() >=
+            authorityAt.getTime()
+        );
+      }
+    },
+
     PluginEventBus: {
       publish: function () {}
     }
@@ -250,6 +301,7 @@ function resetRows() {
   });
 
   clearObject(authorities);
+  clearObject(sentEvidence);
 }
 
 function seed(name, row) {
@@ -266,6 +318,80 @@ function authorize(
     dealId: dealId,
     analysisId: analysisId
   };
+}
+
+function seedSentEvidence(
+  execution,
+  overrides
+) {
+  const authorityAt =
+    new Date(
+      Date.now() - 1000
+    );
+
+  const sentAt =
+    new Date();
+
+  const row =
+    Object.assign(
+      {
+        'Delivery Attempt ID':
+          'ODEL-' +
+          String(nextId++),
+        'Execution ID':
+          execution[
+            'Execution ID'
+          ],
+        'Offer ID':
+          execution[
+            'Offer ID'
+          ],
+        'Deal ID':
+          execution[
+            'Deal ID'
+          ],
+        'Analysis ID':
+          execution[
+            'Analysis ID'
+          ],
+        'Qualified Queue ID':
+          execution[
+            'Qualified Queue ID'
+          ],
+        'Authority Source':
+          execution[
+            'Authority Source'
+          ],
+        'Delivery Method':
+          'Email',
+        'Recipient Name':
+          'Seller',
+        'Recipient Email':
+          'seller@example.com',
+        'Delivery Status':
+          'Sent',
+        'Send Authority Validated At':
+          authorityAt,
+        'Sent At':
+          sentAt,
+        'Evidence Type':
+          'GMAIL_MESSAGE_ID',
+        'Evidence Reference':
+          'gmail-message-' +
+          String(nextId++),
+        'Document URL':
+          ''
+      },
+      overrides || {}
+    );
+
+  sentEvidence[
+    row[
+      'Delivery Attempt ID'
+    ]
+  ] = clone(row);
+
+  return clone(row);
 }
 
 function executions() {
@@ -316,7 +442,10 @@ test(
       'Analysis ID',
       'Qualified Queue ID',
       'Authority Source',
-      'Authority Validated At'
+      'Authority Validated At',
+      'Delivery Attempt ID',
+      'Delivery Evidence Type',
+      'Delivery Evidence Reference'
     ].forEach(function (header) {
       assert(
         headers.indexOf(header) !== -1,
@@ -612,7 +741,7 @@ test(
 );
 
 test(
-  'active qualified execution revalidates before submission',
+  'Sent delivery evidence finalizes submission',
   function () {
     resetRows();
 
@@ -634,29 +763,30 @@ test(
       'Offer Amount': 125000
     });
 
-    const built =
-      workflow.buildQueue({
-        maxItems: 10
-      });
-
-    assert.strictEqual(
-      built.created,
-      1
-    );
+    workflow.buildQueue({
+      maxItems: 10
+    });
 
     const execution =
       executions()[0];
 
-    assert(execution);
+    const evidence =
+      seedSentEvidence(
+        execution
+      );
 
     const result =
       workflow.markSubmitted(
-        execution['Execution ID'],
+        execution[
+          'Execution ID'
+        ],
         {
-          recipientEmail:
-            'seller@example.com',
+          deliveryAttemptId:
+            evidence[
+              'Delivery Attempt ID'
+            ],
           notes:
-            'Controlled authority validation test.'
+            'Evidence-backed submission.'
         }
       );
 
@@ -669,16 +799,41 @@ test(
       executions()[0];
 
     assert.strictEqual(
-      submitted['Execution Status'],
+      submitted[
+        'Execution Status'
+      ],
       'Submitted'
     );
 
-    assert(
-      submitted['Authority Validated At']
+    assert.strictEqual(
+      submitted[
+        'Delivery Attempt ID'
+      ],
+      evidence[
+        'Delivery Attempt ID'
+      ]
+    );
+
+    assert.strictEqual(
+      submitted[
+        'Delivery Evidence Type'
+      ],
+      'GMAIL_MESSAGE_ID'
+    );
+
+    assert.strictEqual(
+      submitted[
+        'Delivery Evidence Reference'
+      ],
+      evidence[
+        'Evidence Reference'
+      ]
     );
 
     assert(
-      submitted['Submitted At']
+      submitted[
+        'Submitted At'
+      ]
     );
 
     assert.strictEqual(
@@ -689,149 +844,152 @@ test(
 );
 
 test(
-  'revoked authority after queue entry blocks submission',
+  'authority revoked after genuine send does not block submission finalization',
   function () {
     resetRows();
 
     authorize(
-      'QDQ-STALE-SUBMIT',
-      'DEAL-STALE-SUBMIT',
-      'ANL-STALE-SUBMIT'
+      'QDQ-HISTORICAL-SEND',
+      'DEAL-HISTORICAL-SEND',
+      'ANL-HISTORICAL-SEND'
     );
 
     seed('OFFERS', {
       'Offer ID':
-        'OFF-STALE-SUBMIT',
+        'OFF-HISTORICAL-SEND',
       'Deal ID':
-        'DEAL-STALE-SUBMIT',
+        'DEAL-HISTORICAL-SEND',
       'Analysis ID':
-        'ANL-STALE-SUBMIT',
+        'ANL-HISTORICAL-SEND',
       'Qualified Queue ID':
-        'QDQ-STALE-SUBMIT',
+        'QDQ-HISTORICAL-SEND',
       'Authority Source':
         'QUALIFIED_DEAL_QUEUE',
-      Status: 'Draft',
-      'Offer Amount': 115000
+      Status: 'Draft'
     });
 
-    const built =
-      workflow.buildQueue({
-        maxItems: 10
-      });
-
-    assert.strictEqual(
-      built.created,
-      1
-    );
+    workflow.buildQueue({
+      maxItems: 10
+    });
 
     const execution =
       executions()[0];
 
+    const evidence =
+      seedSentEvidence(
+        execution
+      );
+
     authorities[
-      'QDQ-STALE-SUBMIT'
+      'QDQ-HISTORICAL-SEND'
     ].active = false;
 
-    assert.throws(
-      function () {
-        workflow.markSubmitted(
-          execution['Execution ID'],
-          {
-            recipientEmail:
-              'seller@example.com'
-          }
-        );
-      },
-      /Offer submission blocked/
+    const result =
+      workflow.markSubmitted(
+        execution[
+          'Execution ID'
+        ],
+        {
+          deliveryAttemptId:
+            evidence[
+              'Delivery Attempt ID'
+            ]
+        }
+      );
+
+    assert.strictEqual(
+      result.ok,
+      true
     );
 
     assert.strictEqual(
       executions()[0][
         'Execution Status'
       ],
-      'Ready'
-    );
-
-    assert.strictEqual(
-      offers()[0].Status,
-      'Ready'
+      'Submitted'
     );
   }
 );
 
 test(
-  'submission fails closed when authority validator disappears',
+  'submission finalization uses historical send evidence when current validator disappears',
   function () {
     resetRows();
 
     authorize(
-      'QDQ-NO-SUBMIT-VALIDATOR',
-      'DEAL-NO-SUBMIT-VALIDATOR',
-      'ANL-NO-SUBMIT-VALIDATOR'
+      'QDQ-SEND-HISTORY',
+      'DEAL-SEND-HISTORY',
+      'ANL-SEND-HISTORY'
     );
 
     seed('OFFERS', {
       'Offer ID':
-        'OFF-NO-SUBMIT-VALIDATOR',
+        'OFF-SEND-HISTORY',
       'Deal ID':
-        'DEAL-NO-SUBMIT-VALIDATOR',
+        'DEAL-SEND-HISTORY',
       'Analysis ID':
-        'ANL-NO-SUBMIT-VALIDATOR',
+        'ANL-SEND-HISTORY',
       'Qualified Queue ID':
-        'QDQ-NO-SUBMIT-VALIDATOR',
+        'QDQ-SEND-HISTORY',
       'Authority Source':
         'QUALIFIED_DEAL_QUEUE',
       Status: 'Draft'
     });
 
-    const built =
-      workflow.buildQueue({
-        maxItems: 10
-      });
-
-    assert.strictEqual(
-      built.created,
-      1
-    );
+    workflow.buildQueue({
+      maxItems: 10
+    });
 
     const execution =
       executions()[0];
 
-    const saved =
-      context.REOS.QualifiedDealQueue;
+    const evidence =
+      seedSentEvidence(
+        execution
+      );
 
-    context.REOS.QualifiedDealQueue = null;
+    const saved =
+      context.REOS
+        .QualifiedDealQueue;
+
+    context.REOS
+      .QualifiedDealQueue = null;
 
     try {
-      assert.throws(
-        function () {
-          workflow.markSubmitted(
-            execution['Execution ID'],
-            {}
-          );
-        },
-        /Offer submission blocked/
+      const result =
+        workflow.markSubmitted(
+          execution[
+            'Execution ID'
+          ],
+          {
+            deliveryAttemptId:
+              evidence[
+                'Delivery Attempt ID'
+              ]
+          }
+        );
+
+      assert.strictEqual(
+        result.ok,
+        true
       );
     } finally {
-      context.REOS.QualifiedDealQueue =
-        saved;
+      context.REOS
+        .QualifiedDealQueue =
+          saved;
     }
 
     assert.strictEqual(
       executions()[0][
         'Execution Status'
       ],
-      'Ready'
-    );
-
-    assert.strictEqual(
-      offers()[0].Status,
-      'Ready'
+      'Submitted'
     );
   }
 );
 
 test(
-  'submitted execution cannot be submitted a second time',
+  'submitted execution cannot be finalized a second time',
   function () {
     resetRows();
 
@@ -862,16 +1020,35 @@ test(
     const execution =
       executions()[0];
 
+    const evidence =
+      seedSentEvidence(
+        execution
+      );
+
     workflow.markSubmitted(
-      execution['Execution ID'],
-      {}
+      execution[
+        'Execution ID'
+      ],
+      {
+        deliveryAttemptId:
+          evidence[
+            'Delivery Attempt ID'
+          ]
+      }
     );
 
     assert.throws(
       function () {
         workflow.markSubmitted(
-          execution['Execution ID'],
-          {}
+          execution[
+            'Execution ID'
+          ],
+          {
+            deliveryAttemptId:
+              evidence[
+                'Delivery Attempt ID'
+              ]
+          }
         );
       },
       /requires Ready execution status/
@@ -887,7 +1064,7 @@ test(
 );
 
 test(
-  'response tracking remains available after submitted authority is revoked',
+  'response tracking remains available after evidence-backed submission authority is revoked',
   function () {
     resetRows();
 
@@ -919,9 +1096,21 @@ test(
     const execution =
       executions()[0];
 
+    const evidence =
+      seedSentEvidence(
+        execution
+      );
+
     workflow.markSubmitted(
-      execution['Execution ID'],
-      {}
+      execution[
+        'Execution ID'
+      ],
+      {
+        deliveryAttemptId:
+          evidence[
+            'Delivery Attempt ID'
+          ]
+      }
     );
 
     authorities[
@@ -930,7 +1119,9 @@ test(
 
     const result =
       workflow.recordResponse(
-        execution['Execution ID'],
+        execution[
+          'Execution ID'
+        ],
         'Countered',
         'Seller counter received.'
       );
@@ -950,6 +1141,126 @@ test(
     assert.strictEqual(
       offers()[0].Status,
       'Countered'
+    );
+  }
+);
+
+test(
+  'Ready execution cannot be marked Submitted without delivery evidence',
+  function () {
+    resetRows();
+
+    authorize(
+      'QDQ-NO-EVIDENCE',
+      'DEAL-NO-EVIDENCE',
+      'ANL-NO-EVIDENCE'
+    );
+
+    seed('OFFERS', {
+      'Offer ID':
+        'OFF-NO-EVIDENCE',
+      'Deal ID':
+        'DEAL-NO-EVIDENCE',
+      'Analysis ID':
+        'ANL-NO-EVIDENCE',
+      'Qualified Queue ID':
+        'QDQ-NO-EVIDENCE',
+      'Authority Source':
+        'QUALIFIED_DEAL_QUEUE',
+      Status: 'Draft'
+    });
+
+    workflow.buildQueue({
+      maxItems: 10
+    });
+
+    const execution =
+      executions()[0];
+
+    assert.throws(
+      function () {
+        workflow.markSubmitted(
+          execution[
+            'Execution ID'
+          ],
+          {}
+        );
+      },
+      /Delivery Attempt ID is required/
+    );
+
+    assert.strictEqual(
+      executions()[0][
+        'Execution Status'
+      ],
+      'Ready'
+    );
+  }
+);
+
+test(
+  'mismatched delivery provenance cannot finalize submission',
+  function () {
+    resetRows();
+
+    authorize(
+      'QDQ-MISMATCH',
+      'DEAL-MISMATCH',
+      'ANL-MISMATCH'
+    );
+
+    seed('OFFERS', {
+      'Offer ID':
+        'OFF-MISMATCH',
+      'Deal ID':
+        'DEAL-MISMATCH',
+      'Analysis ID':
+        'ANL-MISMATCH',
+      'Qualified Queue ID':
+        'QDQ-MISMATCH',
+      'Authority Source':
+        'QUALIFIED_DEAL_QUEUE',
+      Status: 'Draft'
+    });
+
+    workflow.buildQueue({
+      maxItems: 10
+    });
+
+    const execution =
+      executions()[0];
+
+    const evidence =
+      seedSentEvidence(
+        execution,
+        {
+          'Offer ID':
+            'OFF-OTHER'
+        }
+      );
+
+    assert.throws(
+      function () {
+        workflow.markSubmitted(
+          execution[
+            'Execution ID'
+          ],
+          {
+            deliveryAttemptId:
+              evidence[
+                'Delivery Attempt ID'
+              ]
+          }
+        );
+      },
+      /provenance mismatch/
+    );
+
+    assert.strictEqual(
+      executions()[0][
+        'Execution Status'
+      ],
+      'Ready'
     );
   }
 );
@@ -1088,9 +1399,21 @@ test(
     const execution =
       executions()[0];
 
+    const evidence =
+      seedSentEvidence(
+        execution
+      );
+
     workflow.markSubmitted(
-      execution['Execution ID'],
-      {}
+      execution[
+        'Execution ID'
+      ],
+      {
+        deliveryAttemptId:
+          evidence[
+            'Delivery Attempt ID'
+          ]
+      }
     );
 
     workflow.recordResponse(

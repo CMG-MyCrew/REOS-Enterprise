@@ -208,10 +208,20 @@ REOS.OfferDeliveryTransport = (function () {
      * Re-read the persisted execution and revalidate QDQ authority
      * immediately before draft.send().
      */
+    var sendAuthorityValidatedAt;
+
     try {
       validateCurrentExecutionAuthority_(
         executionId
       );
+
+      /*
+       * This timestamp is the historical proof that qualified
+       * authority was current immediately before the irreversible
+       * Gmail send side effect.
+       */
+      sendAuthorityValidatedAt =
+        new Date();
     } catch (error) {
       safeDeleteDraft_(draft);
 
@@ -311,6 +321,8 @@ REOS.OfferDeliveryTransport = (function () {
         REOS.OfferDeliveryEvidence.recordSent(
           attemptId,
           {
+            authorityValidatedAt:
+              sendAuthorityValidatedAt,
             type:
               'GMAIL_MESSAGE_ID',
             reference:
