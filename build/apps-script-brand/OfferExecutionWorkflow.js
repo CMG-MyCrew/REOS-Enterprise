@@ -286,6 +286,29 @@ REOS.OfferExecutionWorkflow = (function () {
     }
   }
 
+  function finalizeSentDelivery(
+    executionId,
+    deliveryAttemptId,
+    details
+  ) {
+    details =
+      Object.assign(
+        {},
+        details || {},
+        {
+          deliveryAttemptId:
+            String(
+              deliveryAttemptId || ''
+            )
+        }
+      );
+
+    return markSubmitted(
+      executionId,
+      details
+    );
+  }
+
   function markSubmitted(executionId, details) {
     details = details || {};
 
@@ -729,6 +752,8 @@ REOS.OfferExecutionWorkflow = (function () {
   return {
     ensureSheets: ensureSheets,
     buildQueue: buildQueue,
+    finalizeSentDelivery:
+      finalizeSentDelivery,
     markSubmitted: markSubmitted,
     recordResponse: recordResponse,
     scheduleFollowUps: scheduleFollowUps,
