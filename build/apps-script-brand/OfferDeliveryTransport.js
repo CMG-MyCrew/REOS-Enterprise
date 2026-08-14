@@ -678,6 +678,8 @@ function reosOfferDeliveryEmail(
   executionId,
   details
 ) {
+  reosRequireOfferExecutionPermission_();
+
   return REOS.OfferDeliveryTransport
     .deliverEmail(
       executionId,

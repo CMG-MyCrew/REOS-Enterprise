@@ -762,10 +762,25 @@ REOS.OfferExecutionWorkflow = (function () {
   };
 })();
 
-function reosOfferExecutionEnsureSheets() { return REOS.OfferExecutionWorkflow.ensureSheets(); }
-function reosOfferExecutionBuildQueue(options) { return REOS.OfferExecutionWorkflow.buildQueue(options); }
-function reosOfferExecutionMarkSubmitted(executionId, details) { return REOS.OfferExecutionWorkflow.markSubmitted(executionId, details); }
-function reosOfferExecutionRecordResponse(executionId, status, notes) { return REOS.OfferExecutionWorkflow.recordResponse(executionId, status, notes); }
-function reosOfferExecutionScheduleFollowUps() { return REOS.OfferExecutionWorkflow.scheduleFollowUps(); }
+function reosOfferExecutionEnsureSheets() {
+  reosRequireOfferExecutionPermission_();
+  return REOS.OfferExecutionWorkflow.ensureSheets();
+}
+function reosOfferExecutionBuildQueue(options) {
+  reosRequireOfferExecutionPermission_();
+  return REOS.OfferExecutionWorkflow.buildQueue(options);
+}
+function reosOfferExecutionMarkSubmitted(executionId, details) {
+  reosRequireOfferExecutionPermission_();
+  return REOS.OfferExecutionWorkflow.markSubmitted(executionId, details);
+}
+function reosOfferExecutionRecordResponse(executionId, status, notes) {
+  reosRequireOfferExecutionPermission_();
+  return REOS.OfferExecutionWorkflow.recordResponse(executionId, status, notes);
+}
+function reosOfferExecutionScheduleFollowUps() {
+  reosRequireOfferExecutionPermission_();
+  return REOS.OfferExecutionWorkflow.scheduleFollowUps();
+}
 function reosOfferExecutionList(filters) { return REOS.OfferExecutionWorkflow.list(filters); }
 function reosOfferExecutionSummary() { return REOS.OfferExecutionWorkflow.summary(); }

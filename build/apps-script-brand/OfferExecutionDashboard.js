@@ -502,6 +502,8 @@ function reosOfferExecutionSendEmail(
   executionId,
   details
 ) {
+  reosRequireOfferExecutionPermission_();
+
   return REOS.OfferExecutionDashboard
     .sendEmail(
       executionId,
@@ -512,6 +514,8 @@ function reosOfferExecutionSendEmail(
 function reosOfferExecutionReconcileSent(
   executionId
 ) {
+  reosRequireOfferExecutionPermission_();
+
   return REOS.OfferExecutionDashboard
     .reconcileSent(
       executionId
