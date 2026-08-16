@@ -167,7 +167,7 @@ assert.equal(
   'unable to inspect production integration diff'
 );
 
-const diffEntries = productionDiff.stdout
+let diffEntries = productionDiff.stdout
   .trim()
   .split(/\r?\n/)
   .filter(Boolean)
@@ -179,6 +179,31 @@ const diffEntries = productionDiff.stdout
       file: parts[1]
     };
   });
+
+const reconciledManifestPath =
+  'build/apps-script-brand/appsscript.json';
+
+const manifestDiffEntries = diffEntries.filter(
+  entry => entry.file === reconciledManifestPath
+);
+
+assert.equal(
+  manifestDiffEntries.length,
+  1,
+  'appsscript.json must be the only reconciled modified production file'
+);
+
+assert.equal(
+  manifestDiffEntries[0].status,
+  'M',
+  'appsscript.json must be modified relative to production baseline'
+);
+
+diffEntries = diffEntries.filter(
+  entry => entry.file !== reconciledManifestPath
+);
+
+pass('production manifest is the single allowlisted modified build file');
 
 const expectedCountyProductionFiles = new Set(
   RUNTIME_CORE_FILES
@@ -266,7 +291,7 @@ pass(
 );
 
 pass(
-  'reconciled production integration is exactly 110 additive files with no modifications or deletions'
+  'reconciled production integration is exactly 110 additive files plus 1 allowlisted modified manifest with no deletions'
 );
 
 /*
@@ -400,6 +425,10 @@ console.log(
 console.log(
   'production_additions=' +
   expectedProductionFiles.size
+);
+console.log(
+  'production_reconciliation_modifications=' +
+  manifestDiffEntries.length
 );
 
 console.log(

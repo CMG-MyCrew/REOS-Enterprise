@@ -204,6 +204,18 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
   echo
 fi
 
+# Production manifest reconciliation certification.
+PRODUCTION_MANIFEST_CERTIFIER="scripts/validate-production-manifest-reconciliation.js"
+
+if [ ! -f "$PRODUCTION_MANIFEST_CERTIFIER" ]; then
+  echo "ERROR: Production manifest reconciliation validator missing: $PRODUCTION_MANIFEST_CERTIFIER"
+  exit 1
+fi
+
+echo
+echo "Running production manifest reconciliation certification..."
+node "$PRODUCTION_MANIFEST_CERTIFIER"
+
 # County deployment readiness certification.
 if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
   COUNTY_DEPLOYMENT_READINESS_CERTIFIER="scripts/validate-county-deployment-readiness.js"
