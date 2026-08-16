@@ -117,6 +117,22 @@ fi
 echo "Protected REOS acquisition subsystem PASSED."
 echo
 
+# County connector behavioral certification.
+# Run only for the authoritative REOS Apps Script build root because the
+# certification harness executes the production registry/manager contract
+# from build/apps-script-brand.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+  COUNTY_CERTIFIER="scripts/validate-county-connector-certification.js"
+
+  if [[ ! -f "$COUNTY_CERTIFIER" ]]; then
+    echo "ERROR: County connector certification validator missing: $COUNTY_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county connector certification..."
+  node "$COUNTY_CERTIFIER"
+  echo
+fi
 
 python3 - "$ROOT_DIR" <<'PY'
 from collections import defaultdict
