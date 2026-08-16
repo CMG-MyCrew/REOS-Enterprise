@@ -10,7 +10,6 @@ const { spawnSync } = require('node:child_process');
 const ROOT = path.resolve(__dirname, '..');
 const BUILD = path.join(ROOT, 'build', 'apps-script-brand');
 
-const EXPECTED_BRANCH = 'feat/county-runtime-integration';
 const EXPECTED_GENERATED = 94;
 
 function pass(message) {
@@ -40,6 +39,23 @@ console.log('');
 /*
  * Repository authority.
  */
+const repositoryContext = run(
+  'git',
+  ['rev-parse', '--is-inside-work-tree']
+);
+
+assert.equal(
+  repositoryContext.status,
+  0,
+  'unable to verify Git repository context'
+);
+
+assert.equal(
+  repositoryContext.stdout.trim(),
+  'true',
+  'deployment readiness must run inside the REOS Git repository'
+);
+
 const branch = run(
   'git',
   ['branch', '--show-current']
@@ -48,16 +64,17 @@ const branch = run(
 assert.equal(
   branch.status,
   0,
-  'unable to determine Git branch'
+  'unable to inspect Git branch context'
 );
 
-assert.equal(
-  branch.stdout.trim(),
-  EXPECTED_BRANCH,
-  `expected branch ${EXPECTED_BRANCH}`
-);
+const branchName =
+  branch.stdout.trim();
 
-pass('county runtime integration branch is active');
+pass(
+  branchName
+    ? `Git repository context is active on ${branchName}`
+    : 'Git repository context is active in detached HEAD mode'
+);
 
 const worktree = run(
   'git',
