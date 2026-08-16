@@ -134,6 +134,90 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
   echo
 fi
 
+# County runtime packaging certification.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+  COUNTY_RUNTIME_CERTIFIER="scripts/validate-county-runtime-packaging.js"
+
+  if [[ ! -f "$COUNTY_RUNTIME_CERTIFIER" ]]; then
+    echo "ERROR: County runtime packaging validator missing: $COUNTY_RUNTIME_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county runtime packaging certification..."
+  node "$COUNTY_RUNTIME_CERTIFIER"
+  echo
+fi
+
+# Generated county connector certification.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+  GENERATED_COUNTY_CERTIFIER="scripts/validate-generated-county-connectors.js"
+
+  if [[ ! -f "$GENERATED_COUNTY_CERTIFIER" ]]; then
+    echo "ERROR: Generated county connector validator missing: $GENERATED_COUNTY_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running generated county connector certification..."
+  node "$GENERATED_COUNTY_CERTIFIER"
+  echo
+fi
+
+# DISTRESS_LEADS county schema certification.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+  DISTRESS_LEAD_SCHEMA_CERTIFIER="scripts/validate-distress-lead-county-schema.js"
+
+  if [[ ! -f "$DISTRESS_LEAD_SCHEMA_CERTIFIER" ]]; then
+    echo "ERROR: DISTRESS_LEADS county schema validator missing: $DISTRESS_LEAD_SCHEMA_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running DISTRESS_LEADS county schema certification..."
+  node "$DISTRESS_LEAD_SCHEMA_CERTIFIER"
+  echo
+fi
+
+# County runtime execution bridge certification.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+  COUNTY_RUNTIME_BRIDGE_CERTIFIER="scripts/validate-county-runtime-bridge.js"
+
+  if [[ ! -f "$COUNTY_RUNTIME_BRIDGE_CERTIFIER" ]]; then
+    echo "ERROR: County runtime bridge validator missing: $COUNTY_RUNTIME_BRIDGE_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county runtime bridge certification..."
+  node "$COUNTY_RUNTIME_BRIDGE_CERTIFIER"
+  echo
+fi
+
+# Full county runtime integration certification.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+  COUNTY_RUNTIME_INTEGRATION_CERTIFIER="scripts/validate-county-runtime-integration.js"
+
+  if [[ ! -f "$COUNTY_RUNTIME_INTEGRATION_CERTIFIER" ]]; then
+    echo "ERROR: County runtime integration validator missing: $COUNTY_RUNTIME_INTEGRATION_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county runtime integration certification..."
+  node "$COUNTY_RUNTIME_INTEGRATION_CERTIFIER"
+  echo
+fi
+
+# County deployment readiness certification.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+  COUNTY_DEPLOYMENT_READINESS_CERTIFIER="scripts/validate-county-deployment-readiness.js"
+
+  if [[ ! -f "$COUNTY_DEPLOYMENT_READINESS_CERTIFIER" ]]; then
+    echo "ERROR: County deployment readiness validator missing: $COUNTY_DEPLOYMENT_READINESS_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county deployment readiness certification..."
+  node "$COUNTY_DEPLOYMENT_READINESS_CERTIFIER"
+  echo
+fi
+
 python3 - "$ROOT_DIR" <<'PY'
 from collections import defaultdict
 from pathlib import Path
