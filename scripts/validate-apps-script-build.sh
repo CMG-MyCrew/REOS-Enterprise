@@ -162,6 +162,20 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
   echo
 fi
 
+# DISTRESS_LEADS county schema certification.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+  DISTRESS_LEAD_SCHEMA_CERTIFIER="scripts/validate-distress-lead-county-schema.js"
+
+  if [[ ! -f "$DISTRESS_LEAD_SCHEMA_CERTIFIER" ]]; then
+    echo "ERROR: DISTRESS_LEADS county schema validator missing: $DISTRESS_LEAD_SCHEMA_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running DISTRESS_LEADS county schema certification..."
+  node "$DISTRESS_LEAD_SCHEMA_CERTIFIER"
+  echo
+fi
+
 python3 - "$ROOT_DIR" <<'PY'
 from collections import defaultdict
 from pathlib import Path
