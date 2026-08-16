@@ -39,7 +39,8 @@ const PRODUCTION_PRESERVATION_FILES = [
   'AcquisitionOpportunityView.js',
   'DealLifecycleWorkflow.js',
   'DistressIntelligenceBatchProcessor.js',
-  'DistressIntelligenceEntryPoints.js'
+  'DistressIntelligenceEntryPoints.js',
+  'RuntimeVault.js'
 ];
 
 const COMPONENT_VALIDATORS = [
@@ -207,14 +208,14 @@ assert.equal(
 
 assert.equal(
   expectedPreservationFiles.size,
-  5,
-  'expected production preservation inventory must contain 5 files'
+  6,
+  'expected production preservation inventory must contain 6 files'
 );
 
 assert.equal(
   expectedProductionFiles.size,
-  109,
-  'expected reconciled production inventory must contain 109 files'
+  110,
+  'expected reconciled production inventory must contain 110 files'
 );
 
 assert.equal(
@@ -261,11 +262,11 @@ pass(
 );
 
 pass(
-  'production preservation is exactly 5 allowlisted additive files'
+  'production preservation is exactly 6 allowlisted additive files'
 );
 
 pass(
-  'reconciled production integration is exactly 109 additive files with no modifications or deletions'
+  'reconciled production integration is exactly 110 additive files with no modifications or deletions'
 );
 
 /*
