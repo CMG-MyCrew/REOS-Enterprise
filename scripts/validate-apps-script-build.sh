@@ -176,6 +176,20 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
   echo
 fi
 
+# County runtime execution bridge certification.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+  COUNTY_RUNTIME_BRIDGE_CERTIFIER="scripts/validate-county-runtime-bridge.js"
+
+  if [[ ! -f "$COUNTY_RUNTIME_BRIDGE_CERTIFIER" ]]; then
+    echo "ERROR: County runtime bridge validator missing: $COUNTY_RUNTIME_BRIDGE_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county runtime bridge certification..."
+  node "$COUNTY_RUNTIME_BRIDGE_CERTIFIER"
+  echo
+fi
+
 python3 - "$ROOT_DIR" <<'PY'
 from collections import defaultdict
 from pathlib import Path
