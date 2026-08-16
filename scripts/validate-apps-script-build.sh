@@ -134,6 +134,20 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
   echo
 fi
 
+# County runtime packaging certification.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+  COUNTY_RUNTIME_CERTIFIER="scripts/validate-county-runtime-packaging.js"
+
+  if [[ ! -f "$COUNTY_RUNTIME_CERTIFIER" ]]; then
+    echo "ERROR: County runtime packaging validator missing: $COUNTY_RUNTIME_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county runtime packaging certification..."
+  node "$COUNTY_RUNTIME_CERTIFIER"
+  echo
+fi
+
 python3 - "$ROOT_DIR" <<'PY'
 from collections import defaultdict
 from pathlib import Path
