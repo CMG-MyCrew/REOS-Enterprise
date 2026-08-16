@@ -190,6 +190,20 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
   echo
 fi
 
+# Full county runtime integration certification.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+  COUNTY_RUNTIME_INTEGRATION_CERTIFIER="scripts/validate-county-runtime-integration.js"
+
+  if [[ ! -f "$COUNTY_RUNTIME_INTEGRATION_CERTIFIER" ]]; then
+    echo "ERROR: County runtime integration validator missing: $COUNTY_RUNTIME_INTEGRATION_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county runtime integration certification..."
+  node "$COUNTY_RUNTIME_INTEGRATION_CERTIFIER"
+  echo
+fi
+
 python3 - "$ROOT_DIR" <<'PY'
 from collections import defaultdict
 from pathlib import Path

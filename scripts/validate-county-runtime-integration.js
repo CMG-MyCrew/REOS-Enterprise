@@ -1,0 +1,360 @@
+#!/usr/bin/env node
+
+'use strict';
+
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+
+const ROOT = path.resolve(__dirname, '..');
+const BUILD = path.join(ROOT, 'build', 'apps-script-brand');
+
+const BASELINE = '66069b2';
+
+const LEGACY_PROTECTED_FILES = [
+  'build/apps-script-brand/ConnectorRegistry.js',
+  'build/apps-script-brand/AcquisitionConnectorManager.js',
+  'build/apps-script-brand/CSVImportEngine.js'
+];
+
+const RUNTIME_CORE_FILES = [
+  'ArcGISAdapter.js',
+  'CSVAdapter.js',
+  'CountyAdapterRegistry.js',
+  'CountyConnectorSDK.js',
+  'CountyHttpAdapter.js',
+  'HTMLTableAdapter.js',
+  'JSONAPIAdapter.js',
+  'SocrataAdapter.js'
+];
+
+const INTEGRATION_FILES = [
+  'DistressLeadCountySchema.js',
+  'CountyRuntimeBridge.js'
+];
+
+const COMPONENT_VALIDATORS = [
+  'validate-county-connector-certification.js',
+  'validate-county-runtime-packaging.js',
+  'validate-generated-county-connectors.js',
+  'validate-distress-lead-county-schema.js',
+  'validate-county-runtime-bridge.js'
+];
+
+function pass(message) {
+  console.log(`PASS: ${message}`);
+}
+
+function git(args) {
+  const result = spawnSync(
+    'git',
+    args,
+    {
+      cwd: ROOT,
+      encoding: 'utf8'
+    }
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return result;
+}
+
+function readBuild(fileName) {
+  return fs.readFileSync(
+    path.join(BUILD, fileName),
+    'utf8'
+  );
+}
+
+console.log(
+  '=== COUNTY RUNTIME INTEGRATION CERTIFICATION ==='
+);
+console.log('');
+
+/*
+ * Hard baseline protection.
+ */
+LEGACY_PROTECTED_FILES.forEach(file => {
+  const result = git([
+    'diff',
+    '--quiet',
+    BASELINE,
+    '--',
+    file
+  ]);
+
+  assert.equal(
+    result.status,
+    0,
+    `legacy Enterprise acquisition file changed since ${BASELINE}: ${file}`
+  );
+});
+
+pass(
+  `legacy acquisition files remain unchanged from ${BASELINE}`
+);
+
+/*
+ * Runtime production file inventory.
+ */
+RUNTIME_CORE_FILES.forEach(fileName => {
+  assert.ok(
+    fs.existsSync(
+      path.join(BUILD, fileName)
+    ),
+    `runtime core file missing: ${fileName}`
+  );
+});
+
+pass('all 8 native county runtime core modules are present');
+
+INTEGRATION_FILES.forEach(fileName => {
+  assert.ok(
+    fs.existsSync(
+      path.join(BUILD, fileName)
+    ),
+    `integration file missing: ${fileName}`
+  );
+});
+
+pass('schema and runtime execution bridges are present');
+
+const generatedFiles = fs
+  .readdirSync(BUILD)
+  .filter(fileName =>
+    fileName.endsWith('CountyConnector.js')
+  )
+  .sort();
+
+assert.equal(
+  generatedFiles.length,
+  94,
+  'expected exactly 94 generated county connectors'
+);
+
+pass('exactly 94 generated county connectors are present');
+
+/*
+ * Production diff containment.
+ *
+ * The integration is intentionally additive inside the Apps Script build.
+ * No pre-existing production build file may be modified or deleted.
+ */
+const productionDiff = git([
+  'diff',
+  '--name-status',
+  BASELINE,
+  '--',
+  'build/apps-script-brand'
+]);
+
+assert.equal(
+  productionDiff.status,
+  0,
+  'unable to inspect production integration diff'
+);
+
+const diffEntries = productionDiff.stdout
+  .trim()
+  .split(/\r?\n/)
+  .filter(Boolean)
+  .map(line => {
+    const parts = line.split(/\t+/);
+
+    return {
+      status: parts[0],
+      file: parts[1]
+    };
+  });
+
+const expectedProductionFiles = new Set(
+  RUNTIME_CORE_FILES
+    .concat(INTEGRATION_FILES)
+    .concat(generatedFiles)
+    .map(fileName =>
+      `build/apps-script-brand/${fileName}`
+    )
+);
+
+assert.equal(
+  expectedProductionFiles.size,
+  104,
+  'expected production integration inventory must contain 104 files'
+);
+
+assert.equal(
+  diffEntries.length,
+  expectedProductionFiles.size,
+  'unexpected number of production files differ from baseline'
+);
+
+diffEntries.forEach(entry => {
+  assert.equal(
+    entry.status,
+    'A',
+    `county integration must be additive; found ${entry.status}: ${entry.file}`
+  );
+
+  assert.ok(
+    expectedProductionFiles.has(entry.file),
+    `unexpected production integration file: ${entry.file}`
+  );
+});
+
+expectedProductionFiles.forEach(file => {
+  assert.ok(
+    diffEntries.some(entry =>
+      entry.file === file &&
+      entry.status === 'A'
+    ),
+    `expected additive production file missing from baseline diff: ${file}`
+  );
+});
+
+pass(
+  'production integration is exactly 104 additive files with no modifications or deletions'
+);
+
+/*
+ * Execution-surface containment.
+ */
+const bridgeSource =
+  readBuild('CountyRuntimeBridge.js');
+
+[
+  'REOS_COUNTY_RUNTIME_SYNC_ALL',
+  'REOS_COUNTY_RUNTIME_INSTALL_DAILY_TRIGGER',
+  'ScriptApp.newTrigger',
+  '.runAll('
+].forEach(forbidden => {
+  assert.equal(
+    bridgeSource.includes(forbidden),
+    false,
+    `forbidden broad execution surface found in CountyRuntimeBridge: ${forbidden}`
+  );
+});
+
+assert.ok(
+  bridgeSource.includes(
+    'confirmLive !== true'
+  ),
+  'runtime bridge live confirmation gate missing'
+);
+
+assert.ok(
+  bridgeSource.includes(
+    'REOS.DistressLeadCountySchema.ensure()'
+  ),
+  'runtime bridge schema-before-live gate missing'
+);
+
+pass(
+  'runtime surface remains limited to controlled connector execution'
+);
+
+/*
+ * Schema contract containment.
+ */
+const schemaSource =
+  readBuild('DistressLeadCountySchema.js');
+
+assert.equal(
+  /REOS\.Database\.ensureTable\s*=/.test(
+    schemaSource
+  ),
+  false,
+  'schema bridge must not replace Database.ensureTable'
+);
+
+pass('global Database.ensureTable behavior remains untouched');
+
+/*
+ * Certification inventory.
+ */
+COMPONENT_VALIDATORS.forEach(fileName => {
+  assert.ok(
+    fs.existsSync(
+      path.join(ROOT, 'scripts', fileName)
+    ),
+    `component validator missing: ${fileName}`
+  );
+});
+
+pass('all five county integration component validators are present');
+
+console.log('');
+console.log(
+  '=== COMPONENT CERTIFICATIONS ==='
+);
+
+COMPONENT_VALIDATORS.forEach(fileName => {
+  console.log('');
+  console.log(`--- ${fileName} ---`);
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      path.join(
+        ROOT,
+        'scripts',
+        fileName
+      )
+    ],
+    {
+      cwd: ROOT,
+      stdio: 'inherit'
+    }
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  assert.equal(
+    result.status,
+    0,
+    `component certification failed: ${fileName}`
+  );
+});
+
+console.log('');
+pass('all five component certifications pass together');
+
+console.log('');
+console.log(
+  '=== INTEGRATION SUMMARY ==='
+);
+
+console.log(
+  'runtime_core_files=' +
+  RUNTIME_CORE_FILES.length
+);
+
+console.log(
+  'generated_connectors=' +
+  generatedFiles.length
+);
+
+console.log(
+  'production_additions=' +
+  expectedProductionFiles.size
+);
+
+console.log(
+  'component_validators=' +
+  COMPONENT_VALIDATORS.length
+);
+
+console.log(
+  'legacy_protected_files=' +
+  LEGACY_PROTECTED_FILES.length
+);
+
+console.log('');
+console.log(
+  'County runtime integration certification PASSED.'
+);
