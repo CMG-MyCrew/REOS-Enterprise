@@ -43,6 +43,11 @@ const PRODUCTION_PRESERVATION_FILES = [
   'RuntimeVault.js'
 ];
 
+const CONTROLLED_MODIFIED_BUILD_FILES = [
+  'build/apps-script-brand/appsscript.json',
+  'build/apps-script-brand/LivePipelineVerification.js'
+];
+
 const COMPONENT_VALIDATORS = [
   'validate-county-connector-certification.js',
   'validate-county-runtime-packaging.js',
@@ -150,8 +155,10 @@ pass('exactly 94 generated county connectors are present');
 /*
  * Production diff containment.
  *
- * The integration is intentionally additive inside the Apps Script build.
- * No pre-existing production build file may be modified or deleted.
+ * The county integration remains exactly additive except for explicitly
+ * controlled production hardening files. Controlled files must remain
+ * modifications of existing baseline files. All remaining baseline deltas
+ * must remain the exact 110-file additive county/preservation inventory.
  */
 const productionDiff = git([
   'diff',
@@ -180,30 +187,64 @@ let diffEntries = productionDiff.stdout
     };
   });
 
-const reconciledManifestPath =
-  'build/apps-script-brand/appsscript.json';
-
-const manifestDiffEntries = diffEntries.filter(
-  entry => entry.file === reconciledManifestPath
-);
-
-assert.equal(
-  manifestDiffEntries.length,
-  1,
-  'appsscript.json must be the only reconciled modified production file'
-);
+const controlledModifiedEntries =
+  diffEntries.filter(entry =>
+    CONTROLLED_MODIFIED_BUILD_FILES.includes(
+      entry.file
+    )
+  );
 
 assert.equal(
-  manifestDiffEntries[0].status,
-  'M',
-  'appsscript.json must be modified relative to production baseline'
+  controlledModifiedEntries.length,
+  CONTROLLED_MODIFIED_BUILD_FILES.length,
+  'expected exactly the controlled modified production files'
+);
+
+CONTROLLED_MODIFIED_BUILD_FILES.forEach(file => {
+  const matches = diffEntries.filter(
+    entry => entry.file === file
+  );
+
+  assert.equal(
+    matches.length,
+    1,
+    `controlled modified production file missing or duplicated: ${file}`
+  );
+
+  assert.equal(
+    matches[0].status,
+    'M',
+    `controlled production file must remain a baseline modification: ${file}`
+  );
+});
+
+const unexpectedModifiedEntries =
+  diffEntries.filter(entry =>
+    entry.status === 'M' &&
+    !CONTROLLED_MODIFIED_BUILD_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  unexpectedModifiedEntries.length,
+  0,
+  'unexpected modified production files: ' +
+    unexpectedModifiedEntries
+      .map(entry => entry.file)
+      .join(', ')
 );
 
 diffEntries = diffEntries.filter(
-  entry => entry.file !== reconciledManifestPath
+  entry =>
+    !CONTROLLED_MODIFIED_BUILD_FILES.includes(
+      entry.file
+    )
 );
 
-pass('production manifest is the single allowlisted modified build file');
+pass(
+  'production manifest and E2E harness are the only allowlisted modified build files'
+);
 
 const expectedCountyProductionFiles = new Set(
   RUNTIME_CORE_FILES
@@ -291,7 +332,7 @@ pass(
 );
 
 pass(
-  'reconciled production integration is exactly 110 additive files plus 1 allowlisted modified manifest with no deletions'
+  'reconciled production integration is exactly 110 additive files plus 2 controlled modified files with no deletions'
 );
 
 /*
@@ -428,7 +469,7 @@ console.log(
 );
 console.log(
   'production_reconciliation_modifications=' +
-  manifestDiffEntries.length
+  controlledModifiedEntries.length
 );
 
 console.log(

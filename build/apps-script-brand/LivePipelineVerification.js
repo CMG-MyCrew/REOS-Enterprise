@@ -1,4 +1,4 @@
-// REOS Enterprise v4.4.6
+// REOS Enterprise v4.4.7
 // Deal Increment 5 - Offer Execution Authority Verification
 var REOS = REOS || {};
 
@@ -6,8 +6,8 @@ REOS.LivePipelineVerification = (function () {
   var RUNS = 'LIVE_PIPELINE_RUNS';
   var RESULTS = 'LIVE_PIPELINE_RESULTS';
   var AUDIT = 'LIVE_PIPELINE_AUDIT';
-  var MARKER = 'REOS-LIVE-PIPELINE-TEST';
-  var ADDRESS = '742 Walnut Street';
+  var MARKER = 'REOS-PROD-E2E-CERT-V19';
+  var ADDRESS = 'REOS E2E CERTIFICATION V19';
   var TZ = 'America/New_York';
   var STATE_KEY = 'REOS_LIVE_PIPELINE_STATE_V1';
 
@@ -59,8 +59,9 @@ REOS.LivePipelineVerification = (function () {
       'Estimated Debt': 100000,
       'Asking Price': 140000,
       'Distress Type': 'Absentee Owner',
+      'Lead Source': MARKER,
       Source: MARKER,
-      Notes: 'Automated live-pipeline verification record. Never contact or submit.',
+      Notes: 'REOS production E2E certification record. Synthetic test data only. Never contact or submit.',
       'Created At': now,
       'Updated At': now
     }, { idField: 'Distress Lead ID', idPrefix: 'LPV' });
@@ -73,7 +74,7 @@ REOS.LivePipelineVerification = (function () {
     var leadResult = createTestLead();
     var lead = leadResult.record || {};
     var state = {
-      version: '4.4.6',
+      version: '4.4.7',
       runId: 'LPVRUN-' + Utilities.formatDate(started, Session.getScriptTimeZone() || TZ, 'yyyyMMdd-HHmmss'),
       status: 'In Progress',
       stageIndex: 0,
@@ -481,14 +482,32 @@ REOS.LivePipelineVerification = (function () {
 
   function findTestRows_(sheetName) {
     return safeAll_(sheetName).filter(function (row) {
-      return String(row.Source || '') === MARKER || normalize_(row.Address) === normalize_(ADDRESS);
+      var source = String(
+        row.Source ||
+        row['Lead Source'] ||
+        ''
+      );
+
+      return (
+        source === MARKER ||
+        normalize_(row.Address) === normalize_(ADDRESS)
+      );
     });
   }
 
   function findRelatedRows_(sheetName, leadId) {
     var keys = ['Distress Lead ID','Lead ID','IA Lead ID','Parent Lead ID','Source Lead ID','Property ID','Record ID'];
     return safeAll_(sheetName).filter(function (row) {
-      if (normalize_(row.Address) === normalize_(ADDRESS) || String(row.Source || '') === MARKER) return true;
+      var source = String(
+        row.Source ||
+        row['Lead Source'] ||
+        ''
+      );
+
+      if (
+        normalize_(row.Address) === normalize_(ADDRESS) ||
+        source === MARKER
+      ) return true;
       return keys.some(function (key) { return leadId && String(row[key] || '') === String(leadId); });
     });
   }
