@@ -204,6 +204,20 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
   echo
 fi
 
+# County deployment readiness certification.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+  COUNTY_DEPLOYMENT_READINESS_CERTIFIER="scripts/validate-county-deployment-readiness.js"
+
+  if [[ ! -f "$COUNTY_DEPLOYMENT_READINESS_CERTIFIER" ]]; then
+    echo "ERROR: County deployment readiness validator missing: $COUNTY_DEPLOYMENT_READINESS_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county deployment readiness certification..."
+  node "$COUNTY_DEPLOYMENT_READINESS_CERTIFIER"
+  echo
+fi
+
 python3 - "$ROOT_DIR" <<'PY'
 from collections import defaultdict
 from pathlib import Path
