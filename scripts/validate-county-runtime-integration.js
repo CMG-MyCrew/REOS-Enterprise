@@ -34,6 +34,15 @@ const INTEGRATION_FILES = [
   'CountyRuntimeBridge.js'
 ];
 
+const PRODUCTION_PRESERVATION_FILES = [
+  'AcquisitionDistressIntelligence.js',
+  'AcquisitionOpportunityView.js',
+  'DealLifecycleWorkflow.js',
+  'DistressIntelligenceBatchProcessor.js',
+  'DistressIntelligenceEntryPoints.js',
+  'RuntimeVault.js'
+];
+
 const COMPONENT_VALIDATORS = [
   'validate-county-connector-certification.js',
   'validate-county-runtime-packaging.js',
@@ -158,7 +167,7 @@ assert.equal(
   'unable to inspect production integration diff'
 );
 
-const diffEntries = productionDiff.stdout
+let diffEntries = productionDiff.stdout
   .trim()
   .split(/\r?\n/)
   .filter(Boolean)
@@ -171,7 +180,32 @@ const diffEntries = productionDiff.stdout
     };
   });
 
-const expectedProductionFiles = new Set(
+const reconciledManifestPath =
+  'build/apps-script-brand/appsscript.json';
+
+const manifestDiffEntries = diffEntries.filter(
+  entry => entry.file === reconciledManifestPath
+);
+
+assert.equal(
+  manifestDiffEntries.length,
+  1,
+  'appsscript.json must be the only reconciled modified production file'
+);
+
+assert.equal(
+  manifestDiffEntries[0].status,
+  'M',
+  'appsscript.json must be modified relative to production baseline'
+);
+
+diffEntries = diffEntries.filter(
+  entry => entry.file !== reconciledManifestPath
+);
+
+pass('production manifest is the single allowlisted modified build file');
+
+const expectedCountyProductionFiles = new Set(
   RUNTIME_CORE_FILES
     .concat(INTEGRATION_FILES)
     .concat(generatedFiles)
@@ -180,10 +214,33 @@ const expectedProductionFiles = new Set(
     )
 );
 
+const expectedPreservationFiles = new Set(
+  PRODUCTION_PRESERVATION_FILES.map(fileName =>
+    `build/apps-script-brand/${fileName}`
+  )
+);
+
+const expectedProductionFiles = new Set([
+  ...expectedCountyProductionFiles,
+  ...expectedPreservationFiles
+]);
+
+assert.equal(
+  expectedCountyProductionFiles.size,
+  104,
+  'expected county runtime integration inventory must contain 104 files'
+);
+
+assert.equal(
+  expectedPreservationFiles.size,
+  6,
+  'expected production preservation inventory must contain 6 files'
+);
+
 assert.equal(
   expectedProductionFiles.size,
-  104,
-  'expected production integration inventory must contain 104 files'
+  110,
+  'expected reconciled production inventory must contain 110 files'
 );
 
 assert.equal(
@@ -196,27 +253,45 @@ diffEntries.forEach(entry => {
   assert.equal(
     entry.status,
     'A',
-    `county integration must be additive; found ${entry.status}: ${entry.file}`
+    `production authority reconciliation must be additive; found ${entry.status}: ${entry.file}`
   );
 
   assert.ok(
     expectedProductionFiles.has(entry.file),
-    `unexpected production integration file: ${entry.file}`
+    `unexpected production reconciliation file: ${entry.file}`
   );
 });
 
-expectedProductionFiles.forEach(file => {
+expectedCountyProductionFiles.forEach(file => {
   assert.ok(
     diffEntries.some(entry =>
       entry.file === file &&
       entry.status === 'A'
     ),
-    `expected additive production file missing from baseline diff: ${file}`
+    `expected additive county runtime file missing from baseline diff: ${file}`
+  );
+});
+
+expectedPreservationFiles.forEach(file => {
+  assert.ok(
+    diffEntries.some(entry =>
+      entry.file === file &&
+      entry.status === 'A'
+    ),
+    `expected preserved production file missing from baseline diff: ${file}`
   );
 });
 
 pass(
-  'production integration is exactly 104 additive files with no modifications or deletions'
+  'county runtime remains exactly 104 additive files'
+);
+
+pass(
+  'production preservation is exactly 6 allowlisted additive files'
+);
+
+pass(
+  'reconciled production integration is exactly 110 additive files plus 1 allowlisted modified manifest with no deletions'
 );
 
 /*
@@ -340,8 +415,20 @@ console.log(
 );
 
 console.log(
+  'county_runtime_additions=' +
+  expectedCountyProductionFiles.size
+);
+console.log(
+  'production_preservation_additions=' +
+  expectedPreservationFiles.size
+);
+console.log(
   'production_additions=' +
   expectedProductionFiles.size
+);
+console.log(
+  'production_reconciliation_modifications=' +
+  manifestDiffEntries.length
 );
 
 console.log(
