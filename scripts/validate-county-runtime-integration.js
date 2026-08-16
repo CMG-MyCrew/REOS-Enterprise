@@ -34,6 +34,14 @@ const INTEGRATION_FILES = [
   'CountyRuntimeBridge.js'
 ];
 
+const PRODUCTION_PRESERVATION_FILES = [
+  'AcquisitionDistressIntelligence.js',
+  'AcquisitionOpportunityView.js',
+  'DealLifecycleWorkflow.js',
+  'DistressIntelligenceBatchProcessor.js',
+  'DistressIntelligenceEntryPoints.js'
+];
+
 const COMPONENT_VALIDATORS = [
   'validate-county-connector-certification.js',
   'validate-county-runtime-packaging.js',
@@ -171,7 +179,7 @@ const diffEntries = productionDiff.stdout
     };
   });
 
-const expectedProductionFiles = new Set(
+const expectedCountyProductionFiles = new Set(
   RUNTIME_CORE_FILES
     .concat(INTEGRATION_FILES)
     .concat(generatedFiles)
@@ -180,10 +188,33 @@ const expectedProductionFiles = new Set(
     )
 );
 
+const expectedPreservationFiles = new Set(
+  PRODUCTION_PRESERVATION_FILES.map(fileName =>
+    `build/apps-script-brand/${fileName}`
+  )
+);
+
+const expectedProductionFiles = new Set([
+  ...expectedCountyProductionFiles,
+  ...expectedPreservationFiles
+]);
+
+assert.equal(
+  expectedCountyProductionFiles.size,
+  104,
+  'expected county runtime integration inventory must contain 104 files'
+);
+
+assert.equal(
+  expectedPreservationFiles.size,
+  5,
+  'expected production preservation inventory must contain 5 files'
+);
+
 assert.equal(
   expectedProductionFiles.size,
-  104,
-  'expected production integration inventory must contain 104 files'
+  109,
+  'expected reconciled production inventory must contain 109 files'
 );
 
 assert.equal(
@@ -196,27 +227,45 @@ diffEntries.forEach(entry => {
   assert.equal(
     entry.status,
     'A',
-    `county integration must be additive; found ${entry.status}: ${entry.file}`
+    `production authority reconciliation must be additive; found ${entry.status}: ${entry.file}`
   );
 
   assert.ok(
     expectedProductionFiles.has(entry.file),
-    `unexpected production integration file: ${entry.file}`
+    `unexpected production reconciliation file: ${entry.file}`
   );
 });
 
-expectedProductionFiles.forEach(file => {
+expectedCountyProductionFiles.forEach(file => {
   assert.ok(
     diffEntries.some(entry =>
       entry.file === file &&
       entry.status === 'A'
     ),
-    `expected additive production file missing from baseline diff: ${file}`
+    `expected additive county runtime file missing from baseline diff: ${file}`
+  );
+});
+
+expectedPreservationFiles.forEach(file => {
+  assert.ok(
+    diffEntries.some(entry =>
+      entry.file === file &&
+      entry.status === 'A'
+    ),
+    `expected preserved production file missing from baseline diff: ${file}`
   );
 });
 
 pass(
-  'production integration is exactly 104 additive files with no modifications or deletions'
+  'county runtime remains exactly 104 additive files'
+);
+
+pass(
+  'production preservation is exactly 5 allowlisted additive files'
+);
+
+pass(
+  'reconciled production integration is exactly 109 additive files with no modifications or deletions'
 );
 
 /*
@@ -339,6 +388,14 @@ console.log(
   generatedFiles.length
 );
 
+console.log(
+  'county_runtime_additions=' +
+  expectedCountyProductionFiles.size
+);
+console.log(
+  'production_preservation_additions=' +
+  expectedPreservationFiles.size
+);
 console.log(
   'production_additions=' +
   expectedProductionFiles.size
