@@ -148,6 +148,20 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
   echo
 fi
 
+# Generated county connector certification.
+if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+  GENERATED_COUNTY_CERTIFIER="scripts/validate-generated-county-connectors.js"
+
+  if [[ ! -f "$GENERATED_COUNTY_CERTIFIER" ]]; then
+    echo "ERROR: Generated county connector validator missing: $GENERATED_COUNTY_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running generated county connector certification..."
+  node "$GENERATED_COUNTY_CERTIFIER"
+  echo
+fi
+
 python3 - "$ROOT_DIR" <<'PY'
 from collections import defaultdict
 from pathlib import Path
