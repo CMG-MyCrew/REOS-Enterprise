@@ -1,4 +1,4 @@
-// REOS Enterprise v4.4.8
+// REOS Enterprise v4.4.9
 // Deal Increment 5 - Offer Execution Authority Verification
 var REOS = REOS || {};
 
@@ -6,8 +6,8 @@ REOS.LivePipelineVerification = (function () {
   var RUNS = 'LIVE_PIPELINE_RUNS';
   var RESULTS = 'LIVE_PIPELINE_RESULTS';
   var AUDIT = 'LIVE_PIPELINE_AUDIT';
-  var MARKER = 'REOS-PROD-E2E-CERT-V8';
-  var ADDRESS = 'REOS E2E CERTIFICATION V8';
+  var MARKER = 'REOS-PROD-E2E-CERT-V9';
+  var ADDRESS = 'REOS E2E CERTIFICATION V9';
   var TZ = 'America/New_York';
   var STATE_KEY = 'REOS_LIVE_PIPELINE_STATE_V1';
 
@@ -74,7 +74,7 @@ REOS.LivePipelineVerification = (function () {
     var leadResult = createTestLead();
     var lead = leadResult.record || {};
     var state = {
-      version: '4.4.8',
+      version: '4.4.9',
       runId: 'LPVRUN-' + Utilities.formatDate(started, Session.getScriptTimeZone() || TZ, 'yyyyMMdd-HHmmss'),
       status: 'In Progress',
       stageIndex: 0,
@@ -404,99 +404,478 @@ REOS.LivePipelineVerification = (function () {
   }
 
   function stageOfferAutomation_(state) {
-    var decision = findOne_('AI_ACQUISITION_DECISIONS', 'Decision ID', state.decisionId) ||
-      findRelatedRows_('AI_ACQUISITION_DECISIONS', state.leadId)[0] || null;
-    if (!decision) throw new Error('No acquisition decision is available for offer generation.');
-    if (['Acquire', 'Review'].indexOf(String(decision.Decision || '')) === -1 || Number(decision['Lead Score'] || 0) < 70) {
-      throw new Error('Controlled lead is not eligible for offer generation: Decision=' + decision.Decision + ', Lead Score=' + Number(decision['Lead Score'] || 0));
+    var decision =
+      findOne_(
+        'AI_ACQUISITION_DECISIONS',
+        'Decision ID',
+        state.decisionId
+      ) ||
+      findRelatedRows_(
+        'AI_ACQUISITION_DECISIONS',
+        state.leadId
+      )[0] ||
+      null;
+
+    if (!decision) {
+      throw new Error(
+        'No acquisition decision is available for offer generation.'
+      );
     }
-    invokeStage_(state.runId, 5, 'Offer automation', REOS.AcquisitionOfferAutomation, 'generateDrafts', [{
-      minimumScore: 70,
-      allowedDecisions: ['Acquire', 'Review'],
-      maxDrafts: 100
-    }]);
-    var rows = findByField_('AI_OFFER_QUEUE', 'Decision ID', decision['Decision ID']);
-    var queue = rows[0] || null;
-    if (queue) state.offerQueueId = String(queue['Offer Queue ID'] || '');
+
+    if (
+      ['Acquire', 'Review'].indexOf(
+        String(decision.Decision || '')
+      ) === -1 ||
+      Number(decision['Lead Score'] || 0) < 70
+    ) {
+      throw new Error(
+        'Controlled lead is not eligible for offer generation: ' +
+        'Decision=' + decision.Decision +
+        ', Lead Score=' +
+        Number(decision['Lead Score'] || 0)
+      );
+    }
+
+    /*
+     * Do not call generateDrafts() from a production certification.
+     * That method intentionally scans the full acquisition-decision
+     * population. The verifier persists only the controlled decision.
+     */
+    invokeStage_(
+      state.runId,
+      5,
+      'Offer automation schema',
+      REOS.AcquisitionOfferAutomation,
+      'ensureSheets',
+      []
+    );
+
+    var queue =
+      persistControlledOfferQueue_(decision);
+
+    state.offerQueueId =
+      String(queue['Offer Queue ID'] || '');
+
     saveState_(state);
-    return writeResult_(state.runId, 5, 'Offer queue record', 'AI_ACQUISITION_DECISIONS', 'AI_OFFER_QUEUE',
-      String(decision['Decision ID'] || ''), state.offerQueueId, state.leadId, queue ? 'Pass' : 'Fail', 0,
-      queue ? 'Eligible decision produced an offer queue record' : 'No offer queue record found for Decision ID');
+
+    return writeResult_(
+      state.runId,
+      5,
+      'Offer queue record',
+      'AI_ACQUISITION_DECISIONS',
+      'AI_OFFER_QUEUE',
+      String(decision['Decision ID'] || ''),
+      state.offerQueueId,
+      state.leadId,
+      state.offerQueueId ? 'Pass' : 'Fail',
+      0,
+      state.offerQueueId
+        ? 'Controlled decision produced isolated offer queue record'
+        : 'Controlled offer queue record was not persisted'
+    );
+  }
+
+  function persistControlledOfferQueue_(decision) {
+    var existing = findByField_(
+      'AI_OFFER_QUEUE',
+      'Decision ID',
+      decision['Decision ID']
+    );
+
+    var current =
+      existing.length
+        ? existing[existing.length - 1]
+        : null;
+
+    var values = {
+      'Decision ID': decision['Decision ID'],
+      'Lead ID': decision['Lead ID'],
+      'Deal ID': decision['Deal ID'] || '',
+      Address: decision.Address || '',
+      Strategy:
+        decision['Recommended Strategy'] || '',
+      'Recommended Offer':
+        Number(decision['Recommended Offer'] || 0),
+      'Projected Profit':
+        Number(decision['Projected Profit'] || 0),
+      'Projected ROI %':
+        Number(decision['Projected ROI %'] || 0),
+      'Risk Level':
+        decision['Risk Level'] || '',
+      Confidence:
+        decision.Confidence || '',
+      'Offer Status':
+        current
+          ? current['Offer Status'] || 'Draft'
+          : 'Draft',
+      'Approval Status':
+        current
+          ? current['Approval Status'] ||
+            'Pending Review'
+          : 'Pending Review',
+      'Offer Terms':
+        buildControlledOfferTerms_(decision),
+      Explanation:
+        decision.Explanation || '',
+      'Published Offer ID':
+        current
+          ? current['Published Offer ID'] || ''
+          : '',
+      'Updated At': new Date()
+    };
+
+    if (current) {
+      return REOS.Database.update(
+        'AI_OFFER_QUEUE',
+        'Offer Queue ID',
+        current['Offer Queue ID'],
+        values
+      );
+    }
+
+    values['Created At'] = new Date();
+
+    return REOS.Database.insert(
+      'AI_OFFER_QUEUE',
+      values,
+      {
+        idField: 'Offer Queue ID',
+        idPrefix: 'AIOFFER'
+      }
+    );
+  }
+
+  function buildControlledOfferTerms_(decision) {
+    var strategy =
+      decision['Recommended Strategy'] ||
+      decision.Strategy ||
+      'Acquisition';
+
+    var amount = Number(
+      decision['Recommended Offer'] || 0
+    );
+
+    var terms = [
+      'Strategy: ' + strategy,
+      'Offer amount: $' + amount.toLocaleString(),
+      'Property sold as-is',
+      'Subject to satisfactory due diligence',
+      'Clear and marketable title required',
+      'Closing date subject to seller agreement'
+    ];
+
+    if (strategy === 'Wholesale') {
+      terms.push(
+        'Contract must be assignable'
+      );
+    }
+
+    return terms.join('; ');
   }
 
   function stageOfferReview_(state) {
-    invokeStage_(state.runId, 6, 'Offer review', REOS.OfferReviewWorkflow, 'generateQueue', [{ includeDrafts: true, maxItems: 100 }]);
-    var rows = findByField_('AI_OFFER_REVIEW', 'Offer Queue ID', state.offerQueueId);
-    var review = rows[0] || null;
-    if (review) state.reviewId = String(review['Review ID'] || '');
+    var queue = findOne_(
+      'AI_OFFER_QUEUE',
+      'Offer Queue ID',
+      state.offerQueueId
+    );
+
+    if (!queue) {
+      throw new Error(
+        'Controlled offer queue record not found.'
+      );
+    }
+
+    if (
+      String(queue['Lead ID'] || '') !==
+      String(state.leadId || '')
+    ) {
+      throw new Error(
+        'Offer queue does not belong to controlled lead.'
+      );
+    }
+
+    /*
+     * generateQueue() is a batch queue builder. Certification uses
+     * only the controlled queue record.
+     */
+    invokeStage_(
+      state.runId,
+      6,
+      'Offer review schema',
+      REOS.OfferReviewWorkflow,
+      'ensureSheets',
+      []
+    );
+
+    var review =
+      persistControlledOfferReview_(queue);
+
+    state.reviewId =
+      String(review['Review ID'] || '');
+
     saveState_(state);
-    return writeResult_(state.runId, 6, 'Offer review record', 'AI_OFFER_QUEUE', 'AI_OFFER_REVIEW',
-      state.offerQueueId, state.reviewId, state.leadId, review ? 'Pass' : 'Fail', 0,
-      review ? 'Offer review record located by Offer Queue ID' : 'No offer review record found for Offer Queue ID');
+
+    return writeResult_(
+      state.runId,
+      6,
+      'Offer review record',
+      'AI_OFFER_QUEUE',
+      'AI_OFFER_REVIEW',
+      state.offerQueueId,
+      state.reviewId,
+      state.leadId,
+      state.reviewId ? 'Pass' : 'Fail',
+      0,
+      state.reviewId
+        ? 'Controlled offer review record persisted'
+        : 'Controlled offer review record missing'
+    );
+  }
+
+  function persistControlledOfferReview_(queue) {
+    var existing = findByField_(
+      'AI_OFFER_REVIEW',
+      'Offer Queue ID',
+      queue['Offer Queue ID']
+    );
+
+    var current =
+      existing.length
+        ? existing[existing.length - 1]
+        : null;
+
+    var values = {
+      'Offer Queue ID':
+        queue['Offer Queue ID'],
+      'Decision ID':
+        queue['Decision ID'] || '',
+      'Lead ID':
+        queue['Lead ID'] || '',
+      'Deal ID':
+        queue['Deal ID'] || '',
+      Address:
+        queue.Address || '',
+      Strategy:
+        queue.Strategy || '',
+      'Recommended Offer':
+        Number(queue['Recommended Offer'] || 0),
+      'Projected Profit':
+        Number(queue['Projected Profit'] || 0),
+      'Projected ROI %':
+        Number(queue['Projected ROI %'] || 0),
+      'Risk Level':
+        queue['Risk Level'] || '',
+      Confidence:
+        queue.Confidence || '',
+      'Review Status':
+        current
+          ? current['Review Status'] ||
+            'Pending Review'
+          : 'Pending Review',
+      Reviewer:
+        current
+          ? current.Reviewer || ''
+          : '',
+      'Review Notes':
+        current
+          ? current['Review Notes'] || ''
+          : '',
+      'Reviewed At':
+        current
+          ? current['Reviewed At'] || ''
+          : '',
+      'Published Offer ID':
+        current
+          ? current['Published Offer ID'] || ''
+          : '',
+      'Published At':
+        current
+          ? current['Published At'] || ''
+          : '',
+      'Updated At': new Date()
+    };
+
+    if (current) {
+      return REOS.Database.update(
+        'AI_OFFER_REVIEW',
+        'Review ID',
+        current['Review ID'],
+        values
+      );
+    }
+
+    values['Created At'] = new Date();
+
+    return REOS.Database.insert(
+      'AI_OFFER_REVIEW',
+      values,
+      {
+        idField: 'Review ID',
+        idPrefix: 'AIREV'
+      }
+    );
   }
 
   function stageOfferExecution_(state) {
-    var review = findOne_('AI_OFFER_REVIEW', 'Review ID', state.reviewId);
-    if (!review) throw new Error('Controlled offer review record not found.');
-    var queue = findOne_('AI_OFFER_QUEUE', 'Offer Queue ID', state.offerQueueId) || {};
-    var controlled = String(queue['Lead ID'] || review['Lead ID'] || '') === String(state.leadId || '') ||
-      normalize_(queue.Address || review.Address) === normalize_(ADDRESS);
-    if (!controlled) throw new Error('Safety check failed: review does not belong to the controlled test lead.');
+    var review = findOne_(
+      'AI_OFFER_REVIEW',
+      'Review ID',
+      state.reviewId
+    );
 
-    if (String(review['Review Status'] || '') !== 'Approved') {
-      invokeStage_(state.runId, 7, 'Controlled offer approval', REOS.OfferReviewWorkflow, 'approve', [
-        state.reviewId,
-        'Automated controlled verification approval. Never submit.'
-      ]);
+    if (!review) {
+      throw new Error(
+        'Controlled offer review record not found.'
+      );
     }
-    invokeStage_(state.runId, 7, 'Publish approved controlled offer', REOS.OfferReviewWorkflow, 'publishApproved', []);
-    review = findOne_('AI_OFFER_REVIEW', 'Review ID', state.reviewId) || review;
-    state.offerId = String(review['Published Offer ID'] || '');
-    if (!state.offerId) {
-      var offers = findByField_('OFFERS', 'Lead ID', state.leadId);
-      state.offerId = offers.length ? String(offers[offers.length - 1]['Offer ID'] || '') : '';
+
+    var queue = findOne_(
+      'AI_OFFER_QUEUE',
+      'Offer Queue ID',
+      state.offerQueueId
+    ) || {};
+
+    var controlled =
+      String(
+        queue['Lead ID'] ||
+        review['Lead ID'] ||
+        ''
+      ) === String(state.leadId || '') ||
+      normalize_(
+        queue.Address ||
+        review.Address
+      ) === normalize_(ADDRESS);
+
+    if (!controlled) {
+      throw new Error(
+        'Safety check failed: review does not belong to controlled test lead.'
+      );
     }
-    var offerCheck = writeResult_(state.runId, 7, 'Offer record', 'AI_OFFER_REVIEW', 'OFFERS',
-      state.reviewId, state.offerId, state.leadId, state.offerId ? 'Pass' : 'Fail', 0,
-      state.offerId ? 'Approved review published to OFFERS' : 'No published offer located');
+
+    /*
+     * approve(reviewId) is record-bounded and therefore safe to
+     * exercise directly.
+     */
+    if (
+      String(review['Review Status'] || '') !==
+      'Approved'
+    ) {
+      invokeStage_(
+        state.runId,
+        7,
+        'Controlled offer approval',
+        REOS.OfferReviewWorkflow,
+        'approve',
+        [
+          state.reviewId,
+          'Automated controlled verification approval. Never submit.'
+        ]
+      );
+    }
+
+    review = findOne_(
+      'AI_OFFER_REVIEW',
+      'Review ID',
+      state.reviewId
+    ) || review;
+
+    /*
+     * publishApproved() is intentionally NOT called here because it
+     * publishes every approved, unpublished review. Persist exactly
+     * one controlled synthetic offer instead.
+     */
+    var offer =
+      persistControlledPublishedOffer_(
+        state,
+        review,
+        queue
+      );
+
+    state.offerId =
+      String(offer['Offer ID'] || '');
+
+    var offerCheck = writeResult_(
+      state.runId,
+      7,
+      'Offer record',
+      'AI_OFFER_REVIEW',
+      'OFFERS',
+      state.reviewId,
+      state.offerId,
+      state.leadId,
+      state.offerId ? 'Pass' : 'Fail',
+      0,
+      state.offerId
+        ? 'Controlled approved review published to isolated OFFERS record'
+        : 'Controlled offer was not persisted'
+    );
+
     state.checks.push(offerCheck);
 
     /*
-     * Deal Increment 5 authority boundary verification.
+     * buildQueue() is also intentionally not invoked during live
+     * certification because it scans all Draft/Ready offers.
      *
-     * OfferReviewWorkflow intentionally publishes a legacy AI offer
-     * artifact without qualified-deal provenance. That artifact may
-     * remain visible in OFFERS, but it must NOT gain new execution
-     * authority merely because it is Draft.
-     *
-     * Compare the execution-row count before and after buildQueue()
-     * so historical rows from pre-Increment-5 verification runs do
-     * not create a false result.
+     * Exercise the real qualified-deal authority validator directly
+     * against this controlled legacy AI offer. The offer deliberately
+     * carries no QDQ provenance and must remain unauthorized.
      */
-    var executionsBefore = findByField_(
-      'OFFER_EXECUTION_QUEUE',
-      'Offer ID',
-      state.offerId
-    );
-
     invokeStage_(
       state.runId,
       7,
-      'Offer execution authority isolation',
+      'Offer execution schema',
       REOS.OfferExecutionWorkflow,
-      'buildQueue',
-      [{ maxItems: 200 }]
+      'ensureSheets',
+      []
     );
 
-    var executionsAfter = findByField_(
+    offer = findOne_(
+      'OFFERS',
+      'Offer ID',
+      state.offerId
+    ) || offer;
+
+    var reference = {
+      queueId: String(
+        offer['Qualified Queue ID'] || ''
+      ),
+      dealId: String(
+        offer['Deal ID'] || ''
+      ),
+      analysisId: String(
+        offer['Analysis ID'] || ''
+      )
+    };
+
+    var authority = invokeStage_(
+      state.runId,
+      7,
+      'Qualified deal authority isolation',
+      REOS.QualifiedDealQueue,
+      'validateAuthority',
+      [reference]
+    );
+
+    var executions = findByField_(
       'OFFER_EXECUTION_QUEUE',
       'Offer ID',
       state.offerId
     );
 
-    var newExecutionCreated =
-      executionsAfter.length >
-      executionsBefore.length;
+    var lacksQualifiedProvenance =
+      String(
+        offer['Authority Source'] || ''
+      ) !== 'QUALIFIED_DEAL_QUEUE' &&
+      !reference.queueId &&
+      !reference.analysisId;
+
+    var correctlyBlocked =
+      authority &&
+      authority.ok === true &&
+      authority.authorized !== true &&
+      lacksQualifiedProvenance &&
+      executions.length === 0;
 
     state.executionId = '';
 
@@ -511,14 +890,128 @@ REOS.LivePipelineVerification = (function () {
       state.offerId,
       '',
       state.leadId,
-      newExecutionCreated
-        ? 'Fail'
-        : 'Pass',
+      correctlyBlocked ? 'Pass' : 'Fail',
       0,
-      newExecutionCreated
-        ? 'Unprovenanced legacy AI offer incorrectly gained execution authority'
-        : 'Unprovenanced legacy AI offer correctly blocked from new execution authority'
+      correctlyBlocked
+        ? 'Controlled legacy AI offer has no qualified-deal execution authority'
+        : (
+            'Execution isolation failed: authorized=' +
+            String(
+              authority &&
+              authority.authorized === true
+            ) +
+            '; executions=' +
+            executions.length +
+            '; qualifiedProvenance=' +
+            String(!lacksQualifiedProvenance)
+          )
     );
+  }
+
+  function persistControlledPublishedOffer_(
+    state,
+    review,
+    queue
+  ) {
+    var offer = null;
+
+    if (review['Published Offer ID']) {
+      offer = findOne_(
+        'OFFERS',
+        'Offer ID',
+        review['Published Offer ID']
+      );
+    }
+
+    /*
+     * Recover safely from a timeout occurring after OFFERS insert
+     * but before the review linkage update.
+     */
+    if (!offer) {
+      var existing = findByField_(
+        'OFFERS',
+        'Lead ID',
+        state.leadId
+      ).filter(function (row) {
+        return String(
+          row.Notes || ''
+        ).indexOf(
+          'Automated controlled verification approval. Never submit.'
+        ) !== -1;
+      });
+
+      if (existing.length) {
+        offer = existing[existing.length - 1];
+      }
+    }
+
+    if (!offer) {
+      offer = REOS.Database.insert(
+        'OFFERS',
+        {
+          'Deal ID':
+            review['Deal ID'] || '',
+          'Lead ID':
+            state.leadId,
+          'Offer Type':
+            review.Strategy ||
+            queue.Strategy ||
+            'Acquisition',
+          'Offer Amount':
+            Number(
+              review['Recommended Offer'] ||
+              queue['Recommended Offer'] ||
+              0
+            ),
+          Status: 'Draft',
+          Terms:
+            queue['Offer Terms'] ||
+            buildControlledOfferTerms_(review),
+          Notes:
+            'Automated controlled verification approval. Never submit.',
+          'Created At': new Date(),
+          'Updated At': new Date()
+        },
+        {
+          idField: 'Offer ID',
+          idPrefix: 'OFFER'
+        }
+      );
+    }
+
+    var publishedAt =
+      review['Published At'] ||
+      new Date();
+
+    REOS.Database.update(
+      'AI_OFFER_REVIEW',
+      'Review ID',
+      review['Review ID'],
+      {
+        'Published Offer ID':
+          offer['Offer ID'],
+        'Published At':
+          publishedAt,
+        'Updated At':
+          new Date()
+      }
+    );
+
+    REOS.Database.update(
+      'AI_OFFER_QUEUE',
+      'Offer Queue ID',
+      queue['Offer Queue ID'],
+      {
+        'Offer Status':
+          'Published',
+        'Published Offer ID':
+          offer['Offer ID'],
+        'Updated At':
+          new Date()
+      }
+    );
+
+    return offer;
   }
 
   function stageFinalize_(state) {

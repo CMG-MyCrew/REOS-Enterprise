@@ -96,6 +96,51 @@ check(
 );
 
 check(
+  'offer certification does not invoke bulk generateDrafts',
+  !/REOS\.AcquisitionOfferAutomation,\s*'generateDrafts'/.test(source)
+);
+
+check(
+  'offer review certification does not invoke bulk generateQueue',
+  !/REOS\.OfferReviewWorkflow,\s*'generateQueue'/.test(source)
+);
+
+check(
+  'offer publication certification does not invoke bulk publishApproved',
+  !/REOS\.OfferReviewWorkflow,\s*'publishApproved'/.test(source)
+);
+
+check(
+  'execution certification does not invoke global buildQueue',
+  !/REOS\.OfferExecutionWorkflow,\s*'buildQueue'/.test(source)
+);
+
+check(
+  'controlled offer queue persistence exists',
+  source.includes('persistControlledOfferQueue_')
+);
+
+check(
+  'controlled offer review persistence exists',
+  source.includes('persistControlledOfferReview_')
+);
+
+check(
+  'controlled offer publication persistence exists',
+  source.includes('persistControlledPublishedOffer_')
+);
+
+check(
+  'execution isolation uses qualified-deal authority validator',
+  /REOS\.QualifiedDealQueue,\s*'validateAuthority'/.test(source)
+);
+
+check(
+  'controlled review approval remains record-bounded',
+  /REOS\.OfferReviewWorkflow,\s*'approve'/.test(source)
+);
+
+check(
   'live verifier does not call OfferDeliveryTransport',
   !source.includes('OfferDeliveryTransport')
 );
