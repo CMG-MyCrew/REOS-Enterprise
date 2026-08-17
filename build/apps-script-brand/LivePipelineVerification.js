@@ -1,4 +1,4 @@
-// REOS Enterprise v4.4.7
+// REOS Enterprise v4.4.8
 // Deal Increment 5 - Offer Execution Authority Verification
 var REOS = REOS || {};
 
@@ -6,8 +6,8 @@ REOS.LivePipelineVerification = (function () {
   var RUNS = 'LIVE_PIPELINE_RUNS';
   var RESULTS = 'LIVE_PIPELINE_RESULTS';
   var AUDIT = 'LIVE_PIPELINE_AUDIT';
-  var MARKER = 'REOS-PROD-E2E-CERT-V7';
-  var ADDRESS = 'REOS E2E CERTIFICATION V7';
+  var MARKER = 'REOS-PROD-E2E-CERT-V8';
+  var ADDRESS = 'REOS E2E CERTIFICATION V8';
   var TZ = 'America/New_York';
   var STATE_KEY = 'REOS_LIVE_PIPELINE_STATE_V1';
 
@@ -74,7 +74,7 @@ REOS.LivePipelineVerification = (function () {
     var leadResult = createTestLead();
     var lead = leadResult.record || {};
     var state = {
-      version: '4.4.7',
+      version: '4.4.8',
       runId: 'LPVRUN-' + Utilities.formatDate(started, Session.getScriptTimeZone() || TZ, 'yyyyMMdd-HHmmss'),
       status: 'In Progress',
       stageIndex: 0,
@@ -173,21 +173,234 @@ REOS.LivePipelineVerification = (function () {
   }
 
   function stageAcquisitionIntelligence_(state) {
-    invokeStage_(state.runId, 3, 'Acquisition intelligence', REOS.AcquisitionIntelligence, 'analyzeAll', []);
-    var decisions = findRelatedRows_('AI_ACQUISITION_DECISIONS', state.leadId);
-    var decision = decisions[0] || null;
-    if (decision) state.decisionId = String(decision['Decision ID'] || '');
-    var eligible = !!decision && ['Acquire', 'Review'].indexOf(String(decision.Decision || '')) !== -1 && Number(decision['Lead Score'] || 0) >= 70;
+    var leads = findRelatedRows_('IA_LEADS', state.leadId);
+    var lead = leads[0] || null;
+
+    if (!lead) {
+      throw new Error(
+        'Controlled IA lead not found for acquisition intelligence.'
+      );
+    }
+
+    /*
+     * Production certification must remain bounded to the synthetic
+     * certification lead. analyzeAll() scans the entire IA_LEADS
+     * population and is therefore not appropriate for an E2E smoke
+     * certification stage.
+     */
+    var result = invokeStage_(
+      state.runId,
+      3,
+      'Acquisition intelligence',
+      REOS.AcquisitionIntelligence,
+      'analyzeLead',
+      [lead, {}]
+    );
+
+    var decision =
+      persistControlledAcquisitionDecision_(lead, result);
+
+    state.decisionId =
+      String(decision['Decision ID'] || '');
+
+    var eligible =
+      ['Acquire', 'Review'].indexOf(
+        String(decision.Decision || '')
+      ) !== -1 &&
+      Number(decision['Lead Score'] || 0) >= 70;
+
     saveState_(state);
-    return writeResult_(state.runId, 3, 'Acquisition decision eligibility', 'IA_LEADS', 'AI_ACQUISITION_DECISIONS',
-      state.leadId, state.decisionId, state.leadId, eligible ? 'Pass' : 'Fail', 0,
-      decision ? ('Decision=' + decision.Decision + '; Lead Score=' + Number(decision['Lead Score'] || 0)) : 'No acquisition decision located');
+
+    return writeResult_(
+      state.runId,
+      3,
+      'Acquisition decision eligibility',
+      'IA_LEADS',
+      'AI_ACQUISITION_DECISIONS',
+      state.leadId,
+      state.decisionId,
+      state.leadId,
+      eligible ? 'Pass' : 'Fail',
+      0,
+      'Decision=' + decision.Decision +
+        '; Lead Score=' +
+        Number(decision['Lead Score'] || 0)
+    );
   }
 
   function stageDealIntelligence_(state) {
-    invokeStage_(state.runId, 4, 'Deal intelligence', REOS.AcquisitionDealIntelligence, 'analyzeAll', []);
-    return verifyStage_(state.runId, 4, 'Deal intelligence record', 'IA_LEADS', 'AI_DEAL_INTELLIGENCE', state.leadId,
-      function () { return findRelatedRows_('AI_DEAL_INTELLIGENCE', state.leadId); });
+    var leads = findRelatedRows_('IA_LEADS', state.leadId);
+    var lead = leads[0] || null;
+
+    if (!lead) {
+      throw new Error(
+        'Controlled IA lead not found for deal intelligence.'
+      );
+    }
+
+    /*
+     * Keep the certification bounded to one controlled lead for the
+     * same reason as acquisition intelligence above.
+     */
+    var result = invokeStage_(
+      state.runId,
+      4,
+      'Deal intelligence',
+      REOS.AcquisitionDealIntelligence,
+      'analyzeLead',
+      [lead, {}]
+    );
+
+    var record =
+      persistControlledDealIntelligence_(result);
+
+    return writeResult_(
+      state.runId,
+      4,
+      'Deal intelligence record',
+      'IA_LEADS',
+      'AI_DEAL_INTELLIGENCE',
+      state.leadId,
+      String(record['AI Deal ID'] || ''),
+      state.leadId,
+      record ? 'Pass' : 'Fail',
+      0,
+      record
+        ? 'Controlled deal intelligence record persisted'
+        : 'No controlled deal intelligence record persisted'
+    );
+  }
+
+  function persistControlledAcquisitionDecision_(lead, result) {
+    result = result || {};
+
+    if (!String(result.leadId || '')) {
+      throw new Error(
+        'Acquisition intelligence returned no Lead ID.'
+      );
+    }
+
+    var existing = findByField_(
+      'AI_ACQUISITION_DECISIONS',
+      'Lead ID',
+      result.leadId
+    );
+
+    var components = result.components || {};
+
+    var values = {
+      'Lead ID': result.leadId,
+      'Deal ID': lead['Promoted Deal ID'] || '',
+      Address: lead.Address || '',
+      City: lead.City || '',
+      State: lead.State || '',
+      'Lead Score': result.leadScore,
+      Grade: result.grade,
+      'Estimated Value': components.value,
+      ARV: components.arv,
+      'Estimated Repairs': components.repairs,
+      'Estimated Debt': components.debt,
+      'Asking Price': components.askingPrice,
+      'Estimated Equity': components.equity,
+      'Equity %': components.equityPercent,
+      'Flip MAO': components.flipMao,
+      'Wholesale MAO': components.wholesaleMao,
+      'Rental MAO': components.rentalMao,
+      'Recommended Offer': result.recommendedOffer,
+      'Recommended Strategy': result.strategy,
+      'Projected Profit': result.projectedProfit,
+      'Projected ROI %': result.projectedRoi,
+      'Risk Level': result.risk,
+      Confidence: result.confidence,
+      Decision: result.decision,
+      Explanation: result.explanation,
+      'Components JSON': JSON.stringify(components),
+      Status: result.decision === 'Reject'
+        ? 'Rejected'
+        : 'Open',
+      'Updated At': new Date()
+    };
+
+    if (existing.length) {
+      return REOS.Database.update(
+        'AI_ACQUISITION_DECISIONS',
+        'Decision ID',
+        existing[existing.length - 1]['Decision ID'],
+        values
+      );
+    }
+
+    values['Generated At'] = new Date();
+
+    return REOS.Database.insert(
+      'AI_ACQUISITION_DECISIONS',
+      values,
+      {
+        idField: 'Decision ID',
+        idPrefix: 'AIDEC'
+      }
+    );
+  }
+
+  function persistControlledDealIntelligence_(result) {
+    result = result || {};
+
+    if (!String(result.leadId || '')) {
+      throw new Error(
+        'Deal intelligence returned no Lead ID.'
+      );
+    }
+
+    var existing = findByField_(
+      'AI_DEAL_INTELLIGENCE',
+      'Distress Lead ID',
+      result.leadId
+    );
+
+    var values = {
+      'Distress Lead ID': result.leadId,
+      Address: result.address,
+      City: result.city,
+      State: result.state,
+      'Lead Score': result.leadScore,
+      ARV: result.arv,
+      'Repair Estimate': result.repairs,
+      MAO: result.mao,
+      'Estimated Equity': result.estimatedEquity,
+      'Estimated Profit': result.estimatedProfit,
+      'ROI %': result.roi,
+      'Risk Score': result.riskScore,
+      'Risk Level': result.riskLevel,
+      'Investment Grade': result.grade,
+      Strategy: result.strategy,
+      Confidence: result.confidence,
+      'Recommended Offer': result.recommendedOffer,
+      Status: result.status,
+      'Components JSON': JSON.stringify(
+        result.components || {}
+      ),
+      'Updated At': new Date()
+    };
+
+    if (existing.length) {
+      return REOS.Database.update(
+        'AI_DEAL_INTELLIGENCE',
+        'AI Deal ID',
+        existing[existing.length - 1]['AI Deal ID'],
+        values
+      );
+    }
+
+    values['Created At'] = new Date();
+
+    return REOS.Database.insert(
+      'AI_DEAL_INTELLIGENCE',
+      values,
+      {
+        idField: 'AI Deal ID',
+        idPrefix: 'AIDEAL'
+      }
+    );
   }
 
   function stageOfferAutomation_(state) {
