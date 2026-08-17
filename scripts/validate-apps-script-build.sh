@@ -9,9 +9,18 @@ if [[ ! -d "$ROOT_DIR" ]]; then
   exit 1
 fi
 
+ROOT_DIR_ABS="$(cd "$ROOT_DIR" && pwd -P)"
+AUTHORITATIVE_ROOT_ABS="$(cd "build/apps-script-brand" && pwd -P)"
+
+IS_AUTHORITATIVE_ROOT=false
+
+if [[ "$ROOT_DIR_ABS" == "$AUTHORITATIVE_ROOT_ABS" ]]; then
+  IS_AUTHORITATIVE_ROOT=true
+fi
+
 # The Git-tracked Apps Script application tree is authoritative for REOS v3.x.
 # Prevent accidental deployment-root drift back to src/ or another directory.
-if [[ "$ROOT_DIR" == "build/apps-script-brand" && -f ".clasp.json" ]]; then
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" && -f ".clasp.json" ]]; then
   CLASP_ROOT="$(python3 -c 'import json; print(json.load(open(".clasp.json")).get("rootDir", ""))')"
 
   if [[ "$CLASP_ROOT" != "build/apps-script-brand" ]]; then
@@ -121,7 +130,7 @@ echo
 # Run only for the authoritative REOS Apps Script build root because the
 # certification harness executes the production registry/manager contract
 # from build/apps-script-brand.
-if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_CERTIFIER="scripts/validate-county-connector-certification.js"
 
   if [[ ! -f "$COUNTY_CERTIFIER" ]]; then
@@ -135,7 +144,7 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
 fi
 
 # County runtime packaging certification.
-if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_RUNTIME_CERTIFIER="scripts/validate-county-runtime-packaging.js"
 
   if [[ ! -f "$COUNTY_RUNTIME_CERTIFIER" ]]; then
@@ -149,7 +158,7 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
 fi
 
 # Generated county connector certification.
-if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   GENERATED_COUNTY_CERTIFIER="scripts/validate-generated-county-connectors.js"
 
   if [[ ! -f "$GENERATED_COUNTY_CERTIFIER" ]]; then
@@ -163,7 +172,7 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
 fi
 
 # DISTRESS_LEADS county schema certification.
-if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   DISTRESS_LEAD_SCHEMA_CERTIFIER="scripts/validate-distress-lead-county-schema.js"
 
   if [[ ! -f "$DISTRESS_LEAD_SCHEMA_CERTIFIER" ]]; then
@@ -177,7 +186,7 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
 fi
 
 # County runtime execution bridge certification.
-if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_RUNTIME_BRIDGE_CERTIFIER="scripts/validate-county-runtime-bridge.js"
 
   if [[ ! -f "$COUNTY_RUNTIME_BRIDGE_CERTIFIER" ]]; then
@@ -191,7 +200,7 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
 fi
 
 # Full county runtime integration certification.
-if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_RUNTIME_INTEGRATION_CERTIFIER="scripts/validate-county-runtime-integration.js"
 
   if [[ ! -f "$COUNTY_RUNTIME_INTEGRATION_CERTIFIER" ]]; then
@@ -201,6 +210,20 @@ if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
 
   echo "Running county runtime integration certification..."
   node "$COUNTY_RUNTIME_INTEGRATION_CERTIFIER"
+  echo
+fi
+
+# Production E2E harness safety certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  PRODUCTION_E2E_HARNESS_CERTIFIER="scripts/validate-production-e2e-harness.js"
+
+  if [[ ! -f "$PRODUCTION_E2E_HARNESS_CERTIFIER" ]]; then
+    echo "ERROR: Production E2E harness safety validator missing: $PRODUCTION_E2E_HARNESS_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running production E2E harness safety certification..."
+  node "$PRODUCTION_E2E_HARNESS_CERTIFIER"
   echo
 fi
 
@@ -217,7 +240,7 @@ echo "Running production manifest reconciliation certification..."
 node "$PRODUCTION_MANIFEST_CERTIFIER"
 
 # County deployment readiness certification.
-if [[ "$ROOT_DIR" == "build/apps-script-brand" ]]; then
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_DEPLOYMENT_READINESS_CERTIFIER="scripts/validate-county-deployment-readiness.js"
 
   if [[ ! -f "$COUNTY_DEPLOYMENT_READINESS_CERTIFIER" ]]; then
