@@ -70,6 +70,32 @@ check(
 );
 
 check(
+  'acquisition intelligence certification is single-lead bounded',
+  /REOS\.AcquisitionIntelligence,\s*'analyzeLead'/.test(source) &&
+    !/REOS\.AcquisitionIntelligence,\s*'analyzeAll'/.test(source)
+);
+
+check(
+  'deal intelligence certification is single-lead bounded',
+  /REOS\.AcquisitionDealIntelligence,\s*'analyzeLead'/.test(source) &&
+    !/REOS\.AcquisitionDealIntelligence,\s*'analyzeAll'/.test(source)
+);
+
+check(
+  'bounded acquisition persistence is idempotent by Lead ID',
+  source.includes('persistControlledAcquisitionDecision_') &&
+    source.includes("'AI_ACQUISITION_DECISIONS'") &&
+    source.includes("'Lead ID'")
+);
+
+check(
+  'bounded deal persistence is idempotent by Distress Lead ID',
+  source.includes('persistControlledDealIntelligence_') &&
+    source.includes("'AI_DEAL_INTELLIGENCE'") &&
+    source.includes("'Distress Lead ID'")
+);
+
+check(
   'live verifier does not call OfferDeliveryTransport',
   !source.includes('OfferDeliveryTransport')
 );
