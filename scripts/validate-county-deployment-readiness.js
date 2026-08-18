@@ -129,13 +129,17 @@ assert.equal(
   'clasp rootDir must be build/apps-script-brand'
 );
 
-assert.ok(
+const CERTIFIED_PRODUCTION_SCRIPT_ID =
+  '159EMqc5tB9oQJGhci97j6b41BUvhG5wxUErTZgBFqSCghRcw4msFaKi7';
+
+assert.equal(
   String(clasp.scriptId || '').trim(),
-  'clasp scriptId is missing'
+  CERTIFIED_PRODUCTION_SCRIPT_ID,
+  'clasp scriptId must match certified REOS production Apps Script authority'
 );
 
 pass('clasp authority points to build/apps-script-brand');
-pass('clasp scriptId is configured');
+pass('clasp scriptId matches certified REOS production authority');
 
 /*
  * Apps Script package structure.
