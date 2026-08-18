@@ -151,6 +151,46 @@ check(
 );
 
 check(
+  'offer queue ownership follows controlled IA provenance',
+  source.includes('requireControlledOfferQueue_') &&
+    source.includes("controlledIa['Lead ID']") &&
+    source.includes("controlledIa['External ID']") &&
+    source.includes("queue['Lead ID']") &&
+    source.includes("queue['Decision ID']")
+);
+
+check(
+  'offer review and execution share the same provenance guard',
+  (
+    source.match(/requireControlledOfferQueue_\(state\)/g) ||
+    []
+  ).length >= 2
+);
+
+check(
+  'failed certification stages do not advance the stage pointer',
+  /if\s*\(stagePassed\)\s*\{\s*state\.stageIndex\s*\+=\s*1;\s*\}/s
+    .test(source) &&
+    source.includes("'STAGE_FAILED'")
+);
+
+check(
+  'cross-version staged execution fails closed',
+  source.includes("var VERSION = '4.4.11'") &&
+    source.includes('state.version') &&
+    source.includes(
+      'Run reosLivePipelineStart() explicitly'
+    )
+);
+
+check(
+  'IA duplicate protection follows External ID provenance',
+  source.includes(
+    "{ sheet: 'IA_LEADS', field: 'External ID', value: state.leadId }"
+  )
+);
+
+check(
   'controlled offer publication persistence exists',
   source.includes('persistControlledPublishedOffer_')
 );

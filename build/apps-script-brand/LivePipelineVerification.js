@@ -1,4 +1,4 @@
-// REOS Enterprise v4.4.10
+// REOS Enterprise v4.4.11
 // Deal Increment 5 - Offer Execution Authority Verification
 var REOS = REOS || {};
 
@@ -6,10 +6,11 @@ REOS.LivePipelineVerification = (function () {
   var RUNS = 'LIVE_PIPELINE_RUNS';
   var RESULTS = 'LIVE_PIPELINE_RESULTS';
   var AUDIT = 'LIVE_PIPELINE_AUDIT';
-  var MARKER = 'REOS-PROD-E2E-CERT-V10';
-  var ADDRESS = 'REOS E2E CERTIFICATION V10';
+  var MARKER = 'REOS-PROD-E2E-CERT-V11';
+  var ADDRESS = 'REOS E2E CERTIFICATION V11';
   var TZ = 'America/New_York';
   var STATE_KEY = 'REOS_LIVE_PIPELINE_STATE_V1';
+  var VERSION = '4.4.11';
 
   var RUN_HEADERS = [
     'Run ID','Status','Lead ID','Address','Passed','Failed','Integrity Percent',
@@ -74,7 +75,7 @@ REOS.LivePipelineVerification = (function () {
     var leadResult = createTestLead();
     var lead = leadResult.record || {};
     var state = {
-      version: '4.4.10',
+      version: VERSION,
       runId: 'LPVRUN-' + Utilities.formatDate(started, Session.getScriptTimeZone() || TZ, 'yyyyMMdd-HHmmss'),
       status: 'In Progress',
       stageIndex: 0,
@@ -104,7 +105,28 @@ REOS.LivePipelineVerification = (function () {
 
   function run() {
     var state = loadState_();
-    if (!state || state.status === 'Verified' || state.status === 'Needs Attention') start();
+
+    if (
+      state &&
+      state.version &&
+      String(state.version) !== VERSION
+    ) {
+      throw new Error(
+        'Active live-pipeline state belongs to verifier ' +
+        String(state.version) +
+        '. Run reosLivePipelineStart() explicitly to begin ' +
+        VERSION + '.'
+      );
+    }
+
+    if (
+      !state ||
+      state.status === 'Verified' ||
+      state.status === 'Needs Attention'
+    ) {
+      start();
+    }
+
     return runNextStage();
   }
 
@@ -120,25 +142,121 @@ REOS.LivePipelineVerification = (function () {
       if (!stage) return finalize_(state);
       var started = new Date();
       audit_(state.runId, stage.id, 'STAGE_STARTED', '', '', { stageId: stage.id, stageName: stage.name });
+      if (
+        state.version &&
+        String(state.version) !== VERSION
+      ) {
+        throw new Error(
+          'Active live-pipeline state belongs to verifier ' +
+          String(state.version) +
+          '. Run reosLivePipelineStart() explicitly to begin ' +
+          VERSION + '.'
+        );
+      }
+
+      var stagePassed = false;
+
       try {
         var check = stage.fn(state) || null;
-        if (check) state.checks.push(check);
+
+        if (check) {
+          state.checks.push(check);
+        }
+
+        stagePassed =
+          !!check &&
+          String(check.status || '') === 'Pass';
+
+        if (!stagePassed) {
+          var message =
+            check && check.message
+              ? String(check.message)
+              : 'Stage returned no passing certification result.';
+
+          if (!check) {
+            var emptyFailure = writeResult_(
+              state.runId,
+              stage.id,
+              stage.name,
+              '',
+              '',
+              state.leadId,
+              '',
+              state.leadId,
+              'Fail',
+              new Date().getTime() - started.getTime(),
+              message
+            );
+
+            state.checks.push(emptyFailure);
+          }
+
+          state.errors.push({
+            stage: stage.name,
+            message: message
+          });
+        }
       } catch (error) {
-        var failure = writeResult_(state.runId, stage.id, stage.name, '', '', state.leadId, '', state.leadId,
-          'Fail', new Date().getTime() - started.getTime(), error.message || String(error));
+        var failure = writeResult_(
+          state.runId,
+          stage.id,
+          stage.name,
+          '',
+          '',
+          state.leadId,
+          '',
+          state.leadId,
+          'Fail',
+          new Date().getTime() - started.getTime(),
+          error.message || String(error)
+        );
+
         state.checks.push(failure);
-        state.errors.push({ stage: stage.name, message: error.message || String(error) });
+
+        state.errors.push({
+          stage: stage.name,
+          message: error.message || String(error)
+        });
       }
-      state.stageIndex += 1;
+
+      /*
+       * Certification progression is fail-closed.
+       * Never advance beyond a failed stage.
+       */
+      if (stagePassed) {
+        state.stageIndex += 1;
+      }
+
       saveState_(state);
       updateRunProgress_(state);
-      audit_(state.runId, stage.id, 'STAGE_COMPLETED', '', '', {
-        stageId: stage.id,
-        stageName: stage.name,
-        nextStageIndex: state.stageIndex,
-        durationMs: new Date().getTime() - started.getTime()
-      });
-      if (state.stageIndex >= STAGES.length) return finalize_(state);
+
+      audit_(
+        state.runId,
+        stage.id,
+        stagePassed
+          ? 'STAGE_COMPLETED'
+          : 'STAGE_FAILED',
+        '',
+        '',
+        {
+          stageId: stage.id,
+          stageName: stage.name,
+          stagePassed: stagePassed,
+          nextStageIndex: state.stageIndex,
+          durationMs:
+            new Date().getTime() -
+            started.getTime()
+        }
+      );
+
+      if (!stagePassed) {
+        return status();
+      }
+
+      if (state.stageIndex >= STAGES.length) {
+        return finalize_(state);
+      }
+
       return status();
     } finally {
       lock.releaseLock();
@@ -848,7 +966,7 @@ REOS.LivePipelineVerification = (function () {
     return terms.join('; ');
   }
 
-  function stageOfferReview_(state) {
+  function requireControlledOfferQueue_(state) {
     var queue = findOne_(
       'AI_OFFER_QUEUE',
       'Offer Queue ID',
@@ -861,14 +979,68 @@ REOS.LivePipelineVerification = (function () {
       );
     }
 
-    if (
-      String(queue['Lead ID'] || '') !==
-      String(state.leadId || '')
-    ) {
+    var iaRows =
+      findControlledIaRows_(state);
+
+    var controlledIa =
+      iaRows.length
+        ? iaRows[iaRows.length - 1]
+        : null;
+
+    if (!controlledIa) {
       throw new Error(
-        'Offer queue does not belong to controlled lead.'
+        'Controlled IA lead not found for offer provenance.'
       );
     }
+
+    var iaLeadId =
+      String(controlledIa['Lead ID'] || '');
+
+    var externalId =
+      String(controlledIa['External ID'] || '');
+
+    if (
+      !iaLeadId ||
+      externalId !== String(state.leadId || '')
+    ) {
+      throw new Error(
+        'Controlled IA lead provenance is invalid.'
+      );
+    }
+
+    if (
+      String(queue['Lead ID'] || '') !==
+      iaLeadId
+    ) {
+      throw new Error(
+        'Offer queue Lead ID does not match controlled IA lead.'
+      );
+    }
+
+    if (
+      String(queue['Decision ID'] || '') !==
+      String(state.decisionId || '')
+    ) {
+      throw new Error(
+        'Offer queue Decision ID does not match controlled decision.'
+      );
+    }
+
+    if (
+      normalize_(queue.Address) !==
+      normalize_(ADDRESS)
+    ) {
+      throw new Error(
+        'Offer queue address does not match controlled certification record.'
+      );
+    }
+
+    return queue;
+  }
+
+  function stageOfferReview_(state) {
+    var queue =
+      requireControlledOfferQueue_(state);
 
     /*
      * generateQueue() is a batch queue builder. Certification uses
@@ -1005,26 +1177,17 @@ REOS.LivePipelineVerification = (function () {
       );
     }
 
-    var queue = findOne_(
-      'AI_OFFER_QUEUE',
-      'Offer Queue ID',
-      state.offerQueueId
-    ) || {};
+    var queue =
+      requireControlledOfferQueue_(state);
 
-    var controlled =
-      String(
-        queue['Lead ID'] ||
-        review['Lead ID'] ||
-        ''
-      ) === String(state.leadId || '') ||
-      normalize_(
-        queue.Address ||
-        review.Address
-      ) === normalize_(ADDRESS);
-
-    if (!controlled) {
+    if (
+      String(review['Offer Queue ID'] || '') !==
+        String(queue['Offer Queue ID'] || '') ||
+      String(review['Lead ID'] || '') !==
+        String(queue['Lead ID'] || '')
+    ) {
       throw new Error(
-        'Safety check failed: review does not belong to controlled test lead.'
+        'Controlled offer review provenance does not match offer queue.'
       );
     }
 
@@ -1443,7 +1606,7 @@ REOS.LivePipelineVerification = (function () {
   function verifyNaturalKeyDuplicates_(runId, stageId, state) {
     var checks = [
       { sheet: 'DISTRESS_LEADS', field: 'Distress Lead ID', value: state.leadId },
-      { sheet: 'IA_LEADS', field: 'Lead ID', value: state.leadId },
+      { sheet: 'IA_LEADS', field: 'External ID', value: state.leadId },
       { sheet: 'AI_ACQUISITION_DECISIONS', field: 'Decision ID', value: state.decisionId },
       { sheet: 'AI_OFFER_QUEUE', field: 'Decision ID', value: state.decisionId },
       { sheet: 'AI_OFFER_REVIEW', field: 'Offer Queue ID', value: state.offerQueueId },
