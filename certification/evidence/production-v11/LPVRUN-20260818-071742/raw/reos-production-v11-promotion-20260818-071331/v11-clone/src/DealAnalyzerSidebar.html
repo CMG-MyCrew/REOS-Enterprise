@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --navy:#10233f; --blue:#1f5fae; --green:#16794b; --red:#b3261e; --line:#d9e1ea; --bg:#f5f7fa; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial,sans-serif; background:var(--bg); color:#172033; }
+    .header { padding:16px; color:#fff; background:linear-gradient(135deg,var(--navy),var(--blue)); }
+    .header h1 { margin:0; font-size:20px; }
+    .header p { margin:6px 0 0; font-size:12px; opacity:.9; }
+    .wrap { padding:14px; }
+    .section { background:#fff; border:1px solid var(--line); border-radius:10px; margin-bottom:12px; padding:12px; }
+    .section h2 { margin:0 0 10px; font-size:14px; color:var(--navy); }
+    label { display:block; font-size:11px; font-weight:700; margin:0 0 4px; }
+    input, select, textarea { width:100%; border:1px solid #b9c5d3; border-radius:6px; padding:8px; font-size:13px; background:#fff; }
+    input:focus, select:focus, textarea:focus { outline:2px solid #9bc3f3; border-color:var(--blue); }
+    textarea { min-height:58px; resize:vertical; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+    .field { min-width:0; }
+    .full { grid-column:1/-1; }
+    .deal-card { margin-top:8px; padding:9px; border-radius:7px; background:#eef4fb; font-size:12px; line-height:1.45; }
+    .checks { display:grid; gap:8px; }
+    .check { display:flex; gap:8px; align-items:center; font-size:12px; }
+    .check input { width:auto; }
+    .hint { margin-top:5px; font-size:10px; line-height:1.4; color:#64748b; }
+    .actions { display:flex; gap:8px; position:sticky; bottom:0; background:var(--bg); padding:8px 0 2px; }
+    button { flex:1; border:0; border-radius:7px; padding:10px; font-weight:700; cursor:pointer; }
+    .preview { background:var(--blue); color:#fff; }
+    .save { background:var(--green); color:#fff; }
+    button.is-busy { opacity:.72; cursor:wait; }
+    .status { display:none; margin-bottom:10px; padding:9px; border-radius:7px; font-size:12px; white-space:pre-wrap; }
+    .status.show { display:block; }
+    .status.info { background:#e8f1fb; color:#173d6b; }
+    .status.success { background:#e1f3e8; color:#155b38; }
+    .status.error { background:#fde8e7; color:var(--red); }
+    .metrics { display:none; grid-template-columns:1fr 1fr; gap:8px; }
+    .metrics.show { display:grid; }
+    .metric { padding:9px; border:1px solid var(--line); border-radius:7px; background:#fafbfd; }
+    .metric span { display:block; font-size:10px; color:#64748b; text-transform:uppercase; }
+    .metric strong { display:block; margin-top:3px; font-size:15px; }
+    .wide { grid-column:1/-1; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>REOS Deal Analyzer</h1>
+    <p>Analyze a real property, save versioned results, score the deal, and synchronize its draft offer.</p>
+  </div>
+  <div class="wrap">
+    <div id="status" class="status"></div>
+
+    <div class="section">
+      <h2>1. Select Deal</h2>
+      <select id="dealId" onchange="loadDeal()"><option value="">Loading deals…</option></select>
+      <div id="dealCard" class="deal-card">Select a deal to load its property details and latest analysis.</div>
+    </div>
+
+    <div class="section">
+      <h2>2. Acquisition & Exit Assumptions</h2>
+      <div class="grid">
+        <div class="field"><label>Purchase Price *</label><input id="purchasePrice" inputmode="decimal" placeholder="$95,000"></div>
+        <div class="field"><label>ARV *</label><input id="arv" inputmode="decimal" placeholder="$165,000"></div>
+        <div class="field"><label>Repair Cost *</label><input id="repairCost" inputmode="decimal" placeholder="$25,000"></div>
+        <div class="field"><label>Assignment Fee</label><input id="assignmentFee" inputmode="decimal" placeholder="$0"></div>
+        <div class="field"><label>Holding Cost</label><input id="holdingCost" inputmode="decimal" placeholder="$0"></div>
+        <div class="field"><label>Closing Cost</label><input id="closingCost" inputmode="decimal" placeholder="$0"></div>
+        <div class="field"><label>Financing Cost</label><input id="financingCost" inputmode="decimal" placeholder="$0"></div>
+        <div class="field"><label>Selling Cost</label><input id="sellingCost" inputmode="decimal" placeholder="$0"></div>
+        <div class="field"><label>MAO %</label><input id="maoPercent" inputmode="decimal" value="70"></div>
+        <div class="field"><label>Operating Expense %</label><input id="operatingExpensePercent" inputmode="decimal" value="16"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>3. Rental Assumptions</h2>
+      <div class="grid">
+        <div class="field"><label>Monthly Rent</label><input id="rentMonthly" inputmode="decimal" placeholder="$0"></div>
+        <div class="field"><label>Monthly Loan Payment</label><input id="loanPaymentMonthly" inputmode="decimal" placeholder="$0"></div>
+        <div class="field"><label>Annual Taxes</label><input id="taxesAnnual" inputmode="decimal" placeholder="$0"></div>
+        <div class="field"><label>Annual Insurance</label><input id="insuranceAnnual" inputmode="decimal" placeholder="$0"></div>
+        <div class="field full"><label>Monthly HOA</label><input id="hoaMonthly" inputmode="decimal" placeholder="$0"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>4. Workflow Options</h2>
+      <div class="grid">
+        <div class="field full">
+          <label>Analysis Save Mode</label>
+          <select id="analysisSaveMode">
+            <option value="update_latest">Update Latest Analysis</option>
+            <option value="create_version">Create New Analysis Version</option>
+          </select>
+          <div class="hint">Update Latest prevents duplicate rows. Create New Version preserves the current analysis and starts the next numbered version.</div>
+        </div>
+        <div class="field"><label>Offer Type</label><select id="offerType"><option>Cash</option><option>Financed</option><option>Seller Finance</option><option>Subject To</option></select></div>
+        <div class="field full"><label>Offer Terms</label><textarea id="offerTerms" placeholder="Optional offer terms or contingencies"></textarea></div>
+      </div>
+      <div class="checks">
+        <label class="check"><input id="createDraftOffer" type="checkbox"> Create or update the active draft offer</label>
+        <label class="check"><input id="advancePipeline" type="checkbox"> Advance pipeline to Initial Analysis</label>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Analysis Preview</h2>
+      <div id="metrics" class="metrics"></div>
+    </div>
+
+    <div class="actions">
+      <button id="previewBtn" class="preview" type="button" onclick="previewDeal()">Preview</button>
+      <button id="saveBtn" class="save" type="button" onclick="saveDeal()">Save Analysis</button>
+    </div>
+  </div>
+
+<script>
+  const UI_VERSION = '3.6.2-context-refresh';
+  const moneyFields = [
+    'purchasePrice','arv','repairCost','holdingCost','closingCost',
+    'financingCost','sellingCost','assignmentFee','rentMonthly',
+    'taxesAnnual','insuranceAnnual','hoaMonthly','loanPaymentMonthly'
+  ];
+  let busy = false;
+  let dealIndex = {};
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    console.log('REOS Deal Analyzer UI', UI_VERSION);
+    showStatus('Loading deals…', 'info');
+    runServer_(
+      'reosDealAnalyzerGetInitialData',
+      [],
+      function(data) {
+        const select = document.getElementById('dealId');
+        const deals = Array.isArray(data && data.deals) ? data.deals : [];
+        dealIndex = {};
+        deals.forEach(function(d) { dealIndex[String(d.dealId || '')] = d; });
+        select.innerHTML = '<option value="">Select a deal…</option>' + deals.map(function(d) {
+          return '<option value="' + esc(d.dealId) + '">' + esc(d.label) + '</option>';
+        }).join('');
+        applyValues((data && data.defaults) || {});
+        showStatus(deals.length ? 'Select a deal to begin.\nUI version: ' + UI_VERSION : 'No deals found in the DEALS sheet.', deals.length ? 'info' : 'error');
+      }
+    );
+  }
+
+  function loadDeal() {
+    const dealId = value('dealId');
+    if (!dealId) {
+      document.getElementById('dealCard').textContent = 'Select a deal to load its property details and latest analysis.';
+      showStatus('Select a deal to begin.', 'info');
+      return;
+    }
+
+    renderDealCard_(dealIndex[dealId] || {}, dealId);
+    showStatus('Loading deal…', 'info');
+    refreshDealContext_(dealId, null);
+  }
+
+  function refreshDealContext_(dealId, successMessage) {
+    runServer_(
+      'reosDealAnalyzerGetDealContext',
+      [dealId],
+      function(data) {
+        const serverDeal = (data && data.deal) || {};
+        const cachedDeal = dealIndex[dealId] || {};
+        const mergedDeal = Object.assign({}, cachedDeal, serverDeal);
+        renderDealCard_(mergedDeal, dealId);
+
+        if (data && data.form) applyValues(data.form);
+        document.getElementById('dealId').value = dealId;
+
+        const versionText = data && data.analysisVersion
+          ? 'Latest analysis version: ' + data.analysisVersion + '.'
+          : 'No previous analysis found.';
+        const address = firstValue_(mergedDeal, ['Address','address','Property Address','Street Address','Full Address']) || cachedDeal.address || 'Deal';
+        showStatus(successMessage || (address + ' loaded successfully.\n' + versionText + '\nReady to preview or save.'), 'success');
+      }
+    );
+  }
+
+  function renderDealCard_(deal, dealId) {
+    deal = deal || {};
+    const cached = dealIndex[dealId] || {};
+    const address = firstValue_(deal, ['Address','address','Property Address','Street Address','Full Address']) || cached.address || selectedDealLabel_(dealId) || 'Unnamed property';
+    const city = firstValue_(deal, ['City','city','Property City']) || cached.city || '';
+    const state = firstValue_(deal, ['State','state','Property State']) || cached.state || '';
+    const zip = firstValue_(deal, ['Zip','ZIP','Zip Code','ZIP Code','zip']) || cached.zip || '';
+    const source = firstValue_(deal, ['Source','source','Lead Source']) || cached.source || '—';
+    const status = firstValue_(deal, ['Deal Status','Status','status']) || cached.status || '—';
+    const location = [city, state, zip].filter(Boolean).join(', ');
+
+    document.getElementById('dealCard').innerHTML =
+      '<strong>' + esc(address) + '</strong>' +
+      (location ? '<br>' + esc(location) : '') +
+      '<br>Deal ID: ' + esc(dealId || '—') +
+      '<br>Source: ' + esc(source) + ' · Status: ' + esc(status);
+  }
+
+  function requestPayload() {
+    const analysis = {};
+    moneyFields.forEach(function(id) { analysis[id] = value(id); });
+    analysis.maoPercent = value('maoPercent');
+    analysis.operatingExpensePercent = value('operatingExpensePercent');
+    return {
+      dealId: value('dealId'),
+      analysis: analysis,
+      options: {
+        analysisSaveMode: value('analysisSaveMode') || 'update_latest',
+        createDraftOffer: document.getElementById('createDraftOffer').checked,
+        advancePipeline: document.getElementById('advancePipeline').checked,
+        offerType: value('offerType'),
+        offerTerms: value('offerTerms')
+      }
+    };
+  }
+
+  function validateRequiredFields(requireDeal) {
+    if (requireDeal && !value('dealId')) { showStatus('Select a deal before continuing.', 'error'); focusField('dealId'); return false; }
+    if (numberValue('purchasePrice') <= 0) { showStatus('Purchase Price must be greater than zero.', 'error'); focusField('purchasePrice'); return false; }
+    if (numberValue('arv') <= 0) { showStatus('ARV must be greater than zero.', 'error'); focusField('arv'); return false; }
+    if (value('repairCost') === '' || numberValue('repairCost') < 0) { showStatus('Repair Cost is required and cannot be negative.', 'error'); focusField('repairCost'); return false; }
+    return true;
+  }
+
+  function previewDeal() {
+    if (busy || !validateRequiredFields(false)) return;
+    showStatus('Calculating preview…', 'info');
+    runServer_('reosDealAnalyzerPreview', [requestPayload()], function(data) {
+      renderMetrics((data && data.metrics) || {});
+      showStatus('Preview calculated. Review the metrics, then save the analysis.', 'success');
+    });
+  }
+
+  function saveDeal() {
+    if (busy || !validateRequiredFields(true)) return;
+    const dealId = value('dealId');
+    showStatus('Saving versioned analysis and synchronizing REOS…', 'info');
+    runServer_('reosDealAnalyzerSubmit', [requestPayload()], function(data) {
+      const result = (data && data.result) || {};
+      const analysis = result.analysis || (result.result && result.result.analysis) || {};
+      if (analysis.MAO !== undefined) {
+        renderMetrics({
+          mao: analysis.MAO,
+          flipProfit: analysis['Flip Profit'],
+          roi: analysis['ROI %'],
+          cashRequired: analysis['Cash Required'],
+          noi: analysis.NOI,
+          capRate: analysis['Cap Rate %'],
+          dscr: analysis.DSCR,
+          recommendation: analysis.Recommendation,
+          riskLevel: analysis['Risk Level']
+        });
+      }
+      document.getElementById('analysisSaveMode').value = 'update_latest';
+      refreshDealContext_(dealId, (data && data.message) || 'Deal analysis saved successfully.');
+    });
+  }
+
+  function runServer_(functionName, args, onSuccess) {
+    setBusy(true);
+    let runner = google.script.run
+      .withSuccessHandler(function(data) {
+        setBusy(false);
+        try { onSuccess(data); } catch (error) { showError(error); }
+      })
+      .withFailureHandler(function(error) { setBusy(false); showError(error); });
+    runner[functionName].apply(runner, args || []);
+  }
+
+  function renderMetrics(m) {
+    const items = [
+      ['MAO', currency(m.mao)], ['Flip Profit', currency(m.flipProfit)],
+      ['ROI', percent(m.roi)], ['Cash Required', currency(m.cashRequired)],
+      ['NOI', currency(m.noi)], ['Cap Rate', percent(m.capRate)],
+      ['DSCR', num(m.dscr)], ['Risk', m.riskLevel || '—'],
+      ['Recommendation', m.recommendation || '—']
+    ];
+    const box = document.getElementById('metrics');
+    box.innerHTML = items.map(function(item, index) {
+      return '<div class="metric ' + (index === 8 ? 'wide' : '') + '"><span>' + esc(item[0]) + '</span><strong>' + esc(String(item[1])) + '</strong></div>';
+    }).join('');
+    box.classList.add('show');
+  }
+
+  function applyValues(data) {
+    Object.keys(data || {}).forEach(function(key) {
+      const el = document.getElementById(key);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = Boolean(data[key]);
+      else el.value = data[key] === null || data[key] === undefined ? '' : data[key];
+    });
+  }
+
+  function firstValue_(object, keys) {
+    for (let i = 0; i < keys.length; i++) {
+      const v = object ? object[keys[i]] : '';
+      if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+    }
+    return '';
+  }
+
+  function selectedDealLabel_(dealId) {
+    const select = document.getElementById('dealId');
+    if (!select || select.selectedIndex < 0) return '';
+    const text = String(select.options[select.selectedIndex].text || '').trim();
+    if (!text || text === 'Select a deal…') return '';
+    const suffix = ' — ' + String(dealId || '');
+    return text.endsWith(suffix) ? text.slice(0, -suffix.length) : text;
+  }
+
+  function setBusy(isBusy) {
+    busy = Boolean(isBusy);
+    const preview = document.getElementById('previewBtn');
+    const save = document.getElementById('saveBtn');
+    preview.classList.toggle('is-busy', busy);
+    save.classList.toggle('is-busy', busy);
+    preview.setAttribute('aria-busy', String(busy));
+    save.setAttribute('aria-busy', String(busy));
+    preview.textContent = busy ? 'Working…' : 'Preview';
+    save.textContent = busy ? 'Working…' : 'Save Analysis';
+    preview.disabled = false;
+    save.disabled = false;
+  }
+
+  function focusField(id) { const el = document.getElementById(id); if (el) el.focus(); }
+  function value(id) { const el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; }
+  function numberValue(id) { const parsed = Number(value(id).replace(/[^0-9.\-]/g, '')); return Number.isFinite(parsed) ? parsed : 0; }
+  function currency(v) { return Number(v || 0).toLocaleString('en-US', { style:'currency', currency:'USD', maximumFractionDigits:0 }); }
+  function percent(v) { return Number(v || 0).toFixed(2) + '%'; }
+  function num(v) { return Number(v || 0).toFixed(2); }
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>'"]/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]; }); }
+  function showStatus(message, type) { const box = document.getElementById('status'); box.textContent = message; box.className = 'status show ' + (type || 'info'); }
+  function showError(error) { const message = error && error.message ? error.message : String(error || 'Unknown error'); showStatus(message, 'error'); console.error(error); }
+</script>
+</body>
+</html>

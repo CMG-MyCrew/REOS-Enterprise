@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    body{
+      font-family:Arial,sans-serif;
+      margin:0;
+      background:#f5f7fb;
+      color:#1f2937
+    }
+    .wrap{padding:18px}
+    .top{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:14px
+    }
+    h2{margin:0}
+    .actions button,
+    .row-actions button{
+      margin-left:6px
+    }
+    button{
+      border:0;
+      border-radius:6px;
+      padding:8px 12px;
+      cursor:pointer;
+      background:#1f5eff;
+      color:white
+    }
+    button.secondary{background:#64748b}
+    button:disabled{
+      cursor:not-allowed;
+      opacity:.55
+    }
+    .filters{
+      display:flex;
+      gap:10px;
+      margin-bottom:14px
+    }
+    select,input,textarea{
+      padding:8px;
+      border:1px solid #cbd5e1;
+      border-radius:6px;
+      background:white;
+      box-sizing:border-box
+    }
+    textarea{
+      min-height:150px;
+      resize:vertical
+    }
+    .kpis{
+      display:grid;
+      grid-template-columns:repeat(8,1fr);
+      gap:10px;
+      margin-bottom:14px
+    }
+    .card{
+      background:white;
+      border-radius:8px;
+      padding:12px;
+      box-shadow:0 1px 3px rgba(0,0,0,.08)
+    }
+    .label{
+      font-size:12px;
+      color:#64748b
+    }
+    .value{
+      font-size:22px;
+      font-weight:700;
+      margin-top:4px
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      background:white;
+      border-radius:8px;
+      overflow:hidden
+    }
+    th,td{
+      padding:10px;
+      border-bottom:1px solid #e2e8f0;
+      text-align:left;
+      font-size:13px;
+      vertical-align:top
+    }
+    th{background:#eef2ff}
+    .status{font-weight:700}
+    .muted{
+      color:#64748b;
+      font-size:12px
+    }
+    .error{
+      color:#b91c1c;
+      margin:10px 0
+    }
+    .delivery-error{
+      color:#b91c1c;
+      font-size:11px;
+      margin-top:4px;
+      max-width:260px
+    }
+    .empty{
+      padding:20px;
+      text-align:center;
+      color:#64748b
+    }
+    .overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,.45);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:1000
+    }
+    .modal{
+      background:white;
+      width:min(680px,calc(100vw - 40px));
+      max-height:calc(100vh - 40px);
+      overflow:auto;
+      border-radius:10px;
+      box-shadow:0 12px 32px rgba(0,0,0,.25);
+      padding:18px
+    }
+    .modal h3{
+      margin:0 0 14px
+    }
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:5px;
+      margin-bottom:12px
+    }
+    .field label{
+      font-size:12px;
+      font-weight:700
+    }
+    .readonly{
+      background:#f8fafc;
+      padding:9px;
+      border:1px solid #e2e8f0;
+      border-radius:6px
+    }
+    .modal-actions{
+      display:flex;
+      justify-content:flex-end;
+      gap:8px;
+      margin-top:16px
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h2>Offer Execution</h2>
+    <div class="actions">
+      <button onclick="buildQueue()">
+        Build Queue
+      </button>
+      <button
+        class="secondary"
+        onclick="refresh()">
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <div class="filters">
+    <select
+      id="status"
+      onchange="refresh()">
+      <option value="">
+        All statuses
+      </option>
+    </select>
+
+    <select
+      id="method"
+      onchange="refresh()">
+      <option value="">
+        All methods
+      </option>
+    </select>
+  </div>
+
+  <div
+    id="error"
+    class="error">
+  </div>
+
+  <div
+    id="kpis"
+    class="kpis">
+  </div>
+
+  <div id="table"></div>
+</div>
+
+<div
+  id="sendOverlay"
+  class="overlay">
+  <div class="modal">
+    <h3>Send Offer Email</h3>
+
+    <div class="field">
+      <label>Recipient</label>
+      <div
+        id="sendRecipient"
+        class="readonly">
+      </div>
+      <div class="muted">
+        Recipient is controlled by the persisted execution record and cannot be changed here.
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="sendSubject">
+        Subject
+      </label>
+      <input
+        id="sendSubject"
+        maxlength="250">
+    </div>
+
+    <div class="field">
+      <label for="sendBody">
+        Email body
+      </label>
+      <textarea
+        id="sendBody"
+        placeholder="Enter the approved offer email content."></textarea>
+    </div>
+
+    <div class="field">
+      <label for="sendNotes">
+        Internal notes
+      </label>
+      <textarea
+        id="sendNotes"
+        style="min-height:70px"
+        placeholder="Optional internal delivery notes."></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button
+        class="secondary"
+        onclick="closeSendModal()">
+        Cancel
+      </button>
+      <button
+        id="sendButton"
+        onclick="confirmSend()">
+        Send Email
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  var rowsById = {};
+  var pendingExecutionId = '';
+
+  function server(
+    name,
+    args,
+    ok,
+    fail
+  ){
+    google.script.run
+      .withSuccessHandler(
+        function(result){
+          if(ok) ok(result);
+        }
+      )
+      .withFailureHandler(
+        function(e){
+          document
+            .getElementById('error')
+            .textContent =
+              e && e.message
+                ? e.message
+                : String(e);
+
+          if(fail) fail(e);
+        }
+      )[name]
+      .apply(
+        null,
+        args || []
+      );
+  }
+
+  function refresh(){
+    document
+      .getElementById('error')
+      .textContent='';
+
+    var filters={
+      status:
+        document
+          .getElementById('status')
+          .value,
+      method:
+        document
+          .getElementById('method')
+          .value
+    };
+
+    server(
+      'reosOfferExecutionDashboardData',
+      [filters],
+      function(raw){
+        var data=
+          typeof raw==='string'
+            ? JSON.parse(raw)
+            : raw;
+
+        renderFilters(data);
+        renderKpis(data.kpis||{});
+        renderTable(data.records||[]);
+      }
+    );
+  }
+
+  function renderFilters(data){
+    fill(
+      'status',
+      data.statuses || []
+    );
+
+    fill(
+      'method',
+      data.methods || []
+    );
+  }
+
+  function fill(id,values){
+    var el=
+      document.getElementById(id);
+
+    var current=el.value;
+
+    if(el.options.length===1){
+      values.forEach(
+        function(v){
+          var o=
+            document.createElement(
+              'option'
+            );
+
+          o.value=v;
+          o.textContent=v;
+          el.appendChild(o);
+        }
+      );
+
+      el.value=current;
+    }
+  }
+
+  function renderKpis(k){
+    var items=[
+      ['Total',k.total],
+      ['Ready',k.ready],
+      ['Submitted',k.submitted],
+      ['Countered',k.countered],
+      ['Accepted',k.accepted],
+      ['Rejected',k.rejected],
+      ['Expired',k.expired],
+      [
+        'Offer Value',
+        '$'+
+        Number(
+          k.totalOfferValue||0
+        ).toLocaleString()
+      ]
+    ];
+
+    document
+      .getElementById('kpis')
+      .innerHTML=
+        items.map(
+          function(x){
+            return (
+              '<div class="card">' +
+              '<div class="label">' +
+              esc(x[0]) +
+              '</div>' +
+              '<div class="value">' +
+              esc(x[1]||0) +
+              '</div>' +
+              '</div>'
+            );
+          }
+        ).join('');
+  }
+
+  function renderTable(rows){
+    rowsById={};
+
+    if(!rows.length){
+      document
+        .getElementById('table')
+        .innerHTML=
+          '<div class="card empty">' +
+          'No execution records found.' +
+          '</div>';
+      return;
+    }
+
+    var html=
+      '<table>' +
+      '<thead><tr>' +
+      '<th>Offer</th>' +
+      '<th>Property</th>' +
+      '<th>Amount</th>' +
+      '<th>Status</th>' +
+      '<th>Recipient</th>' +
+      '<th>Method</th>' +
+      '<th>Delivery</th>' +
+      '<th>Follow Up</th>' +
+      '<th>Actions</th>' +
+      '</tr></thead><tbody>';
+
+    rows.forEach(
+      function(r){
+        var id=
+          String(
+            r['Execution ID'] || ''
+          );
+
+        rowsById[id]=r;
+
+        var deliveryStatus=
+          String(
+            r['Delivery Status'] || ''
+          );
+
+        var recipientEmail=
+          String(
+            r['Recipient Email'] || ''
+          );
+
+        html+=
+          '<tr>' +
+
+          '<td>' +
+          esc(r['Offer ID']) +
+          '</td>' +
+
+          '<td>' +
+          esc(r.Address) +
+          '</td>' +
+
+          '<td>$' +
+          Number(
+            r['Offer Amount'] || 0
+          ).toLocaleString() +
+          '</td>' +
+
+          '<td class="status">' +
+          esc(r['Execution Status']) +
+          '</td>' +
+
+          '<td>' +
+          esc(r['Recipient Name']) +
+          '<div class="muted">' +
+          esc(recipientEmail) +
+          '</div></td>' +
+
+          '<td>' +
+          esc(r['Submission Method']) +
+          '</td>' +
+
+          '<td>' +
+          esc(
+            deliveryStatus ||
+            'Not started'
+          );
+
+        if(r['Delivery Error']){
+          html+=
+            '<div class="delivery-error">' +
+            esc(r['Delivery Error']) +
+            '</div>';
+        }
+
+        html+=
+          '</td>' +
+
+          '<td>' +
+          esc(r['Follow Up At']) +
+          '</td>' +
+
+          '<td class="row-actions">';
+
+        if(
+          r['Execution Status']==='Ready'
+        ){
+          if(
+            deliveryStatus==='Sent'
+          ){
+            html+=
+              '<button class="secondary" ' +
+              'onclick="reconcileSent(\'' +
+              escJs(id) +
+              '\')">' +
+              'Finalize Sent' +
+              '</button>';
+          } else if(
+            deliveryStatus==='Sending' ||
+            deliveryStatus==='Uncertain'
+          ){
+            html+=
+              '<span class="muted">' +
+              'Reconciliation required' +
+              '</span>';
+          } else if(
+            deliveryStatus==='Failed'
+          ){
+            html+=
+              '<span class="muted">' +
+              'Retry requires review' +
+              '</span>';
+          } else if(
+            recipientEmail
+          ){
+            html+=
+              '<button onclick="openSendModal(\'' +
+              escJs(id) +
+              '\')">' +
+              'Send Email' +
+              '</button>';
+          } else {
+            html+=
+              '<span class="muted">' +
+              'Missing recipient email' +
+              '</span>';
+          }
+        }
+
+        if(
+          r['Execution Status']==='Submitted' ||
+          r['Execution Status']==='Countered'
+        ){
+          html+=
+            '<button onclick="response(\'' +
+            escJs(id) +
+            '\')">' +
+            'Response' +
+            '</button>';
+        }
+
+        html+=
+          '</td></tr>';
+      }
+    );
+
+    html+=
+      '</tbody></table>';
+
+    document
+      .getElementById('table')
+      .innerHTML=html;
+  }
+
+  function buildQueue(){
+    server(
+      'reosOfferExecutionBuildQueue',
+      [],
+      refresh
+    );
+  }
+
+  function openSendModal(id){
+    var row=
+      rowsById[id];
+
+    if(!row){
+      showError(
+        'Execution record is no longer available. Refresh and try again.'
+      );
+      return;
+    }
+
+    var email=
+      String(
+        row['Recipient Email'] || ''
+      );
+
+    if(!email){
+      showError(
+        'Controlled Email delivery requires the persisted Recipient Email.'
+      );
+      return;
+    }
+
+    pendingExecutionId=id;
+
+    document
+      .getElementById('sendRecipient')
+      .textContent=
+        (
+          String(
+            row['Recipient Name'] || ''
+          ) +
+          (
+            row['Recipient Name']
+              ? ' — '
+              : ''
+          ) +
+          email
+        );
+
+    document
+      .getElementById('sendSubject')
+      .value=
+        'Offer regarding ' +
+        String(
+          row.Address || ''
+        );
+
+    document
+      .getElementById('sendBody')
+      .value='';
+
+    document
+      .getElementById('sendNotes')
+      .value='';
+
+    document
+      .getElementById('sendButton')
+      .disabled=false;
+
+    document
+      .getElementById('sendOverlay')
+      .style.display='flex';
+  }
+
+  function closeSendModal(){
+    if(
+      document
+        .getElementById('sendButton')
+        .disabled
+    ){
+      return;
+    }
+
+    pendingExecutionId='';
+
+    document
+      .getElementById('sendOverlay')
+      .style.display='none';
+  }
+
+  function confirmSend(){
+    var id=
+      pendingExecutionId;
+
+    var subject=
+      document
+        .getElementById('sendSubject')
+        .value
+        .trim();
+
+    var body=
+      document
+        .getElementById('sendBody')
+        .value
+        .trim();
+
+    var notes=
+      document
+        .getElementById('sendNotes')
+        .value
+        .trim();
+
+    if(!id){
+      showError(
+        'Execution ID is required.'
+      );
+      return;
+    }
+
+    if(!subject){
+      showError(
+        'Email subject is required.'
+      );
+      return;
+    }
+
+    if(!body){
+      showError(
+        'Email body is required.'
+      );
+      return;
+    }
+
+    document
+      .getElementById('error')
+      .textContent='';
+
+    document
+      .getElementById('sendButton')
+      .disabled=true;
+
+    server(
+      'reosOfferExecutionSendEmail',
+      [
+        id,
+        {
+          subject:subject,
+          body:body,
+          notes:notes
+        }
+      ],
+      function(){
+        pendingExecutionId='';
+
+        document
+          .getElementById('sendOverlay')
+          .style.display='none';
+
+        document
+          .getElementById('sendButton')
+          .disabled=false;
+
+        refresh();
+      },
+      function(){
+        document
+          .getElementById('sendButton')
+          .disabled=false;
+
+        /*
+         * Refresh immediately after a delivery failure so
+         * Sending / Failed / Uncertain evidence disables unsafe
+         * repeat clicks.
+         */
+        refresh();
+      }
+    );
+  }
+
+  function reconcileSent(id){
+    document
+      .getElementById('error')
+      .textContent='';
+
+    server(
+      'reosOfferExecutionReconcileSent',
+      [id],
+      refresh,
+      refresh
+    );
+  }
+
+  function response(id){
+    var status=
+      prompt(
+        'Status: Countered, Accepted, Rejected, Expired, or Withdrawn',
+        'Countered'
+      );
+
+    if(!status){
+      return;
+    }
+
+    var notes=
+      prompt(
+        'Response notes:',
+        ''
+      ) || '';
+
+    server(
+      'reosOfferExecutionRecordResponse',
+      [
+        id,
+        status,
+        notes
+      ],
+      refresh
+    );
+  }
+
+  function showError(message){
+    document
+      .getElementById('error')
+      .textContent=
+        String(
+          message || ''
+        );
+  }
+
+  function esc(v){
+    return String(
+      v==null
+        ? ''
+        : v
+    ).replace(
+      /[&<>"']/g,
+      function(c){
+        return {
+          '&':'&amp;',
+          '<':'&lt;',
+          '>':'&gt;',
+          '"':'&quot;',
+          "'":'&#39;'
+        }[c];
+      }
+    );
+  }
+
+  function escJs(v){
+    return String(
+      v==null
+        ? ''
+        : v
+    )
+      .replace(
+        /\\/g,
+        '\\\\'
+      )
+      .replace(
+        /'/g,
+        "\\'"
+      );
+  }
+
+  refresh();
+</script>
+</body>
+</html>
