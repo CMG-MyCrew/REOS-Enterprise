@@ -1,0 +1,28 @@
+{
+  "response": {
+    "offerQueueId": "AIOFFER-20260818055310-8024",
+    "active": true,
+    "nextAction": "Run reosLivePipelineRun() again to advance one stage.",
+    "failed": 1,
+    "nextStage": "Approve, publish, and verify execution isolation",
+    "executionId": "",
+    "integrityPercent": 0,
+    "completedStages": 6,
+    "duplicateProtection": "Pending",
+    "offerId": "",
+    "totalStages": 8,
+    "passed": 5,
+    "runId": "LPVRUN-20260818-052910",
+    "ok": true,
+    "decisionId": "AIDEC-20260818053718-2278",
+    "reviewId": "",
+    "errors": [
+      {
+        "stage": "Generate offer review record",
+        "message": "Offer queue does not belong to controlled lead."
+      }
+    ],
+    "status": "In Progress",
+    "leadId": "LPV-20260818052912-9834"
+  }
+}

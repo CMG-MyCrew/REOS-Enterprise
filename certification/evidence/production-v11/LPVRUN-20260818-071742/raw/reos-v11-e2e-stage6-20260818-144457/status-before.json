@@ -1,0 +1,23 @@
+{
+  "response": {
+    "offerQueueId": "AIOFFER-20260818144219-4635",
+    "active": true,
+    "nextAction": "Run reosLivePipelineRun() again to advance one stage.",
+    "failed": 0,
+    "nextStage": "Generate offer review record",
+    "executionId": "",
+    "completedStages": 5,
+    "integrityPercent": 0,
+    "duplicateProtection": "Pending",
+    "totalStages": 8,
+    "offerId": "",
+    "passed": 5,
+    "runId": "LPVRUN-20260818-071742",
+    "decisionId": "AIDEC-20260818143723-7220",
+    "ok": true,
+    "reviewId": "",
+    "errors": [],
+    "leadId": "LPV-20260818071745-8636",
+    "status": "In Progress"
+  }
+}

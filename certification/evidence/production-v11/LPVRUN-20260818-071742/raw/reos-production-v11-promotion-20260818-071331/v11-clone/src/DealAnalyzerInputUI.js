@@ -1,0 +1,251 @@
+/**
+ * REOS Enterprise v3.6.0
+ * Deal Analyzer Input Interface — server-side controller.
+ */
+
+var REOS = REOS || {};
+
+REOS.DealAnalyzerInputUI = (function () {
+  var DEALS = 'DEALS';
+  var ANALYSIS = 'DEAL_ANALYSIS';
+  var OFFERS = 'OFFERS';
+
+  function showSidebar() {
+    assertDependencies_();
+    var html = HtmlService.createHtmlOutputFromFile('DealAnalyzerSidebar')
+      .setTitle('REOS Deal Analyzer')
+      .setWidth(430);
+    SpreadsheetApp.getUi().showSidebar(html);
+  }
+
+  function getInitialData() {
+    assertDependencies_();
+    REOS.DealAnalyzer.ensureSheets();
+    if (REOS.DealLogicVersioning) REOS.DealLogicVersioning.ensureSheets();
+
+    var deals = REOS.Database.getAll(DEALS).map(function (deal) {
+      var dealId = String(deal['Deal ID'] || '');
+      return {
+        dealId: dealId,
+        address: deal.Address || '',
+        city: deal.City || '',
+        state: deal.State || '',
+        zip: deal.Zip || '',
+        source: deal.Source || '',
+        status: deal['Deal Status'] || '',
+        label: buildDealLabel_(deal)
+      };
+    }).filter(function (deal) {
+      return Boolean(deal.dealId);
+    });
+
+    deals.sort(function (a, b) {
+      return a.label.localeCompare(b.label);
+    });
+
+    return {
+      ok: true,
+      deals: deals,
+      defaults: {
+        maoPercent: 70,
+        operatingExpensePercent: 16,
+        offerType: 'Cash',
+        createDraftOffer: false,
+        advancePipeline: false,
+        analysisSaveMode: 'update_latest'
+      }
+    };
+  }
+
+  function getDealContext(dealId) {
+    assertDependencies_();
+    if (!dealId) throw new Error('Deal ID is required.');
+
+    var deal = REOS.Database.findById(DEALS, 'Deal ID', dealId);
+    if (!deal) throw new Error('Deal not found: ' + dealId);
+
+    var latestAnalysis = latestForDeal_(ANALYSIS, dealId, 'Updated At', 'Created At');
+    var latestOffer = latestForDeal_(OFFERS, dealId, 'Updated At', 'Created At');
+
+    return {
+      ok: true,
+      deal: deal,
+      latestAnalysis: latestAnalysis || null,
+      latestOffer: latestOffer || null,
+      analysisVersion: latestAnalysis ? number_(latestAnalysis['Analysis Version']) || 1 : 0,
+      form: latestAnalysis ? analysisToForm_(latestAnalysis) : {}
+    };
+  }
+
+  function preview(input) {
+    assertDependencies_();
+    input = normalizeRequest_(input);
+    validateRequest_(input, false);
+
+    return {
+      ok: true,
+      metrics: REOS.DealAnalyzer.calculate(input.analysis)
+    };
+  }
+
+  function submit(input) {
+    assertDependencies_();
+    input = normalizeRequest_(input);
+    validateRequest_(input, true);
+
+    if (!(REOS.DealLogicVersioning && REOS.DealLogicVersioning.save)) {
+      throw new Error("Deal Logic Versioning is required for interactive saves.");
+    }
+    var result = REOS.DealLogicVersioning.save(
+      input.dealId,
+      input.analysis,
+      input.options
+    );
+
+    if (REOS.AcquisitionOpportunityView && REOS.AcquisitionOpportunityView.build) {
+      try { REOS.AcquisitionOpportunityView.build(); } catch (ignored) {}
+    }
+
+    var version = result && result.analysis ? number_(result.analysis['Analysis Version']) || 1 : 1;
+    var message = result && result.createdVersion
+      ? 'New deal analysis version ' + version + ' created successfully.'
+      : 'Latest deal analysis version ' + version + ' updated successfully.';
+
+    return {
+      ok: true,
+      message: message,
+      result: result
+    };
+  }
+
+  function normalizeRequest_(input) {
+    input = input || {};
+    var analysis = input.analysis || {};
+    var options = input.options || {};
+
+    return {
+      dealId: String(input.dealId || '').trim(),
+      analysis: {
+        purchasePrice: analysis.purchasePrice,
+        arv: analysis.arv,
+        repairCost: analysis.repairCost,
+        holdingCost: analysis.holdingCost,
+        closingCost: analysis.closingCost,
+        financingCost: analysis.financingCost,
+        sellingCost: analysis.sellingCost,
+        assignmentFee: analysis.assignmentFee,
+        rentMonthly: analysis.rentMonthly,
+        taxesAnnual: analysis.taxesAnnual,
+        insuranceAnnual: analysis.insuranceAnnual,
+        hoaMonthly: analysis.hoaMonthly,
+        loanPaymentMonthly: analysis.loanPaymentMonthly,
+        maoPercent: analysis.maoPercent,
+        operatingExpensePercent: analysis.operatingExpensePercent
+      },
+      options: {
+        createDraftOffer: options.createDraftOffer === true,
+        advancePipeline: options.advancePipeline === true,
+        offerType: String(options.offerType || 'Cash'),
+        offerTerms: String(options.offerTerms || ''),
+        analysisSaveMode: normalizeSaveMode_(options.analysisSaveMode)
+      }
+    };
+  }
+
+  function validateRequest_(input, requireDeal) {
+    if (requireDeal && !input.dealId) throw new Error('Select a deal before saving.');
+    if (number_(input.analysis.purchasePrice) <= 0) throw new Error('Purchase Price must be greater than zero.');
+    if (number_(input.analysis.arv) <= 0) throw new Error('ARV must be greater than zero.');
+    if (number_(input.analysis.repairCost) < 0) throw new Error('Repair Cost cannot be negative.');
+  }
+
+  function analysisToForm_(row) {
+    return {
+      purchasePrice: row['Purchase Price'] || '',
+      arv: row.ARV || '',
+      repairCost: row['Repair Cost'] || '',
+      holdingCost: row['Holding Cost'] || '',
+      closingCost: row['Closing Cost'] || '',
+      financingCost: row['Financing Cost'] || '',
+      sellingCost: row['Selling Cost'] || '',
+      assignmentFee: row['Assignment Fee'] || '',
+      rentMonthly: row['Rent Monthly'] || '',
+      taxesAnnual: row['Taxes Annual'] || '',
+      insuranceAnnual: row['Insurance Annual'] || '',
+      hoaMonthly: row['HOA Monthly'] || '',
+      loanPaymentMonthly: row['Loan Payment Monthly'] || '',
+      maoPercent: row['MAO Percent'] || 70,
+      operatingExpensePercent: row['Operating Expense Percent'] || 16,
+      analysisSaveMode: 'update_latest'
+    };
+  }
+
+  function latestForDeal_(sheetName, dealId, primaryDate, fallbackDate) {
+    var rows = [];
+    try { rows = REOS.Database.getAll(sheetName); } catch (ignored) { return null; }
+    rows = rows.filter(function (row) {
+      return String(row['Deal ID'] || '') === String(dealId || '');
+    });
+    rows.sort(function (a, b) {
+      if (sheetName === ANALYSIS) { var vd = number_(a['Analysis Version']) - number_(b['Analysis Version']); if (vd !== 0) return vd; }
+      return timestamp_(a[primaryDate] || a[fallbackDate]) - timestamp_(b[primaryDate] || b[fallbackDate]);
+    });
+    return rows.length ? rows[rows.length - 1] : null;
+  }
+
+  function buildDealLabel_(deal) {
+    var location = [deal.Address, deal.City, deal.State].filter(Boolean).join(', ');
+    return (location || 'Unnamed property') + ' — ' + String(deal['Deal ID'] || '');
+  }
+
+  function normalizeSaveMode_(mode) {
+    mode = String(mode || 'update_latest').toLowerCase().replace(/[\s-]+/g, '_');
+    return mode === 'create_version' || mode === 'new_version' ? 'create_version' : 'update_latest';
+  }
+
+  function timestamp_(value) {
+    if (!value) return 0;
+    var date = value instanceof Date ? value : new Date(value);
+    var time = date.getTime();
+    return isFinite(time) ? time : 0;
+  }
+
+  function number_(value) {
+    if (typeof value === 'number') return isFinite(value) ? value : 0;
+    var parsed = Number(String(value || '').replace(/[^0-9.\-]/g, ''));
+    return isFinite(parsed) ? parsed : 0;
+  }
+
+  function assertDependencies_() {
+    if (!REOS.Database) throw new Error('REOS.Database is required.');
+    if (!REOS.DealAnalyzer) throw new Error('REOS.DealAnalyzer is required.');
+  }
+
+  return {
+    showSidebar: showSidebar,
+    getInitialData: getInitialData,
+    getDealContext: getDealContext,
+    preview: preview,
+    submit: submit
+  };
+})();
+
+function reosOpenDealAnalyzer() {
+  return REOS.DealAnalyzerInputUI.showSidebar();
+}
+
+function reosDealAnalyzerGetInitialData() {
+  return REOS.DealAnalyzerInputUI.getInitialData();
+}
+
+function reosDealAnalyzerGetDealContext(dealId) {
+  return REOS.DealAnalyzerInputUI.getDealContext(dealId);
+}
+
+function reosDealAnalyzerPreview(input) {
+  return REOS.DealAnalyzerInputUI.preview(input);
+}
+
+function reosDealAnalyzerSubmit(input) {
+  return REOS.DealAnalyzerInputUI.submit(input);
+}

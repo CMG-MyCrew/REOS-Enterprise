@@ -1,0 +1,23 @@
+{
+  "response": {
+    "offerQueueId": "",
+    "active": true,
+    "failed": 0,
+    "nextAction": "Run reosLivePipelineRun() again to advance one stage.",
+    "nextStage": "Initialize and verify distress lead",
+    "executionId": "",
+    "completedStages": 0,
+    "integrityPercent": 0,
+    "duplicateProtection": "Pending",
+    "totalStages": 8,
+    "offerId": "",
+    "passed": 0,
+    "runId": "LPVRUN-20260818-071742",
+    "decisionId": "",
+    "ok": true,
+    "reviewId": "",
+    "errors": [],
+    "status": "In Progress",
+    "leadId": "LPV-20260818071745-8636"
+  }
+}

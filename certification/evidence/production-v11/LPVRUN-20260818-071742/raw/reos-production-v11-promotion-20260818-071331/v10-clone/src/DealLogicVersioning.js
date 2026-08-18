@@ -1,0 +1,856 @@
+/*
+ * REOS Enterprise v3.6.2
+ * Deal Logic Versioning
+ *
+ * Updates the latest analysis by default, creates explicit versions on demand,
+ * synchronizes the latest acquisition score, reuses the active draft offer,
+ * and verifies each DEAL_ANALYSIS persistence operation.
+ */
+
+var REOS = REOS || {};
+
+REOS.DealLogicVersioning = (function () {
+  var DEALS = 'DEALS';
+  var ANALYSIS = 'DEAL_ANALYSIS';
+  var OFFERS = 'OFFERS';
+  var SCORES = 'ACQUISITION_DEAL_SCORES';
+
+  var ANALYSIS_HEADERS = [
+    'Analysis ID','Deal ID','Analysis Version','Previous Analysis ID','Save Mode',
+    'Purchase Price','ARV','Repair Cost','Holding Cost','Closing Cost','Financing Cost',
+    'Selling Cost','Assignment Fee','Rent Monthly','Taxes Annual','Insurance Annual',
+    'HOA Monthly','Loan Payment Monthly','MAO Percent','Operating Expense Percent',
+    'MAO','Flip Profit','ROI %','Cash Required','NOI','Cap Rate %','DSCR',
+    'Recommendation','Risk Level','Summary JSON','Created By','Created At','Updated By','Updated At'
+  ];
+
+  var OFFER_HEADERS = [
+    'Offer ID','Deal ID','Analysis ID','Qualified Queue ID','Authority Source',
+    'Authority Validated At','Offer Type','Offer Amount','Status','Terms','Notes',
+    'Created By','Created At','Updated By','Updated At'
+  ];
+
+  var SCORE_HEADERS = [
+    'Score ID','Deal ID','Analysis ID','Score','Grade','MAO','Purchase Price','ROI %','DSCR',
+    'Risk Level','Recommendation','Score Breakdown JSON','Created At','Updated At'
+  ];
+
+  function ensureSheets() {
+    assertDependencies_();
+    REOS.DealAnalyzer.ensureSheets();
+
+    ensureColumns_(ANALYSIS, ANALYSIS_HEADERS);
+    ensureColumns_(OFFERS, OFFER_HEADERS);
+    ensureColumns_(SCORES, SCORE_HEADERS);
+
+    return {
+      ok: true,
+      sheets: {
+        analysis: ANALYSIS,
+        offers: OFFERS,
+        scores: SCORES
+      }
+    };
+  }
+
+  function ensureColumns_(sheetName, requiredHeaders) {
+    var sheet = REOS.Database.ensureTable(sheetName, requiredHeaders);
+    var existing = REOS.Database.getHeaders(sheetName);
+    var missing = requiredHeaders.filter(function (header) {
+      return existing.indexOf(header) === -1;
+    });
+
+    if (!missing.length) return sheet;
+
+    var startColumn = Math.max(sheet.getLastColumn(), existing.length, 0) + 1;
+    sheet.getRange(1, startColumn, 1, missing.length)
+      .setValues([missing])
+      .setFontWeight('bold')
+      .setWrap(true);
+
+    return sheet;
+  }
+
+  function save(dealId, analysisInput, options) {
+    ensureSheets();
+    options = options || {};
+    if (!dealId) throw new Error('Deal ID is required.');
+    if (!REOS.Database.findById(DEALS, 'Deal ID', dealId)) throw new Error('Deal not found: ' + dealId);
+
+    var lock = LockService.getDocumentLock();
+    if (!lock) throw new Error('Deal Logic requires a spreadsheet-bound document lock.');
+    if (!lock.tryLock(30000)) {
+      throw new Error('Another Deal Logic save is already in progress. Please retry.');
+    }
+
+    try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var mode = normalizeMode_(options.analysisSaveMode);
+    var metrics = REOS.DealAnalyzer.calculate(analysisInput || {});
+    var latest = latestForDeal_(ANALYSIS, dealId, 'Updated At', 'Created At');
+    var user = getUser_();
+    var now = new Date();
+    var beforeCount = countForDealExact_(ANALYSIS, dealId);
+    var version = latest ? Math.max(1, number_(latest['Analysis Version']) || beforeCount || 1) : 1;
+    var creatingVersion = mode === 'create_version' || !latest;
+
+    var record = buildAnalysisRecord_(dealId, analysisInput || {}, metrics, {
+      mode: mode,
+        isInitial: !latest,
+      version: mode === 'create_version' && latest ? version + 1 : version,
+      previousAnalysisId: mode === 'create_version' && latest
+        ? latest['Analysis ID'] || ''
+        : latest ? latest['Previous Analysis ID'] || '' : '',
+      user: user,
+      now: now,
+      createdAt: creatingVersion ? now : (latest ? latest['Created At'] : now),
+      createdBy: creatingVersion ? user : (latest ? latest['Created By'] : user)
+    });
+
+    logPersistence_('before-write', {
+      spreadsheetId: ss.getId(),
+      spreadsheetName: ss.getName(),
+      sheet: ANALYSIS,
+      dealId: dealId,
+      mode: mode,
+      latestAnalysisId: latest ? latest['Analysis ID'] : '',
+      beforeCount: beforeCount,
+      creatingVersion: creatingVersion
+    });
+
+    var analysis;
+    var createdVersion = false;
+    if (creatingVersion) {
+      analysis = REOS.Database.insert(ANALYSIS, record, {
+        idField: 'Analysis ID',
+        idPrefix: 'ANL'
+      });
+      createdVersion = Boolean(latest);
+    } else {
+      REOS.Database.update(ANALYSIS, 'Analysis ID', latest['Analysis ID'], record);
+      analysis = REOS.Database.findById(ANALYSIS, 'Analysis ID', latest['Analysis ID']);
+    }
+
+    if (!analysis || !analysis['Analysis ID']) {
+      throw new Error('DEAL_ANALYSIS persistence failed: saved record could not be reloaded.');
+    }
+
+    var persisted = REOS.Database.findById(ANALYSIS, 'Analysis ID', analysis['Analysis ID']);
+    if (!persisted) {
+      throw new Error('DEAL_ANALYSIS persistence verification failed for ' + analysis['Analysis ID']);
+    }
+
+    var afterCount = countForDealExact_(ANALYSIS, dealId);
+    if (creatingVersion && afterCount !== beforeCount + 1) {
+      throw new Error('DEAL_ANALYSIS insert verification failed. Expected ' + (beforeCount + 1) + ' rows for deal, found ' + afterCount + '.');
+    }
+    if (!creatingVersion && afterCount !== beforeCount) {
+      throw new Error('DEAL_ANALYSIS update verification failed. Expected row count ' + beforeCount + ', found ' + afterCount + '.');
+    }
+
+    var persistence = {
+      verified: true,
+      spreadsheetId: ss.getId(),
+      spreadsheetName: ss.getName(),
+      sheet: ANALYSIS,
+      operation: creatingVersion ? 'insert' : 'update',
+      rowNumber: persisted._rowNumber || null,
+      analysisId: persisted['Analysis ID'],
+      dealId: persisted['Deal ID'],
+      analysisVersion: persisted['Analysis Version'],
+      saveMode: persisted['Save Mode'],
+      beforeCount: beforeCount,
+      afterCount: afterCount,
+      createdAt: persisted['Created At'],
+      updatedAt: persisted['Updated At']
+    };
+
+    logPersistence_('after-write', persistence);
+
+      var score = null;
+      var scoreSync = {
+        attempted: true,
+        ok: true,
+        error: ''
+      };
+
+      try {
+        score = upsertScore_(
+          dealId,
+          persisted,
+          metrics
+        );
+      } catch (error) {
+        scoreSync.ok = false;
+        scoreSync.error =
+          error && error.message
+            ? error.message
+            : String(error);
+
+        console.warn(
+          'Deal Logic score sync failed: ' +
+          scoreSync.error
+        );
+      }
+
+      /*
+       * Deal Increment 4 — qualified execution authority.
+       *
+       * The qualified-deal queue record is the auditable execution
+       * authority for draft-offer preparation.
+       *
+       * MAO remains only a defensive amount prerequisite.
+       */
+      var executionSync =
+        synchronizeQualifiedExecution_(
+          dealId,
+          persisted,
+          score,
+          options,
+          user,
+          now
+        );
+
+      var offer = executionSync.offer;
+      var offerSync = executionSync.offerSync;
+      var formalDecision =
+        executionSync.formalDecision;
+      var decisionSync =
+        executionSync.decisionSync;
+      var qualifiedDealQueue =
+        executionSync.qualifiedDealQueue;
+      var queueSync =
+        executionSync.queueSync;
+
+      /*
+       * Pipeline synchronization deliberately follows qualified
+       * execution synchronization. Pipeline progression depends on
+       * the persisted analysis and score, not draft-offer creation.
+       */
+      var pipelineSync = {
+        attempted: false,
+        ok: true,
+        error: ''
+      };
+
+      if (
+        options.advancePipeline !== false &&
+        REOS.AcquisitionPipeline
+      ) {
+        pipelineSync.attempted = true;
+
+        try {
+          var pipeline =
+            REOS.AcquisitionPipeline.getPipeline(dealId) ||
+            REOS.AcquisitionPipeline.createPipeline(dealId);
+
+          var current = String(
+            pipeline['Current Stage'] || 'Lead'
+          );
+
+          var stages =
+            REOS.AcquisitionPipeline.STAGES ||
+            [
+              'Lead',
+              'Property Review',
+              'Initial Analysis'
+            ];
+
+          if (
+            stages.indexOf(current) <
+            stages.indexOf('Initial Analysis')
+          ) {
+            REOS.AcquisitionPipeline.advanceStage(
+              dealId,
+              'Initial Analysis',
+              'Deal analysis v' +
+                persisted['Analysis Version'] +
+                ' saved. Score ' +
+                score.Score +
+                ' (' +
+                score.Grade +
+                ').'
+            );
+          }
+        } catch (error) {
+          pipelineSync.ok = false;
+          pipelineSync.error =
+            error && error.message
+              ? error.message
+              : String(error);
+
+          console.warn(
+            'Deal Logic pipeline sync failed: ' +
+            pipelineSync.error
+          );
+        }
+      }
+
+    publish_('deal.logic.saved', {
+      dealId: dealId,
+      analysisId: persisted['Analysis ID'],
+      analysisVersion: persisted['Analysis Version'],
+      saveMode: mode,
+      offerId: offer ? offer['Offer ID'] : '',
+      scoreId: score ? score['Score ID'] : '',
+      formalDecision:
+        formalDecision &&
+        formalDecision.decision
+          ? formalDecision.decision.decision
+          : '',
+      qualifiedDealQueued: queueSync.queued,
+      qualifiedDealQueueRevoked: queueSync.revoked,
+      qualifiedDealQueueId: queueSync.queueId
+    });
+
+    return {
+      ok: true,
+      saveMode: mode,
+      createdVersion: createdVersion,
+      analysis: persisted,
+      score: score,
+      offer: offer,
+        scoreSync: scoreSync,
+        offerSync: offerSync,
+        pipelineSync: pipelineSync,
+        formalDecision: formalDecision,
+        decisionSync: decisionSync,
+        qualifiedDealQueue: qualifiedDealQueue,
+        queueSync: queueSync,
+      persistence: persistence
+    };
+    } finally {
+      lock.releaseLock();
+    }
+  }
+
+    function syncExisting(dealId, analysis, options) {
+      ensureSheets();
+      options = options || {};
+
+      var analysisId =
+        analysis &&
+        analysis['Analysis ID'];
+
+      var persisted = analysisId
+        ? REOS.Database.findById(
+            ANALYSIS,
+            'Analysis ID',
+            analysisId
+          )
+        : null;
+
+      if (
+        !persisted ||
+        String(persisted['Deal ID'] || '') !==
+          String(dealId || '')
+      ) {
+        throw new Error(
+          'Persisted deal analysis not found: ' +
+          analysisId
+        );
+      }
+
+      var lock = LockService.getDocumentLock();
+
+      if (
+        !lock ||
+        !lock.tryLock(30000)
+      ) {
+        throw new Error(
+          'Another Deal Logic sync is already in progress. Please retry.'
+        );
+      }
+
+      try {
+        var metrics = {
+          mao: number_(persisted.MAO),
+          roi: number_(persisted['ROI %']),
+          dscr: number_(persisted.DSCR),
+          riskLevel:
+            persisted['Risk Level'] || '',
+          recommendation:
+            persisted.Recommendation || ''
+        };
+
+        var score = upsertScore_(
+          dealId,
+          persisted,
+          metrics
+        );
+
+        var user = getUser_();
+        var now = new Date();
+
+        var executionSync =
+          synchronizeQualifiedExecution_(
+            dealId,
+            persisted,
+            score,
+            options,
+            user,
+            now
+          );
+
+        return {
+          ok: true,
+          analysis: persisted,
+          score: score,
+          offer: executionSync.offer,
+          offerSync: executionSync.offerSync,
+          formalDecision:
+            executionSync.formalDecision,
+          decisionSync:
+            executionSync.decisionSync,
+          qualifiedDealQueue:
+            executionSync.qualifiedDealQueue,
+          queueSync:
+            executionSync.queueSync
+        };
+      } finally {
+        lock.releaseLock();
+      }
+    }
+
+  function synchronizeQualifiedExecution_(
+    dealId,
+    persisted,
+    score,
+    options,
+    user,
+    now
+  ) {
+    options = options || {};
+
+    /*
+     * Increment 3 — formal qualification authority.
+     */
+    var formalDecision = null;
+
+    var decisionSync = {
+      attempted: false,
+      ok: true,
+      error: ''
+    };
+
+    if (
+      REOS.DealDecisionAdapter &&
+      typeof REOS.DealDecisionAdapter.evaluate ===
+        'function'
+    ) {
+      decisionSync.attempted = true;
+
+      try {
+        formalDecision =
+          REOS.DealDecisionAdapter.evaluate(
+            dealId,
+            persisted,
+            score || {}
+          );
+      } catch (error) {
+        decisionSync.ok = false;
+        decisionSync.error =
+          error && error.message
+            ? error.message
+            : String(error);
+
+        console.warn(
+          'Deal Logic formal decision evaluation failed: ' +
+          decisionSync.error
+        );
+      }
+    }
+
+    /*
+     * Increment 4 — persist / synchronize execution authority.
+     */
+    var qualifiedDealQueue = null;
+
+    var queueSync = {
+      attempted: false,
+      ok: true,
+      queued: false,
+      created: false,
+      revoked: false,
+      queueId: '',
+      error: ''
+    };
+
+    if (
+      formalDecision &&
+      REOS.QualifiedDealQueue &&
+      typeof REOS.QualifiedDealQueue.qualify ===
+        'function'
+    ) {
+      queueSync.attempted = true;
+
+      try {
+        var queueResult =
+          REOS.QualifiedDealQueue.qualify(
+            formalDecision
+          );
+
+        queueSync.queued =
+          queueResult.queued === true;
+
+        queueSync.created =
+          queueResult.created === true;
+
+        queueSync.revoked =
+          queueResult.revoked === true;
+
+        qualifiedDealQueue =
+          queueResult.queue || null;
+
+        queueSync.queueId =
+          qualifiedDealQueue &&
+          qualifiedDealQueue['Queue ID']
+            ? String(
+                qualifiedDealQueue['Queue ID']
+              )
+            : '';
+      } catch (error) {
+        queueSync.ok = false;
+        queueSync.error =
+          error && error.message
+            ? error.message
+            : String(error);
+
+        console.warn(
+          'Deal Logic qualified deal queue sync failed: ' +
+          queueSync.error
+        );
+      }
+    }
+
+    /*
+     * The queue record itself is the execution authority.
+     *
+     * queueSync.queued is intentionally NOT the authority gate.
+     * It describes the synchronization result and must not replace
+     * inspection of the persisted authority record.
+     */
+    var authorized =
+      hasQualifiedOfferAuthority_(
+        queueSync,
+        qualifiedDealQueue,
+        dealId,
+        persisted['Analysis ID']
+      );
+
+    var offer = null;
+
+    var offerSync = {
+      attempted: false,
+      ok: true,
+      authorized: authorized,
+      reason: '',
+      error: ''
+    };
+
+    if (options.createDraftOffer === false) {
+      offerSync.reason =
+        'Draft offer creation disabled by caller.';
+    } else if (!authorized) {
+      offerSync.reason =
+        queueSync.ok === false
+          ? 'Qualified-deal queue synchronization failed.'
+          : 'No active qualified-deal queue authority.';
+    } else if (number_(persisted.MAO) <= 0) {
+      offerSync.reason =
+        'Qualified deal has no positive MAO for offer preparation.';
+    } else {
+      offerSync.attempted = true;
+
+      try {
+        offer = upsertDraftOffer_(
+          dealId,
+          persisted,
+          qualifiedDealQueue,
+          options,
+          user,
+          now
+        );
+
+        offerSync.reason =
+          'Draft offer prepared under qualified-deal queue authority.';
+      } catch (error) {
+        offerSync.ok = false;
+        offerSync.error =
+          error && error.message
+            ? error.message
+            : String(error);
+
+        console.warn(
+          'Deal Logic offer sync failed: ' +
+          offerSync.error
+        );
+      }
+    }
+
+    return {
+      formalDecision: formalDecision,
+      decisionSync: decisionSync,
+      qualifiedDealQueue:
+        qualifiedDealQueue,
+      queueSync: queueSync,
+      offer: offer,
+      offerSync: offerSync
+    };
+  }
+
+  function hasQualifiedOfferAuthority_(
+    queueSync,
+    qualifiedDealQueue,
+    dealId,
+    analysisId
+  ) {
+    if (
+      !queueSync ||
+      queueSync.attempted !== true ||
+      queueSync.ok !== true ||
+      !qualifiedDealQueue ||
+      !REOS.QualifiedDealQueue ||
+      typeof REOS.QualifiedDealQueue.validateAuthority !==
+        'function'
+    ) {
+      return false;
+    }
+
+    var validation =
+      REOS.QualifiedDealQueue.validateAuthority({
+        queueId: String(
+          qualifiedDealQueue['Queue ID'] || ''
+        ),
+        dealId: String(dealId || ''),
+        analysisId: String(analysisId || '')
+      });
+
+    return !!(
+      validation &&
+      validation.ok === true &&
+      validation.authorized === true
+    );
+  }
+
+  function buildAnalysisRecord_(dealId, input, metrics, meta) {
+    return {
+      'Deal ID': dealId,
+      'Analysis Version': meta.version,
+      'Previous Analysis ID': meta.previousAnalysisId,
+      'Save Mode': meta.isInitial ? 'Initial Version' : (meta.mode === 'create_version' ? 'Create New Version' : 'Update Latest'),
+      'Purchase Price': money_(input.purchasePrice),
+      ARV: money_(input.arv),
+      'Repair Cost': money_(input.repairCost),
+      'Holding Cost': money_(input.holdingCost),
+      'Closing Cost': money_(input.closingCost),
+      'Financing Cost': money_(input.financingCost),
+      'Selling Cost': money_(input.sellingCost),
+      'Assignment Fee': money_(input.assignmentFee),
+      'Rent Monthly': money_(input.rentMonthly),
+      'Taxes Annual': money_(input.taxesAnnual),
+      'Insurance Annual': money_(input.insuranceAnnual),
+      'HOA Monthly': money_(input.hoaMonthly),
+      'Loan Payment Monthly': money_(input.loanPaymentMonthly),
+      'MAO Percent': metrics.maoPercent,
+      'Operating Expense Percent': metrics.operatingExpensePercent,
+      MAO: metrics.mao,
+      'Flip Profit': metrics.flipProfit,
+      'ROI %': metrics.roi,
+      'Cash Required': metrics.cashRequired,
+      NOI: metrics.noi,
+      'Cap Rate %': metrics.capRate,
+      DSCR: metrics.dscr,
+      Recommendation: metrics.recommendation,
+      'Risk Level': metrics.riskLevel,
+      'Summary JSON': json_(metrics),
+      'Created By': meta.createdBy || meta.user,
+      'Created At': meta.createdAt || meta.now,
+      'Updated By': meta.user,
+      'Updated At': meta.now
+    };
+  }
+
+  function upsertScore_(dealId, analysis, metrics) {
+    var score = calculateScore_(analysis);
+    var existing = latestForDeal_(SCORES, dealId, 'Updated At', 'Created At');
+    var now = new Date();
+    var record = {
+      'Deal ID': dealId,
+      'Lead ID': deal['Lead ID'] || '',
+      'Analysis ID': analysis['Analysis ID'],
+      Score: score.score,
+      Grade: score.grade,
+      MAO: number_(metrics.mao),
+      'Purchase Price': number_(analysis['Purchase Price']),
+      'ROI %': number_(metrics.roi),
+      DSCR: number_(metrics.dscr),
+      'Risk Level': metrics.riskLevel || '',
+      Recommendation: metrics.recommendation || '',
+      'Score Breakdown JSON': json_(score.breakdown),
+      'Updated At': now
+    };
+
+    if (existing) {
+      REOS.Database.update(SCORES, 'Score ID', existing['Score ID'], record);
+      return REOS.Database.findById(SCORES, 'Score ID', existing['Score ID']);
+    }
+
+    record['Created At'] = now;
+    return REOS.Database.insert(SCORES, record, { idField: 'Score ID', idPrefix: 'DSCORE' });
+  }
+
+  function upsertDraftOffer_(
+    dealId,
+    analysis,
+    qualifiedDealQueue,
+    options,
+    user,
+    now
+  ) {
+    var offerType =
+      String(
+        options.offerType || 'Cash'
+      ).toLowerCase();
+
+    var deal =
+      REOS.Database.findById(
+        'DEALS',
+        'Deal ID',
+        dealId
+      ) || {};
+
+    var drafts = REOS.Database.getAll(OFFERS).filter(function (row) {
+      return String(row['Deal ID'] || '') === String(dealId) && String(row.Status || '').toLowerCase() === 'draft' && String(row['Offer Type'] || '').toLowerCase() === offerType;
+    });
+    drafts.sort(function (a, b) {
+      return timestamp_(a['Updated At'] || a['Created At']) - timestamp_(b['Updated At'] || b['Created At']);
+    });
+    var latest = drafts.length ? drafts[drafts.length - 1] : null;
+    var record = {
+      'Deal ID': dealId,
+      'Analysis ID': analysis['Analysis ID'],
+      'Qualified Queue ID': String(
+        qualifiedDealQueue['Queue ID'] || ''
+      ),
+      'Authority Source': 'QUALIFIED_DEAL_QUEUE',
+      'Authority Validated At': now,
+      'Offer Type': options.offerType || 'Cash',
+      'Offer Amount': number_(analysis.MAO),
+      Status: 'Draft',
+      Terms: options.offerTerms || 'Offer based on REOS calculated MAO.',
+      Notes: 'Synchronized by Deal Logic Versioning from analysis v' + analysis['Analysis Version'] + '.',
+      'Updated By': user,
+      'Updated At': now
+    };
+
+    if (latest) {
+      REOS.Database.update(OFFERS, 'Offer ID', latest['Offer ID'], record);
+      return REOS.Database.findById(OFFERS, 'Offer ID', latest['Offer ID']);
+    }
+
+    record['Created By'] = user;
+    record['Created At'] = now;
+    return REOS.Database.insert(OFFERS, record, { idField: 'Offer ID', idPrefix: 'OFF' });
+  }
+
+  function calculateScore_(analysis) {
+    var roi = number_(analysis['ROI %']);
+    var dscr = number_(analysis.DSCR);
+    var mao = number_(analysis.MAO);
+    var purchase = number_(analysis['Purchase Price']);
+    var risk = String(analysis['Risk Level'] || 'High');
+    var recommendation = String(analysis.Recommendation || 'Review');
+    var roiPoints = clamp_(roi, 0, 30);
+    var maoPoints = mao > 0 ? clamp_(15 + (((mao - purchase) / mao) * 100), 0, 30) : 0;
+    var dscrPoints = dscr >= 1.50 ? 20 : dscr >= 1.20 ? 16 : dscr > 0 ? 6 : 10;
+    var riskPoints = risk === 'Low' ? 15 : risk === 'Medium' ? 8 : 0;
+    var recommendationPoints = recommendation === 'Strong Review' ? 5 : recommendation === 'Review' ? 2 : 0;
+    var total = Math.round(clamp_(roiPoints + maoPoints + dscrPoints + riskPoints + recommendationPoints, 0, 100));
+    return {
+      score: total,
+      grade: total >= 90 ? 'A' : total >= 80 ? 'B' : total >= 70 ? 'C' : total >= 60 ? 'D' : 'F',
+      breakdown: {
+        roiPoints: round2_(roiPoints),
+        maoPoints: round2_(maoPoints),
+        dscrPoints: round2_(dscrPoints),
+        riskPoints: round2_(riskPoints),
+        recommendationPoints: round2_(recommendationPoints)
+      }
+    };
+  }
+
+  function latestForDeal_(sheetName, dealId, primaryDate, fallbackDate) {
+    var rows = REOS.Database.getAll(sheetName).filter(function (row) {
+      return String(row['Deal ID'] || '') === String(dealId || '');
+    });
+    rows.sort(function (a, b) {
+      if (sheetName === ANALYSIS) { var vd = number_(a['Analysis Version']) - number_(b['Analysis Version']); if (vd !== 0) return vd; } return timestamp_(a[primaryDate] || a[fallbackDate]) - timestamp_(b[primaryDate] || b[fallbackDate]);
+    });
+    return rows.length ? rows[rows.length - 1] : null;
+  }
+
+  function countForDealExact_(sheetName, dealId) {
+    return REOS.Database.getAll(sheetName).filter(function (row) {
+      return String(row['Deal ID'] || '') === String(dealId || '');
+    }).length;
+  }
+
+  function normalizeMode_(mode) {
+    mode = String(mode || 'update_latest').toLowerCase().replace(/[\s-]+/g, '_');
+    return mode === 'create_version' || mode === 'new_version' ? 'create_version' : 'update_latest';
+  }
+
+  function logPersistence_(stage, payload) {
+    var entry = {
+      event: 'REOS_DEAL_ANALYSIS_PERSISTENCE',
+      stage: stage,
+      timestamp: new Date().toISOString(),
+      payload: payload || {}
+    };
+    console.log(JSON.stringify(entry, null, 2));
+  }
+
+  function getUser_() {
+    try { return Session.getActiveUser().getEmail() || ''; } catch (e) { return ''; }
+  }
+  function money_(value) {
+    if (typeof value === 'number') return isFinite(value) ? value : 0;
+    var parsed = Number(String(value || '').replace(/[^0-9.\-]/g, ''));
+    return isFinite(parsed) ? parsed : 0;
+  }
+  function number_(value) { return money_(value); }
+  function timestamp_(value) {
+    if (!value) return 0;
+    var d = value instanceof Date ? value : new Date(value);
+    return isFinite(d.getTime()) ? d.getTime() : 0;
+  }
+  function clamp_(value, min, max) { return Math.max(min, Math.min(max, number_(value))); }
+  function round2_(value) { return Math.round((number_(value) + Number.EPSILON) * 100) / 100; }
+  function json_(value) {
+    try { return JSON.stringify(value); } catch (e) { return '{}'; }
+  }
+  function publish_(topic, payload) {
+    if (REOS.PluginEventBus && REOS.PluginEventBus.publish) {
+      REOS.PluginEventBus.publish(topic, payload, 'acquisitions');
+    }
+  }
+  function assertDependencies_() {
+    if (!REOS.Database) throw new Error('REOS.Database is required.');
+    if (!REOS.DealAnalyzer) throw new Error('REOS.DealAnalyzer is required.');
+  }
+
+  return {
+    ensureSheets: ensureSheets,
+    syncExisting: syncExisting,
+    save: save
+  };
+})();
+
+function reosDealLogicEnsureSheets() {
+  return REOS.DealLogicVersioning.ensureSheets();
+}
+
+function reosDealLogicSave(dealId, analysis, options) {
+  return REOS.DealLogicVersioning.save(dealId, analysis || {}, options || {});
+}

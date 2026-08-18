@@ -1,0 +1,37 @@
+=== PRODUCTION E2E HARNESS SAFETY CERTIFICATION ===
+
+PASS: legacy 742 Walnut test identity removed
+PASS: production certification marker is version-qualified
+PASS: synthetic certification address is version-qualified
+PASS: legacy Lead Source receives certification marker
+PASS: county Source receives certification marker
+PASS: test lookup accepts legacy Lead Source marker
+PASS: ingestion certification does not invoke global ingestion orchestrator
+PASS: ingestion certification does not invoke global dedup scan
+PASS: ingestion normalization remains single-record bounded
+PASS: controlled deduplication uses only bounded candidate comparison
+PASS: bounded IA persistence is idempotent by External ID
+PASS: acquisition intelligence certification is single-lead bounded
+PASS: deal intelligence certification is single-lead bounded
+PASS: bounded acquisition persistence is idempotent by Lead ID
+PASS: bounded deal persistence is idempotent by Distress Lead ID
+PASS: offer certification does not invoke bulk generateDrafts
+PASS: offer review certification does not invoke bulk generateQueue
+PASS: offer publication certification does not invoke bulk publishApproved
+PASS: execution certification does not invoke global buildQueue
+PASS: controlled offer queue persistence exists
+PASS: controlled offer review persistence exists
+PASS: offer queue ownership follows controlled IA provenance
+PASS: offer review and execution share the same provenance guard
+PASS: failed certification stages do not advance the stage pointer
+PASS: cross-version staged execution fails closed
+PASS: IA duplicate protection follows External ID provenance
+PASS: controlled offer publication persistence exists
+PASS: execution isolation uses qualified-deal authority validator
+PASS: controlled review approval remains record-bounded
+PASS: live verifier does not call OfferDeliveryTransport
+PASS: live verifier does not call GmailApp
+PASS: live verifier does not call MailApp
+PASS: live verifier verifies execution authority isolation
+
+Production E2E harness safety certification PASSED.
