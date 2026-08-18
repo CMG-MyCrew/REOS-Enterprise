@@ -65,8 +65,33 @@ check(
 );
 
 check(
-  'ingestion disables connector execution',
-  source.includes('runConnectors: false')
+  'ingestion certification does not invoke global ingestion orchestrator',
+  !/REOS\.AcquisitionIngestionOrchestrator,\s*'run'/.test(source)
+);
+
+check(
+  'ingestion certification does not invoke global dedup scan',
+  !/REOS\.LeadDeduplication,\s*'scanSheet'/.test(source)
+);
+
+check(
+  'ingestion normalization remains single-record bounded',
+  /REOS\.LeadNormalization,\s*'normalize'/.test(source)
+);
+
+check(
+  'controlled deduplication uses only bounded candidate comparison',
+  /REOS\.LeadDeduplication,\s*'findBest'/.test(source) &&
+    source.includes('findControlledIaRows_')
+);
+
+check(
+  'bounded IA persistence is idempotent by External ID',
+  source.includes(
+    'persistControlledIntelligentAcquisitionLead_'
+  ) &&
+    source.includes("'IA_LEADS'") &&
+    source.includes("'External ID'")
 );
 
 check(

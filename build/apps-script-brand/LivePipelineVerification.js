@@ -1,4 +1,4 @@
-// REOS Enterprise v4.4.9
+// REOS Enterprise v4.4.10
 // Deal Increment 5 - Offer Execution Authority Verification
 var REOS = REOS || {};
 
@@ -6,8 +6,8 @@ REOS.LivePipelineVerification = (function () {
   var RUNS = 'LIVE_PIPELINE_RUNS';
   var RESULTS = 'LIVE_PIPELINE_RESULTS';
   var AUDIT = 'LIVE_PIPELINE_AUDIT';
-  var MARKER = 'REOS-PROD-E2E-CERT-V9';
-  var ADDRESS = 'REOS E2E CERTIFICATION V9';
+  var MARKER = 'REOS-PROD-E2E-CERT-V10';
+  var ADDRESS = 'REOS E2E CERTIFICATION V10';
   var TZ = 'America/New_York';
   var STATE_KEY = 'REOS_LIVE_PIPELINE_STATE_V1';
 
@@ -74,7 +74,7 @@ REOS.LivePipelineVerification = (function () {
     var leadResult = createTestLead();
     var lead = leadResult.record || {};
     var state = {
-      version: '4.4.9',
+      version: '4.4.10',
       runId: 'LPVRUN-' + Utilities.formatDate(started, Session.getScriptTimeZone() || TZ, 'yyyyMMdd-HHmmss'),
       status: 'In Progress',
       stageIndex: 0,
@@ -151,25 +151,300 @@ REOS.LivePipelineVerification = (function () {
   }
 
   function stageIngest_(state) {
-    var distress = findTestRows_('DISTRESS_LEADS')[0] || {};
-    invokeStage_(state.runId, 2, 'Lead normalization', REOS.LeadNormalization, 'normalize', [distress]);
-    invokeStage_(state.runId, 2, 'Lead deduplication', REOS.LeadDeduplication, 'scanSheet', ['DISTRESS_LEADS', 'Distress Lead ID']);
-    invokeStage_(state.runId, 2, 'Ingestion orchestrator', REOS.AcquisitionIngestionOrchestrator, 'run', [{
-      runConnectors: false,
-      scanDuplicates: false,
-      scoreLeads: false,
-      autoPromote: false
-    }]);
-    var rows = findRelatedRows_('IA_LEADS', state.leadId);
-    if (rows.length) {
-      REOS.Database.update('IA_LEADS', 'Lead ID', rows[0]['Lead ID'], {
-        'Total Score': Math.max(85, Number(rows[0]['Total Score'] || 0)),
-        Grade: rows[0].Grade || 'A',
-        'Updated At': new Date()
-      });
+    var distress =
+      findTestRows_('DISTRESS_LEADS')[0] ||
+      null;
+
+    if (!distress) {
+      throw new Error(
+        'Controlled distress lead not found for ingestion.'
+      );
     }
-    return verifyStage_(state.runId, 2, 'Intelligent acquisition lead', 'DISTRESS_LEADS', 'IA_LEADS', state.leadId,
-      function () { return findRelatedRows_('IA_LEADS', state.leadId); });
+
+    /*
+     * Exercise the real normalization implementation on exactly
+     * the controlled certification lead.
+     */
+    var normalization = invokeStage_(
+      state.runId,
+      2,
+      'Lead normalization',
+      REOS.LeadNormalization,
+      'normalize',
+      [distress]
+    );
+
+    if (
+      !normalization ||
+      normalization.ok !== true ||
+      !normalization.record
+    ) {
+      throw new Error(
+        'Controlled lead normalization failed.'
+      );
+    }
+
+    /*
+     * Do not invoke AcquisitionIngestionOrchestrator.run() here.
+     * That path ultimately calls ingestDistressLeads(), which
+     * intentionally processes the entire DISTRESS_LEADS population.
+     *
+     * Ensure the production IA schema exists, then persist exactly
+     * one controlled synthetic IA lead.
+     */
+    invokeStage_(
+      state.runId,
+      2,
+      'Intelligent acquisition schema',
+      REOS.IntelligentAcquisition,
+      'ensureSheets',
+      []
+    );
+
+    var existing =
+      findControlledIaRows_(state);
+
+    /*
+     * Exercise deduplication logic only against the controlled
+     * candidate set. Never call scanSheet() from live certification.
+     */
+    invokeStage_(
+      state.runId,
+      2,
+      'Controlled lead deduplication',
+      REOS.LeadDeduplication,
+      'findBest',
+      [
+        distress,
+        existing
+      ]
+    );
+
+    var lead =
+      persistControlledIntelligentAcquisitionLead_(
+        state,
+        distress,
+        normalization.record,
+        existing
+      );
+
+    var iaLeadId =
+      String(lead['Lead ID'] || '');
+
+    if (!iaLeadId) {
+      throw new Error(
+        'Controlled IA lead persistence returned no Lead ID.'
+      );
+    }
+
+    return writeResult_(
+      state.runId,
+      2,
+      'Intelligent acquisition lead',
+      'DISTRESS_LEADS',
+      'IA_LEADS',
+      state.leadId,
+      iaLeadId,
+      state.leadId,
+      'Pass',
+      0,
+      'Controlled distress lead persisted to isolated IA lead'
+    );
+  }
+
+  function findControlledIaRows_(state) {
+    var rows = findByField_(
+      'IA_LEADS',
+      'External ID',
+      state.leadId
+    );
+
+    if (rows.length) {
+      return rows;
+    }
+
+    return findTestRows_('IA_LEADS');
+  }
+
+  function persistControlledIntelligentAcquisitionLead_(
+    state,
+    distress,
+    normalized,
+    existingRows
+  ) {
+    normalized = normalized || {};
+    existingRows = existingRows || [];
+
+    var current =
+      existingRows.length
+        ? existingRows[existingRows.length - 1]
+        : null;
+
+    var values = {
+      'External ID':
+        state.leadId,
+      Source:
+        MARKER,
+      Address:
+        normalized.address ||
+        distress.Address ||
+        '',
+      City:
+        normalized.city ||
+        distress.City ||
+        '',
+      State:
+        normalized.state ||
+        distress.State ||
+        '',
+      Zip:
+        normalized.zip ||
+        distress.Zip ||
+        '',
+      'Owner Name':
+        normalized.ownerName ||
+        distress['Owner Name'] ||
+        '',
+      'Owner Email':
+        String(
+          distress['Owner Email'] ||
+          distress['Seller Email'] ||
+          distress.Email ||
+          ''
+        ).trim().toLowerCase(),
+      'Property Type':
+        distress['Property Type'] ||
+        'Single Family',
+      'Distress Type':
+        distress['Distress Type'] ||
+        '',
+      'Tax Delinquent':
+        controlledBool_(
+          distress['Tax Delinquent'] ||
+          distress['Tax Delinquency']
+        ),
+      Probate:
+        controlledBool_(
+          distress.Probate
+        ),
+      'Code Violation':
+        controlledBool_(
+          distress['Code Violation'] ||
+          distress['Code Violations']
+        ),
+      Vacant:
+        controlledBool_(
+          distress.Vacant ||
+          distress.Vacancy
+        ),
+      'Absentee Owner':
+        controlledBool_(
+          distress['Absentee Owner'] ||
+          distress.Absentee
+        ),
+      Foreclosure:
+        controlledBool_(
+          distress.Foreclosure ||
+          distress['Pre-Foreclosure']
+        ),
+      'Equity %':
+        controlledNumber_(
+          distress['Equity %'] ||
+          distress['Equity Percentage']
+        ),
+      'Estimated Value':
+        controlledNumber_(
+          distress['Estimated Value'] ||
+          distress['Market Value'] ||
+          distress.ARV
+        ),
+      'Estimated Debt':
+        controlledNumber_(
+          distress['Estimated Debt'] ||
+          distress['Mortgage Balance']
+        ),
+      'Estimated Repairs':
+        controlledNumber_(
+          distress['Estimated Repairs'] ||
+          distress.Repairs
+        ),
+      'Asking Price':
+        controlledNumber_(
+          distress['Asking Price'] ||
+          distress.Price
+        ),
+      'Total Score':
+        Math.max(
+          85,
+          Number(
+            current &&
+            current['Total Score'] ||
+            0
+          )
+        ),
+      Grade:
+        current
+          ? current.Grade || 'A'
+          : 'A',
+      Status:
+        current
+          ? current.Status || 'New'
+          : 'New',
+      'Promoted Deal ID':
+        current
+          ? current['Promoted Deal ID'] || ''
+          : '',
+      'Normalized Key':
+        normalized.normalizedKey || '',
+      'Updated At':
+        new Date()
+    };
+
+    if (current) {
+      return REOS.Database.update(
+        'IA_LEADS',
+        'Lead ID',
+        current['Lead ID'],
+        values
+      );
+    }
+
+    values['Created At'] =
+      new Date();
+
+    return REOS.Database.insert(
+      'IA_LEADS',
+      values,
+      {
+        idField: 'Lead ID',
+        idPrefix: 'IAL'
+      }
+    );
+  }
+
+  function controlledNumber_(value) {
+    var number =
+      Number(value || 0);
+
+    return isNaN(number)
+      ? 0
+      : number;
+  }
+
+  function controlledBool_(value) {
+    return (
+      value === true ||
+      [
+        'true',
+        'yes',
+        'y',
+        '1',
+        'x'
+      ].indexOf(
+        String(value || '')
+          .toLowerCase()
+      ) !== -1
+    );
   }
 
   function stageAcquisitionIntelligence_(state) {
