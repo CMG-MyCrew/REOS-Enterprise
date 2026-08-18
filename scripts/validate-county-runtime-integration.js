@@ -40,7 +40,8 @@ const PRODUCTION_PRESERVATION_FILES = [
   'DealLifecycleWorkflow.js',
   'DistressIntelligenceBatchProcessor.js',
   'DistressIntelligenceEntryPoints.js',
-  'RuntimeVault.js'
+  'RuntimeVault.js',
+  'ProductionOperations.js'
 ];
 
 const CONTROLLED_MODIFIED_BUILD_FILES = [
@@ -158,7 +159,7 @@ pass('exactly 94 generated county connectors are present');
  * The county integration remains exactly additive except for explicitly
  * controlled production hardening files. Controlled files must remain
  * modifications of existing baseline files. All remaining baseline deltas
- * must remain the exact 110-file additive county/preservation inventory.
+ * must remain the exact 111-file additive county/preservation inventory.
  */
 const productionDiff = git([
   'diff',
@@ -274,14 +275,14 @@ assert.equal(
 
 assert.equal(
   expectedPreservationFiles.size,
-  6,
-  'expected production preservation inventory must contain 6 files'
+  7,
+  'expected production preservation inventory must contain 7 files'
 );
 
 assert.equal(
   expectedProductionFiles.size,
-  110,
-  'expected reconciled production inventory must contain 110 files'
+  111,
+  'expected reconciled production inventory must contain 111 files'
 );
 
 assert.equal(
@@ -328,11 +329,11 @@ pass(
 );
 
 pass(
-  'production preservation is exactly 6 allowlisted additive files'
+  'production preservation is exactly 7 allowlisted additive files'
 );
 
 pass(
-  'reconciled production integration is exactly 110 additive files plus 2 controlled modified files with no deletions'
+  'reconciled production integration is exactly 111 additive files plus 2 controlled modified files with no deletions'
 );
 
 /*

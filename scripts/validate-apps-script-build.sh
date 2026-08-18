@@ -253,6 +253,20 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   echo
 fi
 
+# Production operations scheduler / runtime-health certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  PRODUCTION_OPERATIONS_CERTIFIER="scripts/validate-production-operations-scheduler-health.js"
+
+  if [[ ! -f "$PRODUCTION_OPERATIONS_CERTIFIER" ]]; then
+    echo "ERROR: Production operations scheduler/runtime-health validator missing: $PRODUCTION_OPERATIONS_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running production operations scheduler/runtime-health certification..."
+  node "$PRODUCTION_OPERATIONS_CERTIFIER"
+  echo
+fi
+
 python3 - "$ROOT_DIR" <<'PY'
 from collections import defaultdict
 from pathlib import Path
