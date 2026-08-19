@@ -279,6 +279,18 @@ else
   exit 1
 fi
 
+# Controlled county production endpoint preflight certification.
+COUNTY_PRODUCTION_PREFLIGHT_CERTIFIER="scripts/validate-county-production-preflight.js"
+
+if [ -f "$COUNTY_PRODUCTION_PREFLIGHT_CERTIFIER" ]; then
+  echo
+  echo "Running county production preflight certification..."
+  node "$COUNTY_PRODUCTION_PREFLIGHT_CERTIFIER"
+else
+  echo "ERROR: County production preflight validator missing: $COUNTY_PRODUCTION_PREFLIGHT_CERTIFIER"
+  exit 1
+fi
+
 
 python3 - "$ROOT_DIR" <<'PY'
 from collections import defaultdict
