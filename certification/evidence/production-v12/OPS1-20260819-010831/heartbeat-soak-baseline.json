@@ -1,0 +1,11 @@
+{
+  "capturedAt": "2026-08-18T23:44:20.073296+00:00",
+  "deploymentId": "AKfycbxTPu2haRrW9Ls0mkRV4uambT5ajC5RlNC5m7IBxPlcmspVjF5DGdNxOG4pCzjQbHeX",
+  "version": 12,
+  "main": "3b3c589",
+  "handler": "reosProductionOperationsHeartbeat",
+  "triggerCount": 1,
+  "triggerUniqueId": "4131943164363669504",
+  "lastAttemptAt": "2026-08-18T23:42:14.219Z",
+  "lastSuccessAt": "2026-08-18T23:42:14.495Z"
+}
