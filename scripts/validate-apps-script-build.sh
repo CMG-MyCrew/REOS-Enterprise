@@ -267,6 +267,19 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   echo
 fi
 
+# Controlled county production scheduler certification.
+COUNTY_PRODUCTION_SCHEDULER_CERTIFIER="scripts/validate-county-production-scheduler.js"
+
+if [ -f "$COUNTY_PRODUCTION_SCHEDULER_CERTIFIER" ]; then
+  echo
+  echo "Running county production scheduler certification..."
+  node "$COUNTY_PRODUCTION_SCHEDULER_CERTIFIER"
+else
+  echo "ERROR: County production scheduler validator missing: $COUNTY_PRODUCTION_SCHEDULER_CERTIFIER"
+  exit 1
+fi
+
+
 python3 - "$ROOT_DIR" <<'PY'
 from collections import defaultdict
 from pathlib import Path
