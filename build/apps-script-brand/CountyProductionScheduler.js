@@ -39,10 +39,6 @@ REOS.CountyProductionScheduler = (function () {
     Object.freeze({
       connectorId: 'PA-PHILADELPHIA',
       dataset: 'sheriff_mortgage_sales'
-    }),
-    Object.freeze({
-      connectorId: 'PA-BUCKS',
-      dataset: 'tax_delinquent'
     })
   ]);
 

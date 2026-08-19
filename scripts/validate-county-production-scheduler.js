@@ -67,8 +67,7 @@ const requiredPairs = [
   ['PA-PHILADELPHIA', 'code_violations'],
   ['PA-PHILADELPHIA', 'vacant_properties'],
   ['PA-PHILADELPHIA', 'sheriff_tax_sales'],
-  ['PA-PHILADELPHIA', 'sheriff_mortgage_sales'],
-  ['PA-BUCKS', 'tax_delinquent']
+  ['PA-PHILADELPHIA', 'sheriff_mortgage_sales']
 ];
 
 for (const [connectorId, dataset] of requiredPairs) {
@@ -78,6 +77,11 @@ for (const [connectorId, dataset] of requiredPairs) {
     `allowlist contains ${connectorId} / ${dataset}`
   );
 }
+
+assert(
+  !source.includes("connectorId: 'PA-BUCKS'"),
+  'scheduler excludes disabled PA-BUCKS / tax_delinquent'
+);
 
 for (const forbidden of [
   'property_assessment',
@@ -320,7 +324,7 @@ assert(
   'scheduler installation is idempotent'
 );
 
-/* Healthy run must execute exactly the six approved pairs. */
+/* Healthy run must execute exactly the five approved pairs. */
 syncCalls = [];
 failingDataset = '';
 
@@ -330,8 +334,8 @@ const healthy =
 assert(
   healthy.ok === true &&
   healthy.status === 'Healthy' &&
-  syncCalls.length === 6,
-  'healthy scheduled run executes exactly six feeds'
+  syncCalls.length === 5,
+  'healthy scheduled run executes exactly five feeds'
 );
 
 const actualPairs = syncCalls.map(
@@ -392,7 +396,7 @@ assert(
 );
 
 assert(
-  syncCalls.length === 6,
+  syncCalls.length === 5,
   'one feed failure does not prevent remaining feeds from being attempted'
 );
 
@@ -425,7 +429,8 @@ const resultJson = JSON.parse(
 
 assert(
   resultJson.failed === 1 &&
-  resultJson.succeeded === 5 &&
+  resultJson.succeeded === 4 &&
+  resultJson.results.length === 5 &&
   resultJson.results.some(
     result =>
       result.dataset === 'code_violations' &&
