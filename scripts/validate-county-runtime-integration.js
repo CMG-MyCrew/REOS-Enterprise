@@ -159,7 +159,7 @@ pass('exactly 94 generated county connectors are present');
  * The county integration remains exactly additive except for explicitly
  * controlled production hardening files. Controlled files must remain
  * modifications of existing baseline files. All remaining baseline deltas
- * must remain the exact 111-file additive county/preservation inventory.
+ * must remain the exact 112-file additive county/preservation/scheduler inventory.
  */
 const productionDiff = git([
   'diff',
@@ -262,9 +262,19 @@ const expectedPreservationFiles = new Set(
   )
 );
 
+/*
+ * Production Operations Increment 2 adds exactly one controlled
+ * production workload module. Keep it explicit so a count increase
+ * cannot authorize an arbitrary additional build file.
+ */
+const expectedCountySchedulerFiles = new Set([
+  'build/apps-script-brand/CountyProductionScheduler.js'
+]);
+
 const expectedProductionFiles = new Set([
   ...expectedCountyProductionFiles,
-  ...expectedPreservationFiles
+  ...expectedPreservationFiles,
+  ...expectedCountySchedulerFiles
 ]);
 
 assert.equal(
@@ -280,9 +290,22 @@ assert.equal(
 );
 
 assert.equal(
+  expectedCountySchedulerFiles.size,
+  1,
+  'expected county production scheduler inventory must contain exactly 1 file'
+);
+
+assert.ok(
+  expectedCountySchedulerFiles.has(
+    'build/apps-script-brand/CountyProductionScheduler.js'
+  ),
+  'CountyProductionScheduler.js must be the controlled Increment 2 production addition'
+);
+
+assert.equal(
   expectedProductionFiles.size,
-  111,
-  'expected reconciled production inventory must contain 111 files'
+  112,
+  'expected reconciled production inventory must contain 112 files'
 );
 
 assert.equal(
@@ -314,6 +337,20 @@ expectedCountyProductionFiles.forEach(file => {
   );
 });
 
+expectedCountySchedulerFiles.forEach(file => {
+  assert.ok(
+    diffEntries.some(entry =>
+      entry.file === file &&
+      entry.status === 'A'
+    ),
+    `expected controlled county scheduler file missing from baseline diff: ${file}`
+  );
+});
+
+pass(
+  'CountyProductionScheduler.js is the only Increment 2 controlled production addition'
+);
+
 expectedPreservationFiles.forEach(file => {
   assert.ok(
     diffEntries.some(entry =>
@@ -333,7 +370,7 @@ pass(
 );
 
 pass(
-  'reconciled production integration is exactly 111 additive files plus 2 controlled modified files with no deletions'
+  'reconciled production integration is exactly 112 additive files plus 2 controlled modified files with no deletions'
 );
 
 /*
