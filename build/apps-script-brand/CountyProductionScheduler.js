@@ -231,6 +231,57 @@ REOS.CountyProductionScheduler = (function () {
     return getStatus_();
   }
 
+  function preflight() {
+    requireAdmin_();
+
+    const props = properties_();
+
+    const datasets = Object.freeze({
+      tax_delinquent:
+        'REOS_COUNTY_PA_PHILADELPHIA_TAX_DELINQUENT_URL',
+      code_violations:
+        'REOS_COUNTY_PA_PHILADELPHIA_CODE_VIOLATIONS_URL',
+      vacant_properties:
+        'REOS_COUNTY_PA_PHILADELPHIA_VACANT_PROPERTIES_URL',
+      sheriff_tax_sales:
+        'REOS_COUNTY_PA_PHILADELPHIA_SHERIFF_TAX_SALES_URL',
+      sheriff_mortgage_sales:
+        'REOS_COUNTY_PA_PHILADELPHIA_SHERIFF_MORTGAGE_SALES_URL'
+    });
+
+    const result = {};
+    let configured = 0;
+
+    Object.keys(datasets).forEach(function (dataset) {
+      const value = props.getProperty(
+        datasets[dataset]
+      );
+
+      const isConfigured =
+        typeof value === 'string' &&
+        value.trim().length > 0;
+
+      if (isConfigured) {
+        configured++;
+      }
+
+      result[dataset] = {
+        configured: isConfigured
+      };
+    });
+
+    const required = Object.keys(datasets).length;
+
+    return {
+      ok: configured === required,
+      connectorId: 'PA-PHILADELPHIA',
+      configured: configured,
+      required: required,
+      ready: configured === required,
+      datasets: result
+    };
+  }
+
   function run() {
     const props = properties_();
     const attemptAt = nowIso_();
@@ -391,6 +442,7 @@ REOS.CountyProductionScheduler = (function () {
     installScheduler: installScheduler,
     removeScheduler: removeScheduler,
     getStatus: getStatus,
+    preflight: preflight,
     run: run
   };
 })();
@@ -405,6 +457,10 @@ function reosCountyProductionSchedulerRemove() {
 
 function reosCountyProductionSchedulerStatus() {
   return REOS.CountyProductionScheduler.getStatus();
+}
+
+function reosCountyProductionSchedulerPreflight() {
+  return REOS.CountyProductionScheduler.preflight();
 }
 
 function reosCountyProductionSchedulerRun() {
