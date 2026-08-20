@@ -125,6 +125,11 @@ REOS.CountyConnectorSDK = (function () {
           ? String(response.nextCursor || '')
           : String(cursor || '');
 
+      var pagePersistence =
+        context.dryRun
+          ? null
+          : createPagePersistence_();
+
       rawRecords.forEach(function (raw, index) {
         try {
           var normalized = connector.normalize(raw, context);
@@ -173,7 +178,11 @@ REOS.CountyConnectorSDK = (function () {
 
           stats.valid += 1;
 
-          var result = persist_(normalized, context);
+          var result = persist_(
+            normalized,
+            context,
+            pagePersistence
+          );
           stats[result.action] += 1;
         } catch (recordError) {
           stats.failed += 1;
@@ -282,7 +291,11 @@ REOS.CountyConnectorSDK = (function () {
     return results;
   }
 
-  function persist_(record, context) {
+  function persist_(
+    record,
+    context,
+    pagePersistence
+  ) {
     if (context.dryRun) {
       return {
         action: 'skipped',
@@ -291,10 +304,14 @@ REOS.CountyConnectorSDK = (function () {
     }
 
     var naturalKey = buildNaturalKey_(record);
-    var existing = findExisting_(record, naturalKey);
+    var existing = findExisting_(
+      record,
+      naturalKey,
+      pagePersistence
+    );
 
     if (existing) {
-      REOS.Database.update(
+      var updated = REOS.Database.update(
         TARGET_SHEET,
         'Distress Lead ID',
         existing['Distress Lead ID'],
@@ -304,6 +321,15 @@ REOS.CountyConnectorSDK = (function () {
           'Updated At': new Date()
         })
       );
+
+      if (pagePersistence) {
+        var existingIndex =
+          pagePersistence.rows.indexOf(existing);
+
+        if (existingIndex !== -1) {
+          pagePersistence.rows[existingIndex] = updated;
+        }
+      }
 
       return {
         action: 'updated',
@@ -323,14 +349,31 @@ REOS.CountyConnectorSDK = (function () {
       }
     );
 
+    if (pagePersistence) {
+      pagePersistence.rows.push(inserted);
+    }
+
     return {
       action: 'inserted',
       id: inserted['Distress Lead ID']
     };
   }
 
-  function findExisting_(record, naturalKey) {
-    var rows = REOS.Database.getAll(TARGET_SHEET);
+  function createPagePersistence_() {
+    return {
+      rows: REOS.Database.getAll(TARGET_SHEET)
+    };
+  }
+
+  function findExisting_(
+    record,
+    naturalKey,
+    pagePersistence
+  ) {
+    var rows =
+      pagePersistence && pagePersistence.rows
+        ? pagePersistence.rows
+        : [];
 
     return rows.find(function (row) {
       if (
