@@ -70,6 +70,7 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         endpointProperty: "REOS_COUNTY_PA_PHILADELPHIA_TAX_DELINQUENT_URL",
         enabled: true,
         maxLimit: 2000,
+        orderByFields: "OBJECTID ASC",
         mapping: {
           address: [
             "STREET_ADDRESS",
@@ -393,6 +394,11 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
 
       adapterOptions.outFields = '*';
       adapterOptions.returnGeometry = false;
+
+      if (definition.orderByFields) {
+        adapterOptions.orderByFields =
+          String(definition.orderByFields);
+      }
     }
 
     if (definition.adapter === 'html-table') {
