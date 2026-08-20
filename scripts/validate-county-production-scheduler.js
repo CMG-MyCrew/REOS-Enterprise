@@ -324,18 +324,60 @@ assert(
   'scheduler installation is idempotent'
 );
 
-/* Healthy run must execute exactly the five approved pairs. */
+/* A healthy cycle must execute exactly one approved feed per invocation. */
 syncCalls = [];
 failingDataset = '';
 
+const healthyCycleRuns = [];
+
+for (let index = 0; index < requiredPairs.length; index += 1) {
+  const beforeCount = syncCalls.length;
+
+  const result =
+    context.reosCountyProductionSchedulerRun();
+
+  healthyCycleRuns.push(result);
+
+  assert(
+    syncCalls.length === beforeCount + 1,
+    `bounded invocation ${index + 1} executes exactly one feed`
+  );
+
+  const [connectorId, dataset] = requiredPairs[index];
+  const call = syncCalls[index];
+
+  assert(
+    call.connectorId === connectorId &&
+    call.dataset === dataset,
+    `bounded invocation ${index + 1} executes ${connectorId} / ${dataset}`
+  );
+
+  assert(
+    call.options &&
+    call.options.confirmLive === true,
+    `bounded invocation ${index + 1} explicitly confirms live execution`
+  );
+
+  if (index < requiredPairs.length - 1) {
+    assert(
+      result.ok === true &&
+      result.status === 'In Progress' &&
+      !properties.get(
+        'REOS_COUNTY_SCHEDULER_LAST_SUCCESS_AT'
+      ),
+      `bounded invocation ${index + 1} preserves incomplete-cycle freshness`
+    );
+  }
+}
+
 const healthy =
-  context.reosCountyProductionSchedulerRun();
+  healthyCycleRuns[healthyCycleRuns.length - 1];
 
 assert(
   healthy.ok === true &&
   healthy.status === 'Healthy' &&
-  syncCalls.length === 5,
-  'healthy scheduled run executes exactly five feeds'
+  syncCalls.length === requiredPairs.length,
+  'five bounded invocations complete exactly one healthy five-feed cycle'
 );
 
 const actualPairs = syncCalls.map(
@@ -345,18 +387,9 @@ const actualPairs = syncCalls.map(
 for (const [connectorId, dataset] of requiredPairs) {
   assert(
     actualPairs.includes(connectorId + '/' + dataset),
-    `runtime executes ${connectorId} / ${dataset}`
+    `completed cycle executes ${connectorId} / ${dataset}`
   );
 }
-
-assert(
-  syncCalls.every(
-    call =>
-      call.options &&
-      call.options.confirmLive === true
-  ),
-  'every scheduled feed explicitly confirms live execution'
-);
 
 assert(
   !syncCalls.some(
@@ -379,32 +412,118 @@ const firstSuccessAt =
 
 assert(
   Boolean(firstSuccessAt),
-  'successful complete run advances freshness'
+  'only successful complete cycle advances freshness'
 );
 
-/* One feed failure must remain visible but not stop later feeds. */
-syncCalls = [];
-failingDataset = 'code_violations';
+assert(
+  !properties.get(
+    'REOS_COUNTY_SCHEDULER_CYCLE_ID'
+  ) &&
+  !properties.get(
+    'REOS_COUNTY_SCHEDULER_CYCLE_STARTED_AT'
+  ) &&
+  !properties.get(
+    'REOS_COUNTY_SCHEDULER_NEXT_FEED_INDEX'
+  ) &&
+  !properties.get(
+    'REOS_COUNTY_SCHEDULER_CYCLE_RESULTS_JSON'
+  ),
+  'successful complete cycle clears checkpoint state'
+);
 
-const degraded =
+/*
+ * A failed feed must remain visible while later bounded invocations
+ * continue the same cycle. The degraded cycle must not advance
+ * complete-workload freshness.
+ */
+syncCalls = [];
+failingDataset = '';
+
+const degradedFirst =
   context.reosCountyProductionSchedulerRun();
 
 assert(
-  degraded.ok === false &&
-  degraded.status === 'Unhealthy',
-  'feed failure makes scheduler unhealthy'
+  syncCalls.length === 1 &&
+  degradedFirst.ok === true &&
+  degradedFirst.status === 'In Progress',
+  'degraded-cycle setup executes first feed only'
+);
+
+failingDataset = 'code_violations';
+
+const degradedFailure =
+  context.reosCountyProductionSchedulerRun();
+
+assert(
+  syncCalls.length === 2 &&
+  degradedFailure.ok === false &&
+  degradedFailure.status === 'Degraded',
+  'failed bounded feed marks active cycle degraded'
 );
 
 assert(
-  syncCalls.length === 5,
-  'one feed failure does not prevent remaining feeds from being attempted'
+  syncCalls[1].dataset === 'code_violations',
+  'configured bounded failure occurs on code_violations'
 );
 
 assert(
   properties.get(
     'REOS_COUNTY_SCHEDULER_LAST_SUCCESS_AT'
   ) === firstSuccessAt,
-  'partial failure does not advance complete-workload freshness'
+  'failed bounded feed does not advance complete-workload freshness'
+);
+
+/*
+ * Scheduler-level failure authority is complete-cycle telemetry.
+ * The active checkpoint carries the individual failed-feed evidence
+ * until the remaining bounded invocations complete the workload.
+ */
+assert(
+  !properties.get(
+    'REOS_COUNTY_SCHEDULER_LAST_FAILURE_AT'
+  ),
+  'active degraded cycle does not publish complete-cycle failure authority'
+);
+
+const activeDegradedResults = JSON.parse(
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_CYCLE_RESULTS_JSON'
+  )
+);
+
+assert(
+  activeDegradedResults.length === 2 &&
+  activeDegradedResults.some(
+    result =>
+      result.dataset === 'code_violations' &&
+      result.ok === false
+  ),
+  'active degraded cycle preserves failed-feed checkpoint evidence'
+);
+
+failingDataset = '';
+
+for (let index = 2; index < requiredPairs.length; index += 1) {
+  const beforeCount = syncCalls.length;
+
+  context.reosCountyProductionSchedulerRun();
+
+  assert(
+    syncCalls.length === beforeCount + 1,
+    `degraded cycle continues with exactly one feed at invocation ${index + 1}`
+  );
+}
+
+assert(
+  syncCalls.length === requiredPairs.length,
+  'one failed feed does not prevent later bounded feeds from being attempted'
+);
+
+assert(
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_LAST_SUCCESS_AT'
+  ) === firstSuccessAt,
+  'degraded complete cycle does not advance complete-workload freshness'
 );
 
 assert(
@@ -418,7 +537,7 @@ assert(
       'REOS_COUNTY_SCHEDULER_LAST_FAILURE_MESSAGE'
     ) || ''
   ),
-  'scheduler failure telemetry is persisted'
+  'completed degraded cycle publishes scheduler failure telemetry'
 );
 
 const resultJson = JSON.parse(
@@ -436,7 +555,23 @@ assert(
       result.dataset === 'code_violations' &&
       result.ok === false
   ),
-  'per-feed failure remains visible in bounded result telemetry'
+  'failed feed remains visible in completed bounded-cycle telemetry'
+);
+
+assert(
+  !properties.get(
+    'REOS_COUNTY_SCHEDULER_CYCLE_ID'
+  ) &&
+  !properties.get(
+    'REOS_COUNTY_SCHEDULER_CYCLE_STARTED_AT'
+  ) &&
+  !properties.get(
+    'REOS_COUNTY_SCHEDULER_NEXT_FEED_INDEX'
+  ) &&
+  !properties.get(
+    'REOS_COUNTY_SCHEDULER_CYCLE_RESULTS_JSON'
+  ),
+  'completed degraded cycle clears active checkpoint state'
 );
 
 /* Duplicate managed authority must fail closed. */

@@ -54,6 +54,21 @@ REOS.CountyProductionScheduler = (function () {
     'REOS_COUNTY_SCHEDULER_LAST_CONTENDED_AT';
   const LAST_RESULT_JSON =
     'REOS_COUNTY_SCHEDULER_LAST_RESULT_JSON';
+
+  /*
+   * A complete production cycle is intentionally split across bounded
+   * invocations. Each invocation executes at most one approved feed.
+   * LAST_SUCCESS_AT remains complete-workload freshness authority only.
+   */
+  const CYCLE_ID =
+    'REOS_COUNTY_SCHEDULER_CYCLE_ID';
+  const CYCLE_STARTED_AT =
+    'REOS_COUNTY_SCHEDULER_CYCLE_STARTED_AT';
+  const NEXT_FEED_INDEX =
+    'REOS_COUNTY_SCHEDULER_NEXT_FEED_INDEX';
+  const CYCLE_RESULTS_JSON =
+    'REOS_COUNTY_SCHEDULER_CYCLE_RESULTS_JSON';
+
   const INSTALLED_AT =
     'REOS_COUNTY_SCHEDULER_INSTALLED_AT';
   const REMOVED_AT =
@@ -282,6 +297,59 @@ REOS.CountyProductionScheduler = (function () {
     };
   }
 
+  function readCycleResults_(props) {
+    const raw =
+      props.getProperty(CYCLE_RESULTS_JSON);
+
+    if (!raw) return [];
+
+    try {
+      const parsed = JSON.parse(raw);
+
+      return Array.isArray(parsed)
+        ? parsed
+        : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function clearCycle_(props) {
+    props.deleteProperty(CYCLE_ID);
+    props.deleteProperty(CYCLE_STARTED_AT);
+    props.deleteProperty(NEXT_FEED_INDEX);
+    props.deleteProperty(CYCLE_RESULTS_JSON);
+  }
+
+  function cycleSnapshot_(props) {
+    const results = readCycleResults_(props);
+    const rawIndex =
+      props.getProperty(NEXT_FEED_INDEX);
+
+    let nextFeedIndex =
+      rawIndex === null || rawIndex === ''
+        ? 0
+        : Number(rawIndex);
+
+    if (
+      !Number.isInteger(nextFeedIndex) ||
+      nextFeedIndex < 0 ||
+      nextFeedIndex > ALLOWLIST.length
+    ) {
+      nextFeedIndex = 0;
+    }
+
+    return {
+      id: props.getProperty(CYCLE_ID) || '',
+      startedAt:
+        props.getProperty(CYCLE_STARTED_AT) || '',
+      nextFeedIndex: nextFeedIndex,
+      completedFeeds: results.length,
+      totalFeeds: ALLOWLIST.length,
+      results: results
+    };
+  }
+
   function run() {
     const props = properties_();
     const attemptAt = nowIso_();
@@ -317,64 +385,166 @@ REOS.CountyProductionScheduler = (function () {
         );
       }
 
-      const results = [];
-      let failures = 0;
+      let cycle = cycleSnapshot_(props);
 
-      ALLOWLIST.forEach(function (item) {
-        try {
-          const result =
-            REOS.CountyRuntimeBridge.sync(
-              item.connectorId,
-              item.dataset,
-              {
-                confirmLive: true
-              }
-            );
+      /*
+       * Invalid/incomplete checkpoint structure fails closed rather than
+       * manufacturing workload freshness.
+       */
+      if (
+        cycle.completedFeeds !== cycle.nextFeedIndex ||
+        cycle.nextFeedIndex >= ALLOWLIST.length
+      ) {
+        clearCycle_(props);
+        cycle = cycleSnapshot_(props);
+      }
 
-          results.push({
-            connectorId: item.connectorId,
-            dataset: item.dataset,
-            ok: true,
-            result: result
-          });
-        } catch (error) {
-          failures++;
+      if (!cycle.id) {
+        const cycleId =
+          'COUNTY-' +
+          attemptAt.replace(/[^0-9]/g, '');
 
-          results.push({
-            connectorId: item.connectorId,
-            dataset: item.dataset,
-            ok: false,
-            error: String(
-              error && error.message
-                ? error.message
-                : error
-            )
-          });
-        }
-      });
+        props.setProperty(
+          CYCLE_ID,
+          cycleId
+        );
+
+        props.setProperty(
+          CYCLE_STARTED_AT,
+          attemptAt
+        );
+
+        props.setProperty(
+          NEXT_FEED_INDEX,
+          '0'
+        );
+
+        props.setProperty(
+          CYCLE_RESULTS_JSON,
+          '[]'
+        );
+
+        cycle = cycleSnapshot_(props);
+      }
+
+      const feedIndex = cycle.nextFeedIndex;
+      const item = ALLOWLIST[feedIndex];
+      let feedResult;
+
+      try {
+        const result =
+          REOS.CountyRuntimeBridge.sync(
+            item.connectorId,
+            item.dataset,
+            {
+              confirmLive: true
+            }
+          );
+
+        feedResult = {
+          connectorId: item.connectorId,
+          dataset: item.dataset,
+          ok: true,
+          result: result
+        };
+      } catch (error) {
+        feedResult = {
+          connectorId: item.connectorId,
+          dataset: item.dataset,
+          ok: false,
+          error: String(
+            error && error.message
+              ? error.message
+              : error
+          )
+        };
+      }
+
+      const results =
+        cycle.results.concat([feedResult]);
+
+      const nextFeedIndex = feedIndex + 1;
+
+      /*
+       * Persist feed evidence before returning or completing the cycle.
+       * This is the bounded-runtime checkpoint.
+       */
+      props.setProperty(
+        CYCLE_RESULTS_JSON,
+        JSON.stringify(results)
+      );
+
+      props.setProperty(
+        NEXT_FEED_INDEX,
+        String(nextFeedIndex)
+      );
+
+      if (nextFeedIndex < ALLOWLIST.length) {
+        return {
+          ok: feedResult.ok,
+          skipped: false,
+          status: feedResult.ok
+            ? 'In Progress'
+            : 'Degraded',
+          attemptedAt: attemptAt,
+          cycleId: cycle.id,
+          feedIndex: feedIndex,
+          completedFeeds: nextFeedIndex,
+          total: ALLOWLIST.length,
+          result: feedResult
+        };
+      }
 
       const completedAt = nowIso_();
+      const failures =
+        results.filter(function (result) {
+          return result.ok !== true;
+        }).length;
+
+      const finalResult = {
+        cycleId: cycle.id,
+        attemptedAt: cycle.startedAt,
+        completedAt: completedAt,
+        total: ALLOWLIST.length,
+        succeeded: ALLOWLIST.length - failures,
+        failed: failures,
+        results: results
+      };
 
       props.setProperty(
         LAST_RESULT_JSON,
-        JSON.stringify({
-          attemptedAt: attemptAt,
-          completedAt: completedAt,
-          total: ALLOWLIST.length,
-          succeeded: ALLOWLIST.length - failures,
-          failed: failures,
-          results: results
-        })
+        JSON.stringify(finalResult)
       );
 
+      clearCycle_(props);
+
       if (failures > 0) {
-        throw new Error(
+        const failureAt = completedAt;
+        const message =
           'County production scheduler completed with ' +
           failures +
           ' failed dataset(s) out of ' +
           ALLOWLIST.length +
-          '.'
+          '.';
+
+        props.setProperty(
+          LAST_FAILURE_AT,
+          failureAt
         );
+
+        props.setProperty(
+          LAST_FAILURE_MESSAGE,
+          message
+        );
+
+        return {
+          ok: false,
+          skipped: false,
+          status: 'Unhealthy',
+          failureAt: failureAt,
+          error: message,
+          lastResult: JSON.stringify(finalResult)
+        };
       }
 
       props.setProperty(
@@ -394,7 +564,7 @@ REOS.CountyProductionScheduler = (function () {
         ok: true,
         skipped: false,
         status: 'Healthy',
-        attemptedAt: attemptAt,
+        attemptedAt: cycle.startedAt,
         completedAt: completedAt,
         total: ALLOWLIST.length,
         succeeded: ALLOWLIST.length,
