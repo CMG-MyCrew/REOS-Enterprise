@@ -66,6 +66,8 @@ REOS.CountyProductionScheduler = (function () {
     'REOS_COUNTY_SCHEDULER_CYCLE_STARTED_AT';
   const NEXT_FEED_INDEX =
     'REOS_COUNTY_SCHEDULER_NEXT_FEED_INDEX';
+  const CURRENT_FEED_CURSOR =
+    'REOS_COUNTY_SCHEDULER_CURRENT_FEED_CURSOR';
   const CYCLE_RESULTS_JSON =
     'REOS_COUNTY_SCHEDULER_CYCLE_RESULTS_JSON';
 
@@ -318,6 +320,7 @@ REOS.CountyProductionScheduler = (function () {
     props.deleteProperty(CYCLE_ID);
     props.deleteProperty(CYCLE_STARTED_AT);
     props.deleteProperty(NEXT_FEED_INDEX);
+    props.deleteProperty(CURRENT_FEED_CURSOR);
     props.deleteProperty(CYCLE_RESULTS_JSON);
   }
 
@@ -344,6 +347,8 @@ REOS.CountyProductionScheduler = (function () {
       startedAt:
         props.getProperty(CYCLE_STARTED_AT) || '',
       nextFeedIndex: nextFeedIndex,
+      currentFeedCursor:
+        props.getProperty(CURRENT_FEED_CURSOR) || '',
       completedFeeds: results.length,
       totalFeeds: ALLOWLIST.length,
       results: results
@@ -429,7 +434,10 @@ REOS.CountyProductionScheduler = (function () {
 
       const feedIndex = cycle.nextFeedIndex;
       const item = ALLOWLIST[feedIndex];
+      const currentFeedCursor =
+        cycle.currentFeedCursor || '';
       let feedResult;
+      let nextCursor = '';
 
       try {
         const result =
@@ -437,9 +445,42 @@ REOS.CountyProductionScheduler = (function () {
             item.connectorId,
             item.dataset,
             {
-              confirmLive: true
+              confirmLive: true,
+              limit: 50,
+              cursor: currentFeedCursor
             }
           );
+
+        nextCursor = String(
+          result && result.nextCursor
+            ? result.nextCursor
+            : ''
+        );
+
+        /*
+         * A non-terminal cursor means only one page completed.
+         * Preserve page position without manufacturing completed-feed
+         * evidence or advancing complete-workload freshness.
+         */
+        if (nextCursor) {
+          props.setProperty(
+            CURRENT_FEED_CURSOR,
+            nextCursor
+          );
+
+          return {
+            ok: true,
+            skipped: false,
+            status: 'In Progress',
+            attemptedAt: attemptAt,
+            cycleId: cycle.id,
+            feedIndex: feedIndex,
+            completedFeeds: cycle.completedFeeds,
+            total: ALLOWLIST.length,
+            cursor: nextCursor,
+            result: result
+          };
+        }
 
         feedResult = {
           connectorId: item.connectorId,
@@ -460,15 +501,19 @@ REOS.CountyProductionScheduler = (function () {
         };
       }
 
+      /*
+       * Terminal success or a failed page ends this feed attempt.
+       * Only now may completed-feed evidence and the feed index advance.
+       */
+      props.deleteProperty(
+        CURRENT_FEED_CURSOR
+      );
+
       const results =
         cycle.results.concat([feedResult]);
 
       const nextFeedIndex = feedIndex + 1;
 
-      /*
-       * Persist feed evidence before returning or completing the cycle.
-       * This is the bounded-runtime checkpoint.
-       */
       props.setProperty(
         CYCLE_RESULTS_JSON,
         JSON.stringify(results)
