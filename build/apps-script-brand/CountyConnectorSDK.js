@@ -117,7 +117,13 @@ REOS.CountyConnectorSDK = (function () {
         : [];
 
       stats.fetched = rawRecords.length;
-      cursor = String(response.nextCursor || cursor || '');
+      cursor =
+        Object.prototype.hasOwnProperty.call(
+          response,
+          'nextCursor'
+        )
+          ? String(response.nextCursor || '')
+          : String(cursor || '');
 
       rawRecords.forEach(function (raw, index) {
         try {

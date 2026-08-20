@@ -137,6 +137,14 @@ let adminCalls = 0;
 let syncCalls = [];
 let failingDataset = '';
 
+/*
+ * Synthetic page cursors returned by CountyRuntimeBridge.sync().
+ * Each dataset may provide a sequence of nextCursor values.
+ * An empty cursor means the current feed reached terminal completion.
+ */
+let pageCursorResponses = {};
+let pageCursorResponseIndexes = {};
+
 function makeTrigger(handler) {
   const id = 'trigger-' + (++triggerSeq);
 
@@ -257,10 +265,25 @@ const context = {
           );
         }
 
+        const cursorResponses =
+          pageCursorResponses[dataset] || [''];
+
+        const responseIndex =
+          pageCursorResponseIndexes[dataset] || 0;
+
+        const nextCursor =
+          responseIndex < cursorResponses.length
+            ? cursorResponses[responseIndex]
+            : '';
+
+        pageCursorResponseIndexes[dataset] =
+          responseIndex + 1;
+
         return {
           ok: true,
           connectorId,
-          dataset
+          dataset,
+          nextCursor: nextCursor
         };
       }
     }
@@ -323,6 +346,210 @@ assert(
   ).length === 1,
   'scheduler installation is idempotent'
 );
+
+
+/*
+ * Pagination contract.
+ *
+ * A scheduler invocation owns at most one county feed page.
+ * A non-empty nextCursor keeps the same feed active and must not
+ * create completed-feed evidence or complete-workload freshness.
+ */
+syncCalls = [];
+failingDataset = '';
+pageCursorResponses = {
+  tax_delinquent: ['50', '100', '']
+};
+pageCursorResponseIndexes = {};
+
+const paginationFreshnessBefore =
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_LAST_SUCCESS_AT'
+  ) || '';
+
+const page1 =
+  context.reosCountyProductionSchedulerRun();
+
+assert(
+  syncCalls.length === 1,
+  'paginated invocation 1 executes exactly one page'
+);
+
+assert(
+  syncCalls[0].connectorId === 'PA-PHILADELPHIA' &&
+  syncCalls[0].dataset === 'tax_delinquent',
+  'paginated invocation 1 executes tax_delinquent'
+);
+
+assert(
+  syncCalls[0].options &&
+  syncCalls[0].options.confirmLive === true &&
+  syncCalls[0].options.limit === 50,
+  'scheduled live page is explicitly bounded to 50 records'
+);
+
+assert(
+  page1.ok === true &&
+  page1.status === 'In Progress',
+  'non-terminal page remains In Progress'
+);
+
+assert(
+  (
+    properties.get(
+      'REOS_COUNTY_SCHEDULER_LAST_SUCCESS_AT'
+    ) || ''
+  ) === paginationFreshnessBefore,
+  'non-terminal page cannot advance complete-workload freshness'
+);
+
+assert(
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_NEXT_FEED_INDEX'
+  ) === '0',
+  'non-terminal page does not advance feed index'
+);
+
+assert(
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_CURRENT_FEED_CURSOR'
+  ) === '50',
+  'non-terminal page persists cursor 50'
+);
+
+assert(
+  JSON.parse(
+    properties.get(
+      'REOS_COUNTY_SCHEDULER_CYCLE_RESULTS_JSON'
+    ) || '[]'
+  ).length === 0,
+  'non-terminal page creates no completed-feed evidence'
+);
+
+const page2 =
+  context.reosCountyProductionSchedulerRun();
+
+assert(
+  syncCalls.length === 2,
+  'paginated invocation 2 executes exactly one additional page'
+);
+
+assert(
+  syncCalls[1].dataset === 'tax_delinquent',
+  'paginated invocation 2 remains on tax_delinquent'
+);
+
+assert(
+  syncCalls[1].options &&
+  syncCalls[1].options.confirmLive === true &&
+  syncCalls[1].options.limit === 50 &&
+  String(syncCalls[1].options.cursor || '') === '50',
+  'paginated invocation 2 replays cursor 50 with limit 50'
+);
+
+assert(
+  page2.ok === true &&
+  page2.status === 'In Progress',
+  'second non-terminal page remains In Progress'
+);
+
+assert(
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_CURRENT_FEED_CURSOR'
+  ) === '100',
+  'second non-terminal page persists cursor 100'
+);
+
+assert(
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_NEXT_FEED_INDEX'
+  ) === '0',
+  'second non-terminal page still does not advance feed index'
+);
+
+assert(
+  JSON.parse(
+    properties.get(
+      'REOS_COUNTY_SCHEDULER_CYCLE_RESULTS_JSON'
+    ) || '[]'
+  ).length === 0,
+  'multiple non-terminal pages still create no completed-feed evidence'
+);
+
+const page3 =
+  context.reosCountyProductionSchedulerRun();
+
+assert(
+  syncCalls.length === 3,
+  'terminal pagination invocation executes exactly one page'
+);
+
+assert(
+  syncCalls[2].dataset === 'tax_delinquent' &&
+  syncCalls[2].options &&
+  String(syncCalls[2].options.cursor || '') === '100',
+  'terminal page resumes tax_delinquent from cursor 100'
+);
+
+assert(
+  page3.ok === true &&
+  page3.status === 'In Progress',
+  'terminal first-feed page leaves overall cycle In Progress'
+);
+
+assert(
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_NEXT_FEED_INDEX'
+  ) === '1',
+  'terminal cursor advances to the next feed'
+);
+
+assert(
+  !properties.get(
+    'REOS_COUNTY_SCHEDULER_CURRENT_FEED_CURSOR'
+  ),
+  'terminal cursor clears current feed cursor'
+);
+
+const paginationCompletedResults = JSON.parse(
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_CYCLE_RESULTS_JSON'
+  ) || '[]'
+);
+
+assert(
+  paginationCompletedResults.length === 1 &&
+  paginationCompletedResults[0].dataset ===
+    'tax_delinquent' &&
+  paginationCompletedResults[0].ok === true,
+  'terminal cursor creates exactly one completed-feed result'
+);
+
+assert(
+  (
+    properties.get(
+      'REOS_COUNTY_SCHEDULER_LAST_SUCCESS_AT'
+    ) || ''
+  ) === paginationFreshnessBefore,
+  'terminal first feed still cannot advance complete-cycle freshness'
+);
+
+/*
+ * Reset active pagination checkpoint before exercising the existing
+ * healthy/degraded-cycle contract. This is test isolation only.
+ */
+[
+  'REOS_COUNTY_SCHEDULER_CYCLE_ID',
+  'REOS_COUNTY_SCHEDULER_CYCLE_STARTED_AT',
+  'REOS_COUNTY_SCHEDULER_NEXT_FEED_INDEX',
+  'REOS_COUNTY_SCHEDULER_CURRENT_FEED_CURSOR',
+  'REOS_COUNTY_SCHEDULER_CYCLE_RESULTS_JSON'
+].forEach(key => properties.delete(key));
+
+syncCalls = [];
+failingDataset = '';
+pageCursorResponses = {};
+pageCursorResponseIndexes = {};
 
 /* A healthy cycle must execute exactly one approved feed per invocation. */
 syncCalls = [];
