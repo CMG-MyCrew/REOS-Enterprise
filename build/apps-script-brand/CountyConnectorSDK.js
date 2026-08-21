@@ -646,11 +646,17 @@ REOS.CountyConnectorSDK = (function () {
       100
     );
 
-    return REOS.Database
+    var rows = REOS.Database
       .getAll(AUDIT_SHEET)
       .slice()
       .reverse()
       .slice(0, boundedLimit);
+
+    return JSON.parse(JSON.stringify(rows, function (key, value) {
+      return value instanceof Date
+        ? value.toISOString()
+        : value;
+    }));
   }
 
   return {
