@@ -451,6 +451,36 @@ REOS.CountyProductionScheduler = (function () {
             }
           );
 
+        /*
+         * A page with record-level failures is not checkpoint-safe.
+         *
+         * Preserve the incoming CURRENT_FEED_CURSOR rather than
+         * accepting the adapter's nextCursor. The same source page
+         * will therefore remain retry authority.
+         */
+        if (
+          result &&
+          result.stats &&
+          Number(result.stats.failed || 0) > 0
+        ) {
+          return {
+            ok: false,
+            skipped: false,
+            status: 'Degraded',
+            attemptedAt: attemptAt,
+            cycleId: cycle.id,
+            feedIndex: feedIndex,
+            completedFeeds: cycle.completedFeeds,
+            total: ALLOWLIST.length,
+            cursor: currentFeedCursor,
+            result: result,
+            error:
+              'County page persistence incomplete: ' +
+              Number(result.stats.failed || 0) +
+              ' record(s) failed.'
+          };
+        }
+
         nextCursor = String(
           result && result.nextCursor
             ? result.nextCursor
