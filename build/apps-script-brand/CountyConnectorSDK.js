@@ -631,6 +631,28 @@ REOS.CountyConnectorSDK = (function () {
     return isNaN(date.getTime()) ? '' : date;
   }
 
+  function recentRuns(limit) {
+    var requested = Number(limit || 25);
+
+    if (
+      !isFinite(requested) ||
+      requested <= 0
+    ) {
+      requested = 25;
+    }
+
+    var boundedLimit = Math.min(
+      Math.floor(requested),
+      100
+    );
+
+    return REOS.Database
+      .getAll(AUDIT_SHEET)
+      .slice()
+      .reverse()
+      .slice(0, boundedLimit);
+  }
+
   return {
     register: register,
     get: get,
@@ -638,6 +660,11 @@ REOS.CountyConnectorSDK = (function () {
     ensureInfrastructure: ensureInfrastructure,
     run: run,
     runAll: runAll,
+    recentRuns: recentRuns,
     validateLead: validateLead_
   };
 })();
+
+function reosCountyConnectorRecentRuns(limit) {
+  return REOS.CountyConnectorSDK.recentRuns(limit);
+}
