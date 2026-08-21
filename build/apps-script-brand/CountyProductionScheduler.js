@@ -687,6 +687,9 @@ REOS.CountyProductionScheduler = (function () {
     installScheduler: installScheduler,
     removeScheduler: removeScheduler,
     getStatus: getStatus,
+    getCheckpoint: function () {
+      return cycleSnapshot_(properties_());
+    },
     preflight: preflight,
     run: run
   };
@@ -702,6 +705,10 @@ function reosCountyProductionSchedulerRemove() {
 
 function reosCountyProductionSchedulerStatus() {
   return REOS.CountyProductionScheduler.getStatus();
+}
+
+function reosCountyProductionSchedulerCheckpoint() {
+  return REOS.CountyProductionScheduler.getCheckpoint();
 }
 
 function reosCountyProductionSchedulerPreflight() {
