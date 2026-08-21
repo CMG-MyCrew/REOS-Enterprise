@@ -690,6 +690,16 @@ REOS.CountyProductionScheduler = (function () {
     getCheckpoint: function () {
       return cycleSnapshot_(properties_());
     },
+    getProvenance: function () {
+      const props = properties_();
+
+      return {
+        installedAt:
+          props.getProperty(INSTALLED_AT) || '',
+        removedAt:
+          props.getProperty(REMOVED_AT) || ''
+      };
+    },
     preflight: preflight,
     run: run
   };
@@ -709,6 +719,10 @@ function reosCountyProductionSchedulerStatus() {
 
 function reosCountyProductionSchedulerCheckpoint() {
   return REOS.CountyProductionScheduler.getCheckpoint();
+}
+
+function reosCountyProductionSchedulerProvenance() {
+  return REOS.CountyProductionScheduler.getProvenance();
 }
 
 function reosCountyProductionSchedulerPreflight() {
