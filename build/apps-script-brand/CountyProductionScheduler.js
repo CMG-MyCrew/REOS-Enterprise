@@ -700,6 +700,11 @@ REOS.CountyProductionScheduler = (function () {
           props.getProperty(REMOVED_AT) || ''
       };
     },
+    getTaxDelinquentEndpoint: function () {
+      return properties_().getProperty(
+        'REOS_COUNTY_PA_PHILADELPHIA_TAX_DELINQUENT_URL'
+      ) || '';
+    },
     preflight: preflight,
     run: run
   };
@@ -723,6 +728,10 @@ function reosCountyProductionSchedulerCheckpoint() {
 
 function reosCountyProductionSchedulerProvenance() {
   return REOS.CountyProductionScheduler.getProvenance();
+}
+
+function reosCountyTaxDelinquentEndpointDiagnostic() {
+  return REOS.CountyProductionScheduler.getTaxDelinquentEndpoint();
 }
 
 function reosCountyProductionSchedulerPreflight() {
