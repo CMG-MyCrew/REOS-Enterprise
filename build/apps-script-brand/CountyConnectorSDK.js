@@ -637,8 +637,7 @@ REOS.CountyConnectorSDK = (function () {
     var row = REOS.Database
       .getAll(AUDIT_SHEET)
       .filter(function (candidate) {
-        return candidate.run_id === runId ||
-          candidate.runId === runId;
+        return candidate['Run ID'] === runId;
       })[0] || null;
 
     return JSON.parse(JSON.stringify(row, function (key, value) {
