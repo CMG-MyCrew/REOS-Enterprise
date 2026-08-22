@@ -690,6 +690,72 @@ REOS.CountyProductionScheduler = (function () {
     getCheckpoint: function () {
       return cycleSnapshot_(properties_());
     },
+    retireCheckpoint: function (expectedCycleId) {
+      requireAdmin_();
+
+      const props = properties_();
+      const cycle = cycleSnapshot_(props);
+      const expected = String(expectedCycleId || '').trim();
+
+      if (!expected) {
+        throw new Error(
+          'Expected county scheduler cycle ID is required.'
+        );
+      }
+
+      if (!cycle.id) {
+        return {
+          ok: true,
+          retired: false,
+          reason: 'No active checkpoint.',
+          checkpoint: cycle
+        };
+      }
+
+      if (cycle.id !== expected) {
+        throw new Error(
+          'County scheduler checkpoint changed; expected ' +
+          expected +
+          ', found ' +
+          cycle.id +
+          '.'
+        );
+      }
+
+      const retired = {
+        id: cycle.id,
+        startedAt: cycle.startedAt,
+        nextFeedIndex: cycle.nextFeedIndex,
+        currentFeedCursor: cycle.currentFeedCursor,
+        completedFeeds: cycle.completedFeeds,
+        totalFeeds: cycle.totalFeeds,
+        results: cycle.results
+      };
+
+      clearCycle_(props);
+
+      const after = cycleSnapshot_(props);
+
+      if (
+        after.id ||
+        after.startedAt ||
+        after.nextFeedIndex !== 0 ||
+        after.currentFeedCursor ||
+        after.completedFeeds !== 0 ||
+        after.results.length !== 0
+      ) {
+        throw new Error(
+          'County scheduler checkpoint retirement verification failed.'
+        );
+      }
+
+      return {
+        ok: true,
+        retired: true,
+        retiredCheckpoint: retired,
+        checkpoint: after
+      };
+    },
     getProvenance: function () {
       const props = properties_();
 
@@ -724,6 +790,14 @@ function reosCountyProductionSchedulerStatus() {
 
 function reosCountyProductionSchedulerCheckpoint() {
   return REOS.CountyProductionScheduler.getCheckpoint();
+}
+
+function reosCountyProductionSchedulerRetireCheckpoint(
+  expectedCycleId
+) {
+  return REOS.CountyProductionScheduler.retireCheckpoint(
+    expectedCycleId
+  );
 }
 
 function reosCountyProductionSchedulerProvenance() {
