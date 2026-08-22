@@ -631,6 +631,23 @@ REOS.CountyConnectorSDK = (function () {
     return isNaN(date.getTime()) ? '' : date;
   }
 
+  function auditRunDiagnostic() {
+    var runId = 'CCR-20260822003246-6692';
+
+    var row = REOS.Database
+      .getAll(AUDIT_SHEET)
+      .filter(function (candidate) {
+        return candidate.run_id === runId ||
+          candidate.runId === runId;
+      })[0] || null;
+
+    return JSON.parse(JSON.stringify(row, function (key, value) {
+      return value instanceof Date
+        ? value.toISOString()
+        : value;
+    }));
+  }
+
   function recentRuns(limit) {
     var requested = Number(limit || 25);
 
@@ -667,10 +684,15 @@ REOS.CountyConnectorSDK = (function () {
     run: run,
     runAll: runAll,
     recentRuns: recentRuns,
+    auditRunDiagnostic: auditRunDiagnostic,
     validateLead: validateLead_
   };
 })();
 
 function reosCountyConnectorRecentRuns(limit) {
   return REOS.CountyConnectorSDK.recentRuns(limit);
+}
+
+function reosCountyAuditRunDiagnostic() {
+  return REOS.CountyConnectorSDK.auditRunDiagnostic();
 }
