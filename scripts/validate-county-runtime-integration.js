@@ -61,6 +61,18 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/ZillowProductionEvidence.js'
 ];
 
+/*
+ * Explicit post-county modifications of production files that existed at
+ * the county reconciliation baseline.
+ *
+ * Keep these separate from both the historical controlled modifications
+ * and additive post-county files so each class retains its exact Git
+ * status contract.
+ */
+const POST_COUNTY_MODIFIED_PRODUCTION_FILES = [
+  'build/apps-script-brand/ZillowGmailConnector.js'
+];
+
 const COMPONENT_VALIDATORS = [
   'validate-county-connector-certification.js',
   'validate-county-runtime-packaging.js',
@@ -236,6 +248,9 @@ const unexpectedModifiedEntries =
     entry.status === 'M' &&
     !CONTROLLED_MODIFIED_BUILD_FILES.includes(
       entry.file
+    ) &&
+    !POST_COUNTY_MODIFIED_PRODUCTION_FILES.includes(
+      entry.file
     )
   );
 
@@ -253,6 +268,42 @@ diffEntries = diffEntries.filter(
     !CONTROLLED_MODIFIED_BUILD_FILES.includes(
       entry.file
     )
+);
+
+const postCountyModifiedEntries =
+  diffEntries.filter(entry =>
+    POST_COUNTY_MODIFIED_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+POST_COUNTY_MODIFIED_PRODUCTION_FILES.forEach(file => {
+  const matches = postCountyModifiedEntries.filter(
+    entry => entry.file === file
+  );
+
+  assert.equal(
+    matches.length,
+    1,
+    `explicit post-county modified production file missing or duplicated: ${file}`
+  );
+
+  assert.equal(
+    matches[0].status,
+    'M',
+    `post-county modified production file must remain a baseline modification: ${file}`
+  );
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !POST_COUNTY_MODIFIED_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'explicit post-county production modifications are isolated from county reconciliation'
 );
 
 const postCountyEntries =

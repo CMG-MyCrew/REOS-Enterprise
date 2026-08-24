@@ -213,6 +213,20 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   echo
 fi
 
+# Zillow Gmail address parser certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  ZILLOW_GMAIL_ADDRESS_CERTIFIER="scripts/validate-zillow-gmail-address-parser.js"
+
+  if [[ ! -f "$ZILLOW_GMAIL_ADDRESS_CERTIFIER" ]]; then
+    echo "ERROR: Zillow Gmail address parser validator missing: $ZILLOW_GMAIL_ADDRESS_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running Zillow Gmail address parser certification..."
+  node "$ZILLOW_GMAIL_ADDRESS_CERTIFIER"
+  echo
+fi
+
 # Production E2E harness safety certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   PRODUCTION_E2E_HARNESS_CERTIFIER="scripts/validate-production-e2e-harness.js"
