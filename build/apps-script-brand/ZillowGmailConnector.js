@@ -216,7 +216,13 @@ REOS.ZillowGmailConnector = (function () {
       /(?:lead|contact|inquiry)\s*(?:id|#)\s*[:\-]\s*([A-Z0-9_-]{4,})/i,
       /zillow[_\s-]*lead[_\s-]*id\s*[:=]\s*([A-Z0-9_-]+)/i
     ]);
-    var leadType = detectLeadType_(subject + ' ' + body, labelName);
+    /*
+     * Lead-type authority must come from explicit routing/subject context.
+     * The full message body contains Zillow marketing copy such as rental
+     * estimates, lease language, mortgage offers, and seller promotions;
+     * treating that prose as classification authority manufactures types.
+     */
+    var leadType = detectLeadType_(subject, labelName);
     var location = splitAddress_(address, config);
     var inquiry = extractInquiry_(body);
     var naturalKey = buildNaturalKey_(externalLeadId, email, phone, address, propertyUrl);
@@ -433,6 +439,16 @@ REOS.ZillowGmailConnector = (function () {
      * addresses.
      */
     var normalized = cleaned.toLowerCase();
+
+    /*
+     * An address candidate must never be an HTTP(S) URL. Zillow email
+     * templates frequently place click/tracking URLs after labels such as
+     * Home or Property, which can satisfy the permissive extraction regex.
+     * Reject the entire URL class rather than enumerating tracking formats.
+     */
+    if (/^https?:\/\//i.test(cleaned)) {
+      return '';
+    }
 
     if (
       normalized.indexOf('notifications%2f') !== -1 ||
