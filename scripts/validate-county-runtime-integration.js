@@ -49,6 +49,18 @@ const CONTROLLED_MODIFIED_BUILD_FILES = [
   'build/apps-script-brand/LivePipelineVerification.js'
 ];
 
+/*
+ * Explicit post-county production additions.
+ *
+ * These files were introduced after the county runtime reconciliation and
+ * are outside that historical 112-file inventory. Keep every exemption
+ * explicit so unrelated future build additions cannot silently expand
+ * county production authority.
+ */
+const POST_COUNTY_PRODUCTION_FILES = [
+  'build/apps-script-brand/ZillowProductionEvidence.js'
+];
+
 const COMPONENT_VALIDATORS = [
   'validate-county-connector-certification.js',
   'validate-county-runtime-packaging.js',
@@ -243,8 +255,44 @@ diffEntries = diffEntries.filter(
     )
 );
 
+const postCountyEntries =
+  diffEntries.filter(entry =>
+    POST_COUNTY_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+POST_COUNTY_PRODUCTION_FILES.forEach(file => {
+  const matches = postCountyEntries.filter(
+    entry => entry.file === file
+  );
+
+  assert.equal(
+    matches.length,
+    1,
+    `explicit post-county production file missing or duplicated: ${file}`
+  );
+
+  assert.equal(
+    matches[0].status,
+    'A',
+    `post-county production file must remain additive: ${file}`
+  );
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !POST_COUNTY_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
 pass(
   'production manifest and E2E harness are the only allowlisted modified build files'
+);
+
+pass(
+  'explicit post-county production additions are isolated from county reconciliation'
 );
 
 const expectedCountyProductionFiles = new Set(
