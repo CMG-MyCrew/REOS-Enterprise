@@ -418,7 +418,34 @@ REOS.ZillowGmailConnector = (function () {
   }
 
   function cleanAddress_(value) {
-    return String(value || '').replace(/\s+/g, ' ').replace(/\s*\|.*$/, '').trim().substring(0, 220);
+    var cleaned = String(value || '')
+      .replace(/\s+/g, ' ')
+      .replace(/\s*\|.*$/, '')
+      .trim()
+      .substring(0, 220);
+
+    if (!cleaned) return '';
+
+    /*
+     * Zillow marketing/tracking links can contain route fragments that
+     * resemble an "address" after URL decoding. They are navigation
+     * artifacts, not property identities, and must never become lead
+     * addresses.
+     */
+    var normalized = cleaned.toLowerCase();
+
+    if (
+      normalized.indexOf('notifications%2f') !== -1 ||
+      normalized.indexOf('notifications/') !== -1 ||
+      normalized.indexOf('view-all_target') !== -1 ||
+      normalized.indexOf('view-all%5ftarget') !== -1 ||
+      normalized.indexOf('rtoken%3d') !== -1 ||
+      normalized.indexOf('rtoken=') !== -1
+    ) {
+      return '';
+    }
+
+    return cleaned;
   }
 
   function normalizeKey_(value) {
