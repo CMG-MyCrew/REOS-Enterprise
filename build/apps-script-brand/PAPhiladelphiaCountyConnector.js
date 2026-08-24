@@ -71,6 +71,9 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         enabled: true,
         maxLimit: 2000,
         orderByFields: "OBJECTID ASC",
+        sourceQuery: {
+          where: "IS_ACTIONABLE = 'true'"
+        },
         mapping: {
           address: [
             "STREET_ADDRESS",

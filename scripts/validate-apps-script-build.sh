@@ -306,6 +306,21 @@ else
 fi
 
 
+# Philadelphia actionable tax-delinquency source-filter certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  PHILADELPHIA_TAX_ACTIONABLE_CERTIFIER="scripts/validate-philadelphia-tax-actionable-filter.js"
+
+  if [[ ! -f "$PHILADELPHIA_TAX_ACTIONABLE_CERTIFIER" ]]; then
+    echo "ERROR: Philadelphia actionable tax filter validator missing: $PHILADELPHIA_TAX_ACTIONABLE_CERTIFIER"
+    exit 1
+  fi
+
+  echo
+  echo "Running Philadelphia actionable tax filter certification..."
+  node "$PHILADELPHIA_TAX_ACTIONABLE_CERTIFIER"
+fi
+
+
 python3 - "$ROOT_DIR" <<'PY'
 from collections import defaultdict
 from pathlib import Path
