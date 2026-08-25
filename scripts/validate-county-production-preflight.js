@@ -55,10 +55,6 @@ assert(
 
 const required = [
   [
-    'tax_delinquent',
-    'REOS_COUNTY_PA_PHILADELPHIA_TAX_DELINQUENT_URL'
-  ],
-  [
     'code_violations',
     'REOS_COUNTY_PA_PHILADELPHIA_CODE_VIOLATIONS_URL'
   ],
@@ -100,6 +96,14 @@ assert(
     'PROPERTY_ASSESSMENT_URL'
   ),
   'preflight excludes property_assessment'
+);
+
+assert(
+  !/\btax_delinquent\s*:/.test(preflightSource) &&
+    !preflightSource.includes(
+      'TAX_DELINQUENT_URL'
+    ),
+  'preflight excludes quarantined tax_delinquent'
 );
 
 assert(
@@ -188,7 +192,7 @@ assert(
   result.ok === false &&
     result.ready === false &&
     result.configured === 0 &&
-    result.required === 5,
+    result.required === 4,
   'missing configuration fails readiness'
 );
 
@@ -198,8 +202,8 @@ assert(
 );
 
 assert(
-  Object.keys(result.datasets).length === 5,
-  'preflight reports exactly five datasets'
+  Object.keys(result.datasets).length === 4,
+  'preflight reports exactly four scheduled datasets'
 );
 
 assert(
@@ -212,9 +216,9 @@ assert(
 );
 
 /*
- * Configure four of five.
+ * Configure three of four.
  */
-for (const [, property] of required.slice(0, 4)) {
+for (const [, property] of required.slice(0, 3)) {
   properties.set(
     property,
     'https://example.invalid/secret-endpoint'
@@ -227,8 +231,8 @@ result =
 assert(
   result.ok === false &&
     result.ready === false &&
-    result.configured === 4 &&
-    result.required === 5,
+    result.configured === 3 &&
+    result.required === 4,
   'partial configuration fails readiness'
 );
 
@@ -236,7 +240,7 @@ assert(
  * Configure final required endpoint.
  */
 properties.set(
-  required[4][1],
+  required[3][1],
   'https://example.invalid/final-secret-endpoint'
 );
 
@@ -246,9 +250,9 @@ result =
 assert(
   result.ok === true &&
     result.ready === true &&
-    result.configured === 5 &&
-    result.required === 5,
-  'all five configured endpoints pass readiness'
+    result.configured === 4 &&
+    result.required === 4,
+  'all four scheduled endpoints pass readiness'
 );
 
 const serialized = JSON.stringify(result);
@@ -278,6 +282,14 @@ assert(
     'property_assessment'
   ),
   'runtime result excludes property_assessment'
+);
+
+assert(
+  !Object.prototype.hasOwnProperty.call(
+    result.datasets,
+    'tax_delinquent'
+  ),
+  'runtime result excludes quarantined tax_delinquent'
 );
 
 console.log('');

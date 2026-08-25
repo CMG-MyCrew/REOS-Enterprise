@@ -63,7 +63,6 @@ assert(
 );
 
 const requiredPairs = [
-  ['PA-PHILADELPHIA', 'tax_delinquent'],
   ['PA-PHILADELPHIA', 'code_violations'],
   ['PA-PHILADELPHIA', 'vacant_properties'],
   ['PA-PHILADELPHIA', 'sheriff_tax_sales'],
@@ -84,6 +83,7 @@ assert(
 );
 
 for (const forbidden of [
+  'tax_delinquent',
   'property_assessment',
   'parcel_inventory',
   'probate',
@@ -358,7 +358,7 @@ assert(
 syncCalls = [];
 failingDataset = '';
 pageCursorResponses = {
-  tax_delinquent: ['50', '100', '']
+  code_violations: ['50', '100', '']
 };
 pageCursorResponseIndexes = {};
 
@@ -377,8 +377,8 @@ assert(
 
 assert(
   syncCalls[0].connectorId === 'PA-PHILADELPHIA' &&
-  syncCalls[0].dataset === 'tax_delinquent',
-  'paginated invocation 1 executes tax_delinquent'
+  syncCalls[0].dataset === 'code_violations',
+  'paginated invocation 1 executes code_violations'
 );
 
 assert(
@@ -435,8 +435,8 @@ assert(
 );
 
 assert(
-  syncCalls[1].dataset === 'tax_delinquent',
-  'paginated invocation 2 remains on tax_delinquent'
+  syncCalls[1].dataset === 'code_violations',
+  'paginated invocation 2 remains on code_violations'
 );
 
 assert(
@@ -485,10 +485,10 @@ assert(
 );
 
 assert(
-  syncCalls[2].dataset === 'tax_delinquent' &&
+  syncCalls[2].dataset === 'code_violations' &&
   syncCalls[2].options &&
   String(syncCalls[2].options.cursor || '') === '100',
-  'terminal page resumes tax_delinquent from cursor 100'
+  'terminal page resumes code_violations from cursor 100'
 );
 
 assert(
@@ -520,7 +520,7 @@ const paginationCompletedResults = JSON.parse(
 assert(
   paginationCompletedResults.length === 1 &&
   paginationCompletedResults[0].dataset ===
-    'tax_delinquent' &&
+    'code_violations' &&
   paginationCompletedResults[0].ok === true,
   'terminal cursor creates exactly one completed-feed result'
 );
@@ -604,7 +604,7 @@ assert(
   healthy.ok === true &&
   healthy.status === 'Healthy' &&
   syncCalls.length === requiredPairs.length,
-  'five bounded invocations complete exactly one healthy five-feed cycle'
+  'four bounded invocations complete exactly one healthy four-feed cycle'
 );
 
 const actualPairs = syncCalls.map(
@@ -676,7 +676,7 @@ assert(
   'degraded-cycle setup executes first feed only'
 );
 
-failingDataset = 'code_violations';
+failingDataset = 'vacant_properties';
 
 const degradedFailure =
   context.reosCountyProductionSchedulerRun();
@@ -689,8 +689,8 @@ assert(
 );
 
 assert(
-  syncCalls[1].dataset === 'code_violations',
-  'configured bounded failure occurs on code_violations'
+  syncCalls[1].dataset === 'vacant_properties',
+  'configured bounded failure occurs on vacant_properties'
 );
 
 assert(
@@ -722,7 +722,7 @@ assert(
   activeDegradedResults.length === 2 &&
   activeDegradedResults.some(
     result =>
-      result.dataset === 'code_violations' &&
+      result.dataset === 'vacant_properties' &&
       result.ok === false
   ),
   'active degraded cycle preserves failed-feed checkpoint evidence'
@@ -775,11 +775,11 @@ const resultJson = JSON.parse(
 
 assert(
   resultJson.failed === 1 &&
-  resultJson.succeeded === 4 &&
-  resultJson.results.length === 5 &&
+  resultJson.succeeded === 3 &&
+  resultJson.results.length === 4 &&
   resultJson.results.some(
     result =>
-      result.dataset === 'code_violations' &&
+      result.dataset === 'vacant_properties' &&
       result.ok === false
   ),
   'failed feed remains visible in completed bounded-cycle telemetry'
