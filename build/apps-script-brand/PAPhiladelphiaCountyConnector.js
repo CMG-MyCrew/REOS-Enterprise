@@ -148,6 +148,16 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         enabled: true,
         maxLimit: 2000,
         orderByFields: "objectid ASC",
+        recordFilter: {
+          requireAny: [
+            [
+              "address",
+              "street_address",
+              "property_address",
+              "location"
+            ]
+          ]
+        },
         mapping: {
           address: [
             "address",
@@ -166,6 +176,8 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
             "postal_code"
           ],
           parcelId: [
+            "parcel_id_num",
+            "opa_account_num",
             "parcel_number",
             "parcel_id",
             "opa_number",
