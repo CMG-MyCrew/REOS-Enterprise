@@ -10,6 +10,11 @@ const SOURCE = path.join(
   'build/apps-script-brand/CountyProductionScheduler.js'
 );
 
+const PHILADELPHIA_CONNECTOR_SOURCE = path.join(
+  ROOT,
+  'build/apps-script-brand/PAPhiladelphiaCountyConnector.js'
+);
+
 function fail(message) {
   console.error('FAIL: ' + message);
   process.exit(1);
@@ -29,6 +34,16 @@ if (!fs.existsSync(SOURCE)) {
 }
 
 const source = fs.readFileSync(SOURCE, 'utf8');
+
+if (!fs.existsSync(PHILADELPHIA_CONNECTOR_SOURCE)) {
+  fail('PAPhiladelphiaCountyConnector.js is present');
+}
+
+const philadelphiaConnectorSource =
+  fs.readFileSync(
+    PHILADELPHIA_CONNECTOR_SOURCE,
+    'utf8'
+  );
 
 console.log(
   '=== COUNTY PRODUCTION SCHEDULER CERTIFICATION ==='
@@ -76,6 +91,53 @@ for (const [connectorId, dataset] of requiredPairs) {
     `allowlist contains ${connectorId} / ${dataset}`
   );
 }
+
+const codeViolationsStart =
+  philadelphiaConnectorSource.indexOf(
+    '      code_violations: {'
+  );
+
+const vacantPropertiesStart =
+  philadelphiaConnectorSource.indexOf(
+    '      vacant_properties: {',
+    codeViolationsStart
+  );
+
+assert(
+  codeViolationsStart !== -1 &&
+    vacantPropertiesStart !== -1,
+  'scheduled Philadelphia code_violations definition is present'
+);
+
+const codeViolationsBlock =
+  philadelphiaConnectorSource.slice(
+    codeViolationsStart,
+    vacantPropertiesStart
+  );
+
+assert(
+  codeViolationsBlock.includes(
+    'adapter: "arcgis"'
+  ),
+  'scheduled code_violations uses ArcGIS pagination'
+);
+
+assert(
+  codeViolationsBlock.includes(
+    'orderByFields: "objectid ASC"'
+  ),
+  'scheduled code_violations uses deterministic objectid ordering'
+);
+
+assert(
+  philadelphiaConnectorSource.includes(
+    'if (definition.orderByFields)'
+  ) &&
+    philadelphiaConnectorSource.includes(
+      'adapterOptions.orderByFields'
+    ),
+  'Philadelphia ArcGIS fetch path propagates deterministic ordering'
+);
 
 assert(
   !source.includes("connectorId: 'PA-BUCKS'"),
