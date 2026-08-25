@@ -147,6 +147,7 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         endpointProperty: "REOS_COUNTY_PA_PHILADELPHIA_CODE_VIOLATIONS_URL",
         enabled: true,
         maxLimit: 2000,
+        orderByFields: "objectid ASC",
         mapping: {
           address: [
             "address",
