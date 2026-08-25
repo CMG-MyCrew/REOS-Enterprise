@@ -20,10 +20,12 @@ REOS.CountyProductionScheduler = (function () {
    * Adding another county/dataset requires a reviewed code change.
    */
   const ALLOWLIST = Object.freeze([
-    Object.freeze({
-      connectorId: 'PA-PHILADELPHIA',
-      dataset: 'tax_delinquent'
-    }),
+    /*
+     * tax_delinquent is intentionally quarantined from scheduled
+     * production authority because the public parcel-level source
+     * currently represents the historical 202206 snapshot.
+     * Keep the connector available for explicit controlled research use.
+     */
     Object.freeze({
       connectorId: 'PA-PHILADELPHIA',
       dataset: 'code_violations'
@@ -254,8 +256,11 @@ REOS.CountyProductionScheduler = (function () {
     const props = properties_();
 
     const datasets = Object.freeze({
-      tax_delinquent:
-        'REOS_COUNTY_PA_PHILADELPHIA_TAX_DELINQUENT_URL',
+      /*
+       * Preflight covers scheduled production authority only.
+       * tax_delinquent remains quarantined until a current parcel-level
+       * production source is established and certified.
+       */
       code_violations:
         'REOS_COUNTY_PA_PHILADELPHIA_CODE_VIOLATIONS_URL',
       vacant_properties:
