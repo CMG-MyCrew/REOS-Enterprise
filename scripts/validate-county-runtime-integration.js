@@ -60,7 +60,8 @@ const CONTROLLED_MODIFIED_BUILD_FILES = [
 const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/ZillowProductionEvidence.js',
   'build/apps-script-brand/CanonicalPropertyIdentity.js',
-  'build/apps-script-brand/CountyIdentityHistoricalAudit.js'
+  'build/apps-script-brand/CountyIdentityHistoricalAudit.js',
+  'build/apps-script-brand/CountyIdentitySourceReconciliation.js'
 ];
 
 /*
@@ -82,6 +83,7 @@ const COMPONENT_VALIDATORS = [
   'validate-distress-lead-county-schema.js',
   'validate-canonical-property-upsert-identity.js',
   'validate-county-identity-historical-audit.js',
+  'validate-county-identity-source-reconciliation.js',
   'validate-county-runtime-bridge.js'
 ];
 
@@ -541,7 +543,7 @@ COMPONENT_VALIDATORS.forEach(fileName => {
   );
 });
 
-pass('all seven county integration component validators are present');
+pass(`all ${COMPONENT_VALIDATORS.length} county integration component validators are present`);
 
 console.log('');
 console.log(
@@ -579,7 +581,7 @@ COMPONENT_VALIDATORS.forEach(fileName => {
 });
 
 console.log('');
-pass('all seven component certifications pass together');
+pass(`all ${COMPONENT_VALIDATORS.length} component certifications pass together`);
 
 console.log('');
 console.log(
