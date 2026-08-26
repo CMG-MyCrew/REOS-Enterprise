@@ -228,6 +228,21 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
 fi
 
 
+# County identity repair evidence export certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  COUNTY_IDENTITY_REPAIR_EVIDENCE_EXPORT_CERTIFIER="scripts/validate-county-identity-repair-evidence-export.js"
+
+  if [[ ! -f "$COUNTY_IDENTITY_REPAIR_EVIDENCE_EXPORT_CERTIFIER" ]]; then
+    echo "ERROR: County identity repair evidence export validator missing: $COUNTY_IDENTITY_REPAIR_EVIDENCE_EXPORT_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county identity repair evidence export certification..."
+  node "$COUNTY_IDENTITY_REPAIR_EVIDENCE_EXPORT_CERTIFIER"
+  echo
+fi
+
+
 # County runtime execution bridge certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_RUNTIME_BRIDGE_CERTIFIER="scripts/validate-county-runtime-bridge.js"

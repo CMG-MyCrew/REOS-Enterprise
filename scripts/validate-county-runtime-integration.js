@@ -61,7 +61,8 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/ZillowProductionEvidence.js',
   'build/apps-script-brand/CanonicalPropertyIdentity.js',
   'build/apps-script-brand/CountyIdentityHistoricalAudit.js',
-  'build/apps-script-brand/CountyIdentitySourceReconciliation.js'
+  'build/apps-script-brand/CountyIdentitySourceReconciliation.js',
+  'build/apps-script-brand/CountyIdentityRepairEvidenceExport.js'
 ];
 
 /*
@@ -84,6 +85,7 @@ const COMPONENT_VALIDATORS = [
   'validate-canonical-property-upsert-identity.js',
   'validate-county-identity-historical-audit.js',
   'validate-county-identity-source-reconciliation.js',
+  'validate-county-identity-repair-evidence-export.js',
   'validate-county-runtime-bridge.js'
 ];
 
