@@ -14,6 +14,12 @@ const path =
 
 const source = fs.readFileSync(path, 'utf8');
 
+const identityPath =
+  'build/apps-script-brand/CanonicalPropertyIdentity.js';
+
+const identitySource =
+  fs.readFileSync(identityPath, 'utf8');
+
 /*
  * Performance contract:
  *
@@ -248,6 +254,7 @@ function createHarness(initialLeads) {
   };
 
   vm.createContext(sandbox);
+  vm.runInContext(identitySource, sandbox);
   vm.runInContext(source, sandbox);
 
   return {

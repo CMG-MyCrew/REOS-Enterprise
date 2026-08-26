@@ -11,6 +11,7 @@ const ROOT = path.resolve(__dirname, '..');
 const BUILD = path.join(ROOT, 'build', 'apps-script-brand');
 
 const REQUIRED_FILES = [
+  'CanonicalPropertyIdentity.js',
   'CountyConnectorSDK.js',
   'CountyHttpAdapter.js',
   'CountyAdapterRegistry.js',
@@ -181,6 +182,7 @@ const LOAD_ORDER = [
   'HTMLTableAdapter.js',
   'JSONAPIAdapter.js',
   'SocrataAdapter.js',
+  'CanonicalPropertyIdentity.js',
   'CountyConnectorSDK.js'
 ];
 
@@ -193,6 +195,19 @@ LOAD_ORDER.forEach(fileName => {
     }
   );
 });
+
+assert.ok(
+  context.REOS.CanonicalPropertyIdentity,
+  'REOS.CanonicalPropertyIdentity failed to load'
+);
+
+assert.equal(
+  typeof context.REOS.CanonicalPropertyIdentity.resolve,
+  'function',
+  'CanonicalPropertyIdentity.resolve must be a function'
+);
+
+pass('CanonicalPropertyIdentity runtime dependency loads');
 
 assert.ok(
   context.REOS.CountyConnectorSDK,

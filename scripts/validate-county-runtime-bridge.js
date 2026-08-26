@@ -18,6 +18,7 @@ const RUNTIME_FILES = [
   'HTMLTableAdapter.js',
   'JSONAPIAdapter.js',
   'SocrataAdapter.js',
+  'CanonicalPropertyIdentity.js',
   'CountyConnectorSDK.js',
   'DistressLeadCountySchema.js'
 ];
@@ -784,8 +785,8 @@ const liveHeaders =
 
 assert.equal(
   liveHeaders.length,
-  50,
-  'confirmed live execution must establish 50-column lead schema'
+  52,
+  'confirmed live execution must establish 52-column lead schema'
 );
 
 assert.deepEqual(
@@ -864,6 +865,20 @@ assert.ok(
     'Source Record Key'
   ],
   'live persistence must establish Source Record Key'
+);
+
+assert.ok(
+  insertedLead[
+    'Source Observation Key'
+  ],
+  'live persistence must establish Source Observation Key'
+);
+
+assert.ok(
+  insertedLead[
+    'Canonical Property Key'
+  ],
+  'live persistence must establish Canonical Property Key'
 );
 
 pass('confirmed live execution migrates schema before persistence');
