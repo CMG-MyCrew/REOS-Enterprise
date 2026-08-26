@@ -47,6 +47,8 @@ REOS.DistressLeadCountySchema = (function () {
     'Parcel ID',
     'Source Record ID',
     'Source Record Key',
+    'Source Observation Key',
+    'Canonical Property Key',
     'Last Seen At',
     'Source Updated At',
     'Co-Owner Name',

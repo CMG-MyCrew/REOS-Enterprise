@@ -58,7 +58,8 @@ const CONTROLLED_MODIFIED_BUILD_FILES = [
  * county production authority.
  */
 const POST_COUNTY_PRODUCTION_FILES = [
-  'build/apps-script-brand/ZillowProductionEvidence.js'
+  'build/apps-script-brand/ZillowProductionEvidence.js',
+  'build/apps-script-brand/CanonicalPropertyIdentity.js'
 ];
 
 /*
@@ -78,6 +79,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-runtime-packaging.js',
   'validate-generated-county-connectors.js',
   'validate-distress-lead-county-schema.js',
+  'validate-canonical-property-upsert-identity.js',
   'validate-county-runtime-bridge.js'
 ];
 
@@ -537,7 +539,7 @@ COMPONENT_VALIDATORS.forEach(fileName => {
   );
 });
 
-pass('all five county integration component validators are present');
+pass('all six county integration component validators are present');
 
 console.log('');
 console.log(

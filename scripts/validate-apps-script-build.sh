@@ -185,6 +185,20 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   echo
 fi
 
+# Canonical property / source observation identity certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  CANONICAL_PROPERTY_IDENTITY_CERTIFIER="scripts/validate-canonical-property-upsert-identity.js"
+
+  if [[ ! -f "$CANONICAL_PROPERTY_IDENTITY_CERTIFIER" ]]; then
+    echo "ERROR: Canonical property identity validator missing: $CANONICAL_PROPERTY_IDENTITY_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running canonical property / source observation identity certification..."
+  node "$CANONICAL_PROPERTY_IDENTITY_CERTIFIER"
+  echo
+fi
+
 # County runtime execution bridge certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_RUNTIME_BRIDGE_CERTIFIER="scripts/validate-county-runtime-bridge.js"

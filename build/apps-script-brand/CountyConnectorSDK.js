@@ -303,20 +303,63 @@ REOS.CountyConnectorSDK = (function () {
       };
     }
 
-    var naturalKey = buildNaturalKey_(record);
-    var existing = findExisting_(
+    var identity = resolveIdentity_(record);
+    var naturalKey = buildNaturalKey_(
       record,
+      identity
+    );
+
+    var existing = findExisting_(
       naturalKey,
       pagePersistence
     );
 
     if (existing) {
+      var existingCanonicalPropertyKey =
+        String(
+          existing['Canonical Property Key'] || ''
+        ).trim();
+
+      var incomingCanonicalPropertyKey =
+        String(
+          identity.canonicalPropertyKey || ''
+        ).trim();
+
+      /*
+       * Immutable observation identity guard.
+       *
+       * An exact source observation may be replayed and refreshed, but
+       * it may not silently migrate from one canonical property to
+       * another.
+       *
+       * Legacy rows with no Canonical Property Key are allowed to be
+       * backfilled on their first post-migration observation replay.
+       */
+      if (
+        existingCanonicalPropertyKey &&
+        incomingCanonicalPropertyKey &&
+        existingCanonicalPropertyKey !==
+          incomingCanonicalPropertyKey
+      ) {
+        throw new Error(
+          'Canonical property identity conflict for source observation ' +
+          naturalKey +
+          ': existing=' +
+          existingCanonicalPropertyKey +
+          ', incoming=' +
+          incomingCanonicalPropertyKey
+        );
+      }
+
       var updated = REOS.Database.update(
         TARGET_SHEET,
         'Distress Lead ID',
         existing['Distress Lead ID'],
         Object.assign({}, record, {
           'Source Record Key': naturalKey,
+          'Source Observation Key': naturalKey,
+          'Canonical Property Key':
+            identity.canonicalPropertyKey,
           'Last Seen At': new Date(),
           'Updated At': new Date()
         })
@@ -341,6 +384,9 @@ REOS.CountyConnectorSDK = (function () {
       TARGET_SHEET,
       Object.assign({}, record, {
         'Source Record Key': naturalKey,
+        'Source Observation Key': naturalKey,
+        'Canonical Property Key':
+          identity.canonicalPropertyKey,
         'Last Seen At': new Date()
       }),
       {
@@ -366,7 +412,6 @@ REOS.CountyConnectorSDK = (function () {
   }
 
   function findExisting_(
-    record,
     naturalKey,
     pagePersistence
   ) {
@@ -375,19 +420,32 @@ REOS.CountyConnectorSDK = (function () {
         ? pagePersistence.rows
         : [];
 
-    return rows.find(function (row) {
-      if (
-        naturalKey &&
-        String(row['Source Record Key'] || '') === naturalKey
-      ) {
-        return true;
-      }
+    if (!naturalKey) {
+      return null;
+    }
 
+    return rows.find(function (row) {
+      var observationKey =
+        String(
+          row['Source Observation Key'] || ''
+        );
+
+      var legacyKey =
+        String(
+          row['Source Record Key'] || ''
+        );
+
+      /*
+       * Exact source-observation identity only.
+       *
+       * Source Record Key remains a migration-compatible alias for
+       * county observations created before CanonicalPropertyIdentity.
+       *
+       * Address equality is intentionally NOT an upsert authority.
+       */
       return (
-        normalizeText_(row.Address) === normalizeText_(record.Address) &&
-        normalizeText_(row.City) === normalizeText_(record.City) &&
-        normalizeText_(row.State) === normalizeText_(record.State) &&
-        normalizeText_(row.Zip) === normalizeText_(record.Zip)
+        observationKey === naturalKey ||
+        legacyKey === naturalKey
       );
     }) || null;
   }
@@ -485,28 +543,50 @@ REOS.CountyConnectorSDK = (function () {
     }
   }
 
-  function buildNaturalKey_(record) {
-    var source = normalizeText_(record.Source);
-    var dataset = normalizeText_(record['Source Dataset']);
-    var sourceId = normalizeText_(record['Source Record ID']);
-    var parcel = normalizeText_(record['Parcel ID']);
-
-    if (sourceId) {
-      return [source, dataset, sourceId].join('|');
+  function resolveIdentity_(record) {
+    if (
+      !REOS.CanonicalPropertyIdentity ||
+      typeof REOS.CanonicalPropertyIdentity.resolve !==
+        'function'
+    ) {
+      throw new Error(
+        'CanonicalPropertyIdentity is not loaded.'
+      );
     }
 
-    if (parcel) {
-      return [source, dataset, parcel].join('|');
+    var identity =
+      REOS.CanonicalPropertyIdentity.resolve(
+        record
+      );
+
+    if (
+      !identity ||
+      !identity.sourceObservationKey ||
+      !identity.canonicalPropertyKey
+    ) {
+      throw new Error(
+        'Canonical property resolver returned incomplete identity.'
+      );
     }
 
-    return [
-      source,
-      dataset,
-      normalizeText_(record.Address),
-      normalizeText_(record.City),
-      normalizeText_(record.State),
-      normalizeText_(record.Zip)
-    ].join('|');
+    return identity;
+  }
+
+  /*
+   * Compatibility wrapper.
+   *
+   * The county natural key now means immutable source-observation
+   * identity. It is deliberately NOT canonical property identity.
+   */
+  function buildNaturalKey_(
+    record,
+    identity
+  ) {
+    identity =
+      identity ||
+      resolveIdentity_(record);
+
+    return identity.sourceObservationKey;
   }
 
   function insertRun_(

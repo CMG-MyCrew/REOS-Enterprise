@@ -216,14 +216,14 @@ pass('legacy 18-column CSVImportEngine schema is preserved exactly');
 
 assert.equal(
   countyHeaders.length,
-  32,
-  'county schema must add exactly 32 fields'
+  34,
+  'county schema must add exactly 34 fields'
 );
 
 assert.equal(
   requiredHeaders.length,
-  50,
-  'combined DISTRESS_LEADS schema must contain 50 fields'
+  52,
+  'combined DISTRESS_LEADS schema must contain 52 fields'
 );
 
 assert.equal(
@@ -232,7 +232,7 @@ assert.equal(
   'combined schema contains duplicate headers'
 );
 
-pass('32 additive county fields produce a unique 50-column schema');
+pass('34 additive county fields produce a unique 52-column schema');
 
 console.log('');
 
@@ -257,7 +257,7 @@ const beforeRows = JSON.stringify(legacy.state.rows);
 const first = legacy.schema.ensure();
 
 assert.equal(first.ok, true);
-assert.equal(first.addedCount, 32);
+assert.equal(first.addedCount, 34);
 
 assert.deepEqual(
   legacy.state.headers.slice(0, 18),
@@ -283,7 +283,7 @@ assert.equal(
   'legacy migration should perform one additive header write'
 );
 
-pass('legacy table receives exactly 32 appended county fields');
+pass('legacy table receives exactly 34 appended county fields');
 pass('legacy header order and existing row data remain unchanged');
 
 const firstHeaders = legacy.state.headers.slice();
@@ -331,7 +331,7 @@ assert.equal(
   'new table should be initialized by Database.ensureTable only'
 );
 
-pass('missing table initializes directly with complete 50-column schema');
+pass('missing table initializes directly with complete 52-column schema');
 
 console.log('');
 
@@ -349,13 +349,13 @@ const partialResult = partial.schema.ensure();
 
 assert.equal(
   partialResult.addedCount,
-  30,
+  32,
   'partial migration should add only missing county fields'
 );
 
 assert.equal(
   partial.state.headers.length,
-  50
+  52
 );
 
 pass('partial county schema migration adds only missing fields');
@@ -385,6 +385,8 @@ const REQUIRED_RUNTIME_FIELDS = [
   'Parcel ID',
   'Source Record ID',
   'Source Record Key',
+  'Source Observation Key',
+  'Canonical Property Key',
   'Last Seen At',
   'Source Updated At',
   'Co-Owner Name',
