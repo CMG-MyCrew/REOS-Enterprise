@@ -199,6 +199,20 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   echo
 fi
 
+# County historical identity audit certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  COUNTY_IDENTITY_HISTORICAL_AUDIT_CERTIFIER="scripts/validate-county-identity-historical-audit.js"
+
+  if [[ ! -f "$COUNTY_IDENTITY_HISTORICAL_AUDIT_CERTIFIER" ]]; then
+    echo "ERROR: County historical identity audit validator missing: $COUNTY_IDENTITY_HISTORICAL_AUDIT_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county historical identity audit certification..."
+  node "$COUNTY_IDENTITY_HISTORICAL_AUDIT_CERTIFIER"
+  echo
+fi
+
 # County runtime execution bridge certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_RUNTIME_BRIDGE_CERTIFIER="scripts/validate-county-runtime-bridge.js"
