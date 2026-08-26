@@ -213,6 +213,21 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   echo
 fi
 
+# County identity source reconciliation certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  COUNTY_IDENTITY_SOURCE_RECONCILIATION_CERTIFIER="scripts/validate-county-identity-source-reconciliation.js"
+
+  if [[ ! -f "$COUNTY_IDENTITY_SOURCE_RECONCILIATION_CERTIFIER" ]]; then
+    echo "ERROR: County identity source reconciliation validator missing: $COUNTY_IDENTITY_SOURCE_RECONCILIATION_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county identity source reconciliation certification..."
+  node "$COUNTY_IDENTITY_SOURCE_RECONCILIATION_CERTIFIER"
+  echo
+fi
+
+
 # County runtime execution bridge certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_RUNTIME_BRIDGE_CERTIFIER="scripts/validate-county-runtime-bridge.js"
