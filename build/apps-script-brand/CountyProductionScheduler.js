@@ -360,7 +360,14 @@ REOS.CountyProductionScheduler = (function () {
     };
   }
 
-  function run() {
+  function runInternal_(execution) {
+    execution = execution || {
+      mode: 'scheduled'
+    };
+
+    const isManual =
+      execution.mode === 'manual';
+
     const props = properties_();
     const attemptAt = nowIso_();
 
@@ -388,53 +395,165 @@ REOS.CountyProductionScheduler = (function () {
     try {
       const scheduler = schedulerSnapshot_();
 
-      if (scheduler.triggerCount !== 1) {
-        throw new Error(
-          'Managed county scheduler integrity violation: expected 1 trigger, found ' +
-          scheduler.triggerCount
-        );
-      }
-
       let cycle = cycleSnapshot_(props);
 
-      /*
-       * Invalid/incomplete checkpoint structure fails closed rather than
-       * manufacturing workload freshness.
-       */
-      if (
-        cycle.completedFeeds !== cycle.nextFeedIndex ||
-        cycle.nextFeedIndex >= ALLOWLIST.length
-      ) {
-        clearCycle_(props);
-        cycle = cycleSnapshot_(props);
-      }
+      if (isManual) {
+        const expectedCycleId =
+          String(
+            execution.expectedCycleId || ''
+          ).trim();
 
-      if (!cycle.id) {
-        const cycleId =
-          'COUNTY-' +
-          attemptAt.replace(/[^0-9]/g, '');
+        const expectedFeedIndex =
+          Number(
+            execution.expectedFeedIndex
+          );
 
-        props.setProperty(
-          CYCLE_ID,
-          cycleId
-        );
+        const expectedCursor =
+          String(
+            execution.expectedCursor === undefined ||
+            execution.expectedCursor === null
+              ? ''
+              : execution.expectedCursor
+          );
 
-        props.setProperty(
-          CYCLE_STARTED_AT,
-          attemptAt
-        );
+        /*
+         * Manual certification is deliberately available only while the
+         * managed county scheduler is frozen. This avoids creating a
+         * real CLOCK trigger merely to satisfy scheduled-run authority.
+         */
+        if (scheduler.triggerCount !== 0) {
+          throw new Error(
+            'Manual county certification requires scheduler frozen: expected 0 trigger, found ' +
+            scheduler.triggerCount
+          );
+        }
 
-        props.setProperty(
-          NEXT_FEED_INDEX,
-          '0'
-        );
+        if (!expectedCycleId) {
+          throw new Error(
+            'Expected county scheduler cycle ID is required.'
+          );
+        }
 
-        props.setProperty(
-          CYCLE_RESULTS_JSON,
-          '[]'
-        );
+        if (
+          !Number.isInteger(expectedFeedIndex) ||
+          expectedFeedIndex < 0 ||
+          expectedFeedIndex >= ALLOWLIST.length
+        ) {
+          throw new Error(
+            'Expected county scheduler feed index is invalid.'
+          );
+        }
 
-        cycle = cycleSnapshot_(props);
+        /*
+         * Unlike scheduled execution, manual certification must never
+         * manufacture, repair, clear, or reset checkpoint authority.
+         * The caller must prove the exact active authority observed
+         * immediately before execution.
+         */
+        if (!cycle.id) {
+          throw new Error(
+            'Manual county certification requires an active checkpoint.'
+          );
+        }
+
+        if (
+          cycle.completedFeeds !== cycle.nextFeedIndex ||
+          cycle.nextFeedIndex >= ALLOWLIST.length
+        ) {
+          throw new Error(
+            'Manual county certification checkpoint is structurally invalid.'
+          );
+        }
+
+        if (cycle.id !== expectedCycleId) {
+          throw new Error(
+            'County scheduler checkpoint changed; expected cycle ' +
+            expectedCycleId +
+            ', found ' +
+            cycle.id +
+            '.'
+          );
+        }
+
+        if (
+          cycle.nextFeedIndex !==
+          expectedFeedIndex
+        ) {
+          throw new Error(
+            'County scheduler feed authority changed; expected index ' +
+            expectedFeedIndex +
+            ', found ' +
+            cycle.nextFeedIndex +
+            '.'
+          );
+        }
+
+        if (
+          String(
+            cycle.currentFeedCursor || ''
+          ) !== expectedCursor
+        ) {
+          throw new Error(
+            'County scheduler cursor authority changed; expected ' +
+            expectedCursor +
+            ', found ' +
+            String(
+              cycle.currentFeedCursor || ''
+            ) +
+            '.'
+          );
+        }
+      } else {
+        /*
+         * Scheduled production execution retains the existing integrity
+         * requirement: exactly one managed CLOCK trigger must exist.
+         */
+        if (scheduler.triggerCount !== 1) {
+          throw new Error(
+            'Managed county scheduler integrity violation: expected 1 trigger, found ' +
+            scheduler.triggerCount
+          );
+        }
+
+        /*
+         * Invalid/incomplete checkpoint structure fails closed rather than
+         * manufacturing workload freshness.
+         */
+        if (
+          cycle.completedFeeds !== cycle.nextFeedIndex ||
+          cycle.nextFeedIndex >= ALLOWLIST.length
+        ) {
+          clearCycle_(props);
+          cycle = cycleSnapshot_(props);
+        }
+
+        if (!cycle.id) {
+          const cycleId =
+            'COUNTY-' +
+            attemptAt.replace(/[^0-9]/g, '');
+
+          props.setProperty(
+            CYCLE_ID,
+            cycleId
+          );
+
+          props.setProperty(
+            CYCLE_STARTED_AT,
+            attemptAt
+          );
+
+          props.setProperty(
+            NEXT_FEED_INDEX,
+            '0'
+          );
+
+          props.setProperty(
+            CYCLE_RESULTS_JSON,
+            '[]'
+          );
+
+          cycle = cycleSnapshot_(props);
+        }
       }
 
       const feedIndex = cycle.nextFeedIndex;
@@ -688,6 +807,27 @@ REOS.CountyProductionScheduler = (function () {
     }
   }
 
+  function run() {
+    return runInternal_({
+      mode: 'scheduled'
+    });
+  }
+
+  function runManualCertification(
+    expectedCycleId,
+    expectedFeedIndex,
+    expectedCursor
+  ) {
+    requireAdmin_();
+
+    return runInternal_({
+      mode: 'manual',
+      expectedCycleId: expectedCycleId,
+      expectedFeedIndex: expectedFeedIndex,
+      expectedCursor: expectedCursor
+    });
+  }
+
   return {
     installScheduler: installScheduler,
     removeScheduler: removeScheduler,
@@ -777,6 +917,8 @@ REOS.CountyProductionScheduler = (function () {
       ) || '';
     },
     preflight: preflight,
+    runManualCertification:
+      runManualCertification,
     run: run
   };
 })();
@@ -815,6 +957,18 @@ function reosCountyTaxDelinquentEndpointDiagnostic() {
 
 function reosCountyProductionSchedulerPreflight() {
   return REOS.CountyProductionScheduler.preflight();
+}
+
+function reosCountyProductionSchedulerRunManualCertification(
+  expectedCycleId,
+  expectedFeedIndex,
+  expectedCursor
+) {
+  return REOS.CountyProductionScheduler.runManualCertification(
+    expectedCycleId,
+    expectedFeedIndex,
+    expectedCursor
+  );
 }
 
 function reosCountyProductionSchedulerRun() {
