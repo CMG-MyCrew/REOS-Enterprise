@@ -196,9 +196,14 @@ function createHarness(options) {
     ],
 
     headerWrites: [],
+    headerReads: 0,
+    rowReads: 0,
+    sheetReads: 0,
     adminCalls: 0,
-    lockWaits: 0,
+    lockAttempts: 0,
     lockReleases: 0,
+    lockAvailable:
+      options.lockAvailable !== false,
     mutateRowOnHeaderWrite:
       Boolean(
         options
@@ -207,6 +212,8 @@ function createHarness(options) {
   };
 
   function getAll() {
+    state.rowReads += 1;
+
     return state.rows.map(
       (stored, index) => {
         const row = {};
@@ -239,6 +246,8 @@ function createHarness(options) {
     REOS: {
       Database: {
         getHeaders() {
+          state.headerReads += 1;
+
           return state
             .headers
             .slice();
@@ -247,6 +256,8 @@ function createHarness(options) {
         getAll,
 
         getSheet() {
+          state.sheetReads += 1;
+
           return {
             getRange(
               row,
@@ -331,13 +342,15 @@ function createHarness(options) {
     LockService: {
       getScriptLock() {
         return {
-          waitLock(timeout) {
+          tryLock(timeout) {
             assert.equal(
               timeout,
-              30000
+              1000
             );
 
-            state.lockWaits += 1;
+            state.lockAttempts += 1;
+
+            return state.lockAvailable;
           },
 
           releaseLock() {
@@ -498,6 +511,26 @@ assert.ok(
 
 assert.ok(
   source.includes(
+    '.tryLock('
+  )
+);
+
+assert.equal(
+  source.includes(
+    '.waitLock('
+  ),
+  false,
+  'blocking waitLock is forbidden in C1 schema migration'
+);
+
+assert.ok(
+  source.includes(
+    'reosCountyC1SchemaMigrationInspect'
+  )
+);
+
+assert.ok(
+  source.includes(
     'reosCountyC1SchemaMigration'
   )
 );
@@ -568,6 +601,87 @@ pass(
   '50-column predecessor schema is detected read-only as exactly two columns behind'
 );
 
+
+{
+  const h =
+    createHarness();
+
+  const result =
+    h.sandbox
+      .reosCountyC1SchemaMigrationInspect();
+
+  assert.equal(
+    result.ok,
+    true
+  );
+
+  assert.equal(
+    result.mode,
+    'READ_ONLY'
+  );
+
+  assert.equal(
+    result.state,
+    'READY_TO_APPEND'
+  );
+
+  assert.equal(
+    result.currentHeaderCount,
+    50
+  );
+
+  assert.equal(
+    result.requiredFinalHeaderCount,
+    52
+  );
+
+  assert.deepEqual(
+    Array.from(
+      result.missingHeaders
+    ),
+    h.identityHeaders
+  );
+
+  assert.equal(
+    h.state.adminCalls,
+    1
+  );
+
+  assert.equal(
+    h.state.headerReads,
+    1
+  );
+
+  assert.equal(
+    h.state.rowReads,
+    0
+  );
+
+  assert.equal(
+    h.state.sheetReads,
+    0
+  );
+
+  assert.equal(
+    h.state.lockAttempts,
+    0
+  );
+
+  assert.equal(
+    h.state.lockReleases,
+    0
+  );
+
+  assert.equal(
+    h.state.headerWrites.length,
+    0
+  );
+}
+
+pass(
+  'top-level C1 schema inspection remains admin-only, read-only and lock-free'
+);
+
 {
   const h =
     createHarness();
@@ -587,13 +701,73 @@ pass(
   );
 
   assert.equal(
-    h.state.lockWaits,
+    h.state.lockAttempts,
     0
   );
 }
 
 pass(
   'missing explicit confirmation fails before locking or mutation'
+);
+
+
+{
+  const h =
+    createHarness({
+      lockAvailable:
+        false
+    });
+
+  expectThrow(
+    () =>
+      h.sandbox
+        .REOS
+        .CountyC1SchemaMigration
+        .migrate({
+          confirmMigration:
+            true
+        }),
+    'lock is contended'
+  );
+
+  assert.equal(
+    h.state.adminCalls,
+    1
+  );
+
+  assert.equal(
+    h.state.lockAttempts,
+    1
+  );
+
+  assert.equal(
+    h.state.lockReleases,
+    0
+  );
+
+  assert.equal(
+    h.state.headerReads,
+    0
+  );
+
+  assert.equal(
+    h.state.rowReads,
+    0
+  );
+
+  assert.equal(
+    h.state.sheetReads,
+    0
+  );
+
+  assert.equal(
+    h.state.headerWrites.length,
+    0
+  );
+}
+
+pass(
+  'ScriptLock contention fails fast before DISTRESS_LEADS read or mutation'
 );
 
 {
@@ -762,7 +936,7 @@ pass(
   );
 
   assert.equal(
-    h.state.lockWaits,
+    h.state.lockAttempts,
     1
   );
 

@@ -355,9 +355,26 @@ REOS.CountyC1SchemaMigration = (function () {
       LockService
         .getScriptLock();
 
-    lock.waitLock(
-      30000
-    );
+    if (
+      !lock ||
+      typeof lock.tryLock !==
+        'function'
+    ) {
+      throw new Error(
+        'C1 identity schema migration requires fail-fast ScriptLock support.'
+      );
+    }
+
+    var acquired =
+      lock.tryLock(
+        1000
+      );
+
+    if (!acquired) {
+      throw new Error(
+        'C1 identity schema migration lock is contended; no migration executed.'
+      );
+    }
 
     try {
       var beforeHeaders =
@@ -611,6 +628,19 @@ REOS.CountyC1SchemaMigration = (function () {
       migrate
   };
 })();
+
+
+/*
+ * Controlled admin-only read-only C1 schema inspection.
+ *
+ * This wrapper reaches only inspect(); it acquires no migration lock
+ * and exposes no schema or row mutation authority.
+ */
+function reosCountyC1SchemaMigrationInspect() {
+  return REOS
+    .CountyC1SchemaMigration
+    .inspect();
+}
 
 
 function reosCountyC1SchemaMigration(
