@@ -44,6 +44,15 @@ REOS.CountyC1LivePreflight = (function () {
   var MAX_CANDIDATES =
     25;
 
+  var AUTHORITY_DESCRIPTOR_SOURCE_SHA256 =
+    '9d5b728823107083c50f5bb4871e0fce47967e21eadd70a59e13f97e13a2eea9';
+
+  var AUTHORITY_CATALOG_SHA256 =
+    'b5aeebee8bc5162c9557f2678bf62e1930fa1f6ad5ba369c27b3a1dabb55c091';
+
+  var AUTHORITY_DESCRIPTOR_COUNT =
+    664;
+
   function text_(value) {
     return String(
       value === undefined ||
@@ -201,6 +210,20 @@ REOS.CountyC1LivePreflight = (function () {
     }
 
     if (
+      !REOS.CountyC1CertifiedAuthority ||
+      typeof REOS.CountyC1CertifiedAuthority
+        .resolve !==
+        'function' ||
+      typeof REOS.CountyC1CertifiedAuthority
+        .metadata !==
+        'function'
+    ) {
+      throw new Error(
+        'Certified C1 authority catalog is required.'
+      );
+    }
+
+    if (
       typeof PropertiesService ===
         'undefined' ||
       !PropertiesService ||
@@ -226,44 +249,116 @@ REOS.CountyC1LivePreflight = (function () {
     }
   }
 
-  function normalizeCandidate_(candidate) {
-    candidate =
-      candidate || {};
+  function requireCertifiedAuthorityMetadata_() {
+    var metadata =
+      REOS.CountyC1CertifiedAuthority
+        .metadata();
 
-    var observationKey =
-      text_(
-        candidate.sourceObservationKey
+    if (
+      !metadata ||
+      metadata.mode !==
+        'READ_ONLY_AUTHORITY_CATALOG' ||
+      metadata.planningClass !==
+        'C1_MISSING_OBSERVATION_RECOVERY_CANDIDATE' ||
+      metadata.connectorId !==
+        CONNECTOR_ID ||
+      metadata.dataset !==
+        DATASET ||
+      metadata.descriptorSourceSha256 !==
+        AUTHORITY_DESCRIPTOR_SOURCE_SHA256 ||
+      metadata.catalogSha256 !==
+        AUTHORITY_CATALOG_SHA256 ||
+      Number(metadata.descriptorCount) !==
+        AUTHORITY_DESCRIPTOR_COUNT ||
+      Number(metadata.recordCount) !==
+        AUTHORITY_DESCRIPTOR_COUNT ||
+      metadata.mutationAuthorityGranted !==
+        false ||
+      metadata.insertAuthorityGranted !==
+        false
+    ) {
+      throw new Error(
+        'Certified C1 authority metadata mismatch.'
       );
+    }
+
+    return metadata;
+  }
+
+  function resolveCertifiedCandidate_(
+    sourceObservationKey
+  ) {
+    var key =
+      text_(
+        sourceObservationKey
+      );
+
+    if (!key) {
+      throw new Error(
+        'Certified C1 Source Observation Key is required.'
+      );
+    }
+
+    var candidate =
+      REOS.CountyC1CertifiedAuthority
+        .resolve(
+          key
+        );
+
+    if (!candidate) {
+      throw new Error(
+        'C1 Source Observation Key is outside certified authority catalog.'
+      );
+    }
 
     var sourceRecordId =
       text_(
-        candidate.immutableSourceRecordId ||
-        candidate.sourceRecordId
+        candidate
+          .immutableSourceRecordId
       );
 
     var canonicalPropertyKey =
       text_(
-        candidate.expectedCanonicalPropertyKey ||
-        candidate.canonicalPropertyKey
+        candidate
+          .expectedCanonicalPropertyKey
       );
 
-    if (!observationKey) {
+    var normalizedSourceSha =
+      text_(
+        candidate
+          .historicalNormalizedSourceRecordSha256
+      );
+
+    var descriptorSha =
+      text_(
+        candidate
+          .descriptorSha256
+      );
+
+    if (
+      candidate.planningClass !==
+        'C1_MISSING_OBSERVATION_RECOVERY_CANDIDATE' ||
+      text_(
+        candidate
+          .sourceObservationKey
+      ) !==
+        key ||
+      candidate.connectorId !==
+        CONNECTOR_ID ||
+      candidate.dataset !==
+        DATASET ||
+      candidate
+        .authorityDescriptorSourceSha256 !==
+        AUTHORITY_DESCRIPTOR_SOURCE_SHA256 ||
+      candidate
+        .authorityCatalogSha256 !==
+        AUTHORITY_CATALOG_SHA256
+    ) {
       throw new Error(
-        'C1 candidate Source Observation Key is required.'
+        'Certified C1 candidate authority mismatch.'
       );
     }
 
-    if (!sourceRecordId) {
-      throw new Error(
-        'C1 candidate immutable source record ID is required.'
-      );
-    }
-
-    /*
-     * Philadelphia VIOLATIONS immutable source identity is objectid.
-     * Reject anything other than a positive integer so the ArcGIS
-     * where expression cannot become user-controlled query syntax.
-     */
     if (
       !/^[0-9]+$/.test(
         sourceRecordId
@@ -271,19 +366,51 @@ REOS.CountyC1LivePreflight = (function () {
       Number(sourceRecordId) < 1
     ) {
       throw new Error(
-        'C1 immutable source record ID must be a positive objectid integer.'
+        'Certified C1 immutable source record ID is invalid.'
+      );
+    }
+
+    if (
+      key !==
+        (
+          'pa-philadelphia|code_violations|' +
+          sourceRecordId.toLowerCase()
+        )
+    ) {
+      throw new Error(
+        'Certified C1 observation identity does not match immutable source ID.'
       );
     }
 
     if (!canonicalPropertyKey) {
       throw new Error(
-        'C1 expected canonical property key is required.'
+        'Certified C1 canonical property key is missing.'
+      );
+    }
+
+    if (
+      !/^[0-9a-f]{64}$/.test(
+        normalizedSourceSha
+      )
+    ) {
+      throw new Error(
+        'Certified C1 historical source hash is invalid.'
+      );
+    }
+
+    if (
+      !/^[0-9a-f]{64}$/.test(
+        descriptorSha
+      )
+    ) {
+      throw new Error(
+        'Certified C1 descriptor hash is invalid.'
       );
     }
 
     return {
       sourceObservationKey:
-        observationKey,
+        key,
 
       immutableSourceRecordId:
         sourceRecordId,
@@ -292,12 +419,10 @@ REOS.CountyC1LivePreflight = (function () {
         canonicalPropertyKey,
 
       historicalNormalizedSourceRecordSha256:
-        text_(
-          candidate
-            .historicalNormalizedSourceRecordSha256 ||
-          candidate
-            .normalizedSourceRecordSha256
-        )
+        normalizedSourceSha,
+
+      descriptorSha256:
+        descriptorSha
     };
   }
 
@@ -305,52 +430,92 @@ REOS.CountyC1LivePreflight = (function () {
     options =
       options || {};
 
-    var candidates =
-      options.candidates;
+    /*
+     * Legacy caller-supplied candidate descriptors are deliberately
+     * rejected. Identity authority must come only from the embedded,
+     * checksum-certified C1 catalog.
+     */
+    if (
+      Object.prototype.hasOwnProperty.call(
+        options,
+        'candidates'
+      )
+    ) {
+      throw new Error(
+        'Caller-supplied C1 candidate descriptors are prohibited.'
+      );
+    }
+
+    var sourceObservationKeys =
+      options.sourceObservationKeys;
 
     if (
-      !Array.isArray(candidates) ||
-      candidates.length < 1 ||
-      candidates.length >
+      !Array.isArray(
+        sourceObservationKeys
+      ) ||
+      sourceObservationKeys.length < 1 ||
+      sourceObservationKeys.length >
         MAX_CANDIDATES
     ) {
       throw new Error(
         'C1 live preflight requires 1-' +
         MAX_CANDIDATES +
-        ' explicit candidates.'
+        ' certified Source Observation Keys.'
       );
     }
 
-    var normalized =
-      candidates.map(
-        normalizeCandidate_
-      );
+    var keys =
+      sourceObservationKeys
+        .map(function (value) {
+          var key =
+            text_(value);
+
+          if (!key) {
+            throw new Error(
+              'Certified C1 Source Observation Key is required.'
+            );
+          }
+
+          return key;
+        });
 
     var observationSeen =
       {};
 
+    keys.forEach(function (key) {
+      if (
+        observationSeen[
+          key
+        ]
+      ) {
+        throw new Error(
+          'Duplicate certified C1 Source Observation Key is prohibited.'
+        );
+      }
+
+      observationSeen[
+        key
+      ] =
+        true;
+    });
+
+    /*
+     * Validate the entire authority catalog contract before resolving
+     * caller-selected keys. This still performs no network/table I/O.
+     */
+    var authorityMetadata =
+      requireCertifiedAuthorityMetadata_();
+
+    var candidates =
+      keys.map(
+        resolveCertifiedCandidate_
+      );
+
     var sourceIdSeen =
       {};
 
-    normalized.forEach(
+    candidates.forEach(
       function (candidate) {
-        if (
-          observationSeen[
-            candidate
-              .sourceObservationKey
-          ]
-        ) {
-          throw new Error(
-            'Duplicate C1 Source Observation Key is prohibited.'
-          );
-        }
-
-        observationSeen[
-          candidate
-            .sourceObservationKey
-        ] =
-          true;
-
         if (
           sourceIdSeen[
             candidate
@@ -358,7 +523,7 @@ REOS.CountyC1LivePreflight = (function () {
           ]
         ) {
           throw new Error(
-            'Duplicate C1 immutable source record ID is prohibited.'
+            'Duplicate certified C1 immutable source record ID is prohibited.'
           );
         }
 
@@ -371,8 +536,11 @@ REOS.CountyC1LivePreflight = (function () {
     );
 
     return {
+      authorityMetadata:
+        authorityMetadata,
+
       candidates:
-        normalized
+        candidates
     };
   }
 
@@ -517,31 +685,42 @@ REOS.CountyC1LivePreflight = (function () {
             'LEGACY_SOURCE_RECORD_KEY_ALIAS';
         }
 
-        try {
+        /*
+         * Source-observation identity does not depend on canonical
+         * property resolution. Reconstruct it directly from the exact
+         * source + dataset + immutable Source Record ID so a malformed
+         * or conflicting canonical-property row cannot silently bypass
+         * the persisted-observation defense.
+         */
+        var reconstructedSourceRecordId =
+          text_(
+            row[
+              'Source Record ID'
+            ]
+          );
+
+        if (reconstructedSourceRecordId) {
           var reconstructed =
-            REOS
-              .CanonicalPropertyIdentity
-              .resolve(row)
-              .sourceObservationKey;
+            [
+              text_(
+                row.Source
+              ).toLowerCase(),
 
-          reconstructed =
-            text_(
-              reconstructed
-            );
+              text_(
+                row[
+                  'Source Dataset'
+                ]
+              ).toLowerCase(),
 
-          if (reconstructed) {
-            keys[
-              reconstructed
-            ] =
-              keys[reconstructed] ||
-              'RECONSTRUCTED_SOURCE_OBSERVATION_KEY';
-          }
-        } catch (error) {
-          /*
-           * A row that cannot reconstruct identity is not ignored as
-           * positive authority. It remains outside exact-match results.
-           * The preflight reports only exact candidate matches.
-           */
+              reconstructedSourceRecordId
+                .toLowerCase()
+            ].join('|');
+
+          keys[
+            reconstructed
+          ] =
+            keys[reconstructed] ||
+            'RECONSTRUCTED_SOURCE_OBSERVATION_KEY';
         }
 
         Object.keys(keys)
@@ -886,6 +1065,10 @@ REOS.CountyC1LivePreflight = (function () {
             candidate
               .expectedCanonicalPropertyKey,
 
+          descriptorSha256:
+            candidate
+              .descriptorSha256,
+
           persistedMatchCount:
             persistedEvidence.length,
 
@@ -1219,7 +1402,22 @@ REOS.CountyC1LivePreflight = (function () {
             .length,
 
         maxCandidates:
-          MAX_CANDIDATES
+          MAX_CANDIDATES,
+
+        authorityBound:
+          true,
+
+        authorityDescriptorSourceSha256:
+          options.authorityMetadata
+            .descriptorSourceSha256,
+
+        authorityCatalogSha256:
+          options.authorityMetadata
+            .catalogSha256,
+
+        authorityDescriptorCount:
+          options.authorityMetadata
+            .descriptorCount
       },
 
       sourceLookup: {
