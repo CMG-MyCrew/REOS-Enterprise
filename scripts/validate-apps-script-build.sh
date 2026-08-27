@@ -273,6 +273,21 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
 fi
 
 
+# County C1 identity-schema migration certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  COUNTY_C1_SCHEMA_MIGRATION_CERTIFIER="scripts/validate-county-c1-schema-migration.js"
+
+  if [[ ! -f "$COUNTY_C1_SCHEMA_MIGRATION_CERTIFIER" ]]; then
+    echo "ERROR: County C1 schema-migration validator missing: $COUNTY_C1_SCHEMA_MIGRATION_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county C1 identity-schema migration certification..."
+  node "$COUNTY_C1_SCHEMA_MIGRATION_CERTIFIER"
+  echo
+fi
+
+
 # County runtime execution bridge certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_RUNTIME_BRIDGE_CERTIFIER="scripts/validate-county-runtime-bridge.js"
