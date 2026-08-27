@@ -243,6 +243,21 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
 fi
 
 
+# County C1 live-preflight certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  COUNTY_C1_LIVE_PREFLIGHT_CERTIFIER="scripts/validate-county-c1-live-preflight.js"
+
+  if [[ ! -f "$COUNTY_C1_LIVE_PREFLIGHT_CERTIFIER" ]]; then
+    echo "ERROR: County C1 live-preflight validator missing: $COUNTY_C1_LIVE_PREFLIGHT_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county C1 live-preflight certification..."
+  node "$COUNTY_C1_LIVE_PREFLIGHT_CERTIFIER"
+  echo
+fi
+
+
 # County runtime execution bridge certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_RUNTIME_BRIDGE_CERTIFIER="scripts/validate-county-runtime-bridge.js"
