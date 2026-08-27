@@ -64,7 +64,8 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/CountyIdentitySourceReconciliation.js',
   'build/apps-script-brand/CountyIdentityRepairEvidenceExport.js',
   'build/apps-script-brand/CountyC1CertifiedAuthority.js',
-  'build/apps-script-brand/CountyC1LivePreflight.js'
+  'build/apps-script-brand/CountyC1LivePreflight.js',
+  'build/apps-script-brand/CountyC1SchemaMigration.js'
 ];
 
 /*
@@ -90,6 +91,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-identity-repair-evidence-export.js',
   'validate-county-c1-certified-authority.js',
   'validate-county-c1-live-preflight.js',
+  'validate-county-c1-schema-migration.js',
   'validate-county-runtime-bridge.js'
 ];
 
