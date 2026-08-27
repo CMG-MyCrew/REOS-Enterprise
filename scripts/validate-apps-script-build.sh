@@ -243,6 +243,21 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
 fi
 
 
+# County C1 certified-authority certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  COUNTY_C1_CERTIFIED_AUTHORITY_CERTIFIER="scripts/validate-county-c1-certified-authority.js"
+
+  if [[ ! -f "$COUNTY_C1_CERTIFIED_AUTHORITY_CERTIFIER" ]]; then
+    echo "ERROR: County C1 certified-authority validator missing: $COUNTY_C1_CERTIFIED_AUTHORITY_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county C1 certified-authority certification..."
+  node "$COUNTY_C1_CERTIFIED_AUTHORITY_CERTIFIER"
+  echo
+fi
+
+
 # County C1 live-preflight certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_C1_LIVE_PREFLIGHT_CERTIFIER="scripts/validate-county-c1-live-preflight.js"
