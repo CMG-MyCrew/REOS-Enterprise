@@ -379,6 +379,25 @@ REOS.CountyProductionScheduler = (function () {
     const lock = LockService.getScriptLock();
 
     if (!lock.tryLock(LOCK_WAIT_MS)) {
+      if (
+        REOS.ScriptLockObservability &&
+        typeof REOS.ScriptLockObservability
+          .contention ===
+          'function'
+      ) {
+        REOS.ScriptLockObservability
+          .contention(
+            'CountyProductionScheduler',
+            isManual
+              ? 'manual'
+              : 'scheduled',
+            {
+              waitMilliseconds:
+                LOCK_WAIT_MS
+            }
+          );
+      }
+
       props.setProperty(
         LAST_CONTENDED_AT,
         attemptAt
@@ -391,6 +410,27 @@ REOS.CountyProductionScheduler = (function () {
         attemptedAt: attemptAt
       };
     }
+
+    var lockObservation =
+      REOS.ScriptLockObservability &&
+      typeof REOS.ScriptLockObservability
+        .begin ===
+        'function'
+        ? REOS.ScriptLockObservability
+            .begin(
+              'CountyProductionScheduler',
+              isManual
+                ? 'manual'
+                : 'scheduled',
+              {
+                waitMilliseconds:
+                  LOCK_WAIT_MS
+              }
+            )
+        : null;
+
+    var lockOutcome =
+      'SUCCESS';
 
     try {
       const scheduler = schedulerSnapshot_();
@@ -771,6 +811,9 @@ REOS.CountyProductionScheduler = (function () {
         results: results
       };
     } catch (error) {
+      lockOutcome =
+        'ERROR';
+
       const failureAt = nowIso_();
       const message = String(
         error && error.message
@@ -803,6 +846,28 @@ REOS.CountyProductionScheduler = (function () {
         lock.hasLock()
       ) {
         lock.releaseLock();
+      }
+
+      if (
+        lockObservation &&
+        REOS.ScriptLockObservability &&
+        typeof REOS.ScriptLockObservability
+          .end ===
+          'function'
+      ) {
+        REOS.ScriptLockObservability
+          .end(
+            lockObservation,
+            lockOutcome,
+            {
+              handler:
+                HANDLER,
+              mode:
+                isManual
+                  ? 'manual'
+                  : 'scheduled'
+            }
+          );
       }
     }
   }

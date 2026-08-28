@@ -223,6 +223,23 @@ assert.ok(
 
 assert.ok(
   source.includes(
+    'maintenanceToken'
+  ),
+  'maintenance gate token input missing'
+);
+
+assert.equal(
+  (
+    source.match(
+      /CountyC1MaintenanceGate\s*\.assertRecoveryReady\s*\(/g
+    ) || []
+  ).length,
+  2,
+  'executor must assert the maintenance gate exactly twice'
+);
+
+assert.ok(
+  source.includes(
     'sourceObservationKey'
   ),
   'single Source Observation Key input missing'
@@ -387,6 +404,9 @@ function createHarness(
       0,
 
     insertCalls:
+      0,
+
+    maintenanceGateCalls:
       0,
 
     events:
@@ -643,6 +663,72 @@ function createHarness(
         }
       },
 
+      CountyC1MaintenanceGate: {
+        assertRecoveryReady(
+          gateOptions
+        ) {
+          state.maintenanceGateCalls +=
+            1;
+
+          state.events.push(
+            'maintenance:assert'
+          );
+
+          assert.equal(
+            gateOptions
+              .sourceObservationKey,
+            KEY
+          );
+
+          assert.equal(
+            gateOptions
+              .maintenanceToken,
+            'HARNESS-GATE-TOKEN'
+          );
+
+          if (
+            options
+              .maintenanceRejected
+          ) {
+            throw new Error(
+              'HARNESS_MAINTENANCE_GATE_NOT_READY'
+            );
+          }
+
+          return {
+            ok:
+              true,
+
+            ready:
+              true,
+
+            gateId:
+              options
+                .maintenanceGateDrift &&
+              state
+                .maintenanceGateCalls >
+                1
+                ? 'GATE-DRIFT'
+                : 'GATE-HARNESS',
+
+            triggerCount:
+              0,
+
+            mutationAuthorityGranted:
+              false,
+
+            insertAuthorityGranted:
+              false,
+
+            schedulerAuthorityGranted:
+              false,
+
+            automaticOfferAuthorityGranted:
+              false
+          };
+        }
+      },
+
       Database: {
         withScriptLockContext(
           callback
@@ -867,10 +953,31 @@ function createHarness(
     state,
     rows,
     sandbox,
-    execute:
-      sandbox.REOS
+    execute(options) {
+      options =
+        Object.assign(
+          {},
+          options ||
+          {}
+        );
+
+      if (
+        !Object.prototype
+          .hasOwnProperty.call(
+            options,
+            'maintenanceToken'
+          )
+      ) {
+        options.maintenanceToken =
+          'HARNESS-GATE-TOKEN';
+      }
+
+      return sandbox.REOS
         .CountyC1InsertRecovery
-        .execute
+        .execute(
+          options
+        );
+    }
   };
 }
 
@@ -947,6 +1054,104 @@ function createHarness(
     'executor accepts exactly one certified Source Observation Key'
   );
 }
+
+/*
+ * Maintenance/quiescence gate must fail before source/network or lock work.
+ */
+{
+  const harness =
+    createHarness({
+      maintenanceRejected:
+        true
+    });
+
+  expectThrow(
+    () =>
+      harness.execute({
+        sourceObservationKey:
+          KEY,
+
+        confirmInsert:
+          true
+      }),
+    /MAINTENANCE_GATE_NOT_READY/
+  );
+
+  assert.equal(
+    harness.state
+      .maintenanceGateCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.fetchCalls,
+    0
+  );
+
+  assert.equal(
+    harness.state.lockCalls,
+    0
+  );
+
+  assert.equal(
+    harness.state.insertCalls,
+    0
+  );
+
+  pass(
+    'maintenance gate fails before network, lock, or mutation'
+  );
+}
+
+
+/*
+ * The identical maintenance gate must remain valid while ScriptLock is held.
+ */
+{
+  const harness =
+    createHarness({
+      maintenanceGateDrift:
+        true
+    });
+
+  expectThrow(
+    () =>
+      harness.execute({
+        sourceObservationKey:
+          KEY,
+
+        confirmInsert:
+          true
+      }),
+    /maintenance gate changed/
+  );
+
+  assert.equal(
+    harness.state
+      .maintenanceGateCalls,
+    2
+  );
+
+  assert.equal(
+    harness.state.fetchCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.callbackCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.insertCalls,
+    0
+  );
+
+  pass(
+    'maintenance gate drift under lock fails before insert'
+  );
+}
+
 
 /*
  * Source identity drift fails before lock acquisition.
@@ -1152,6 +1357,17 @@ function createHarness(
   assert.equal(
     result.insertExecuted,
     true
+  );
+
+  assert.equal(
+    result.maintenanceGateId,
+    'GATE-HARNESS'
+  );
+
+  assert.equal(
+    harness.state
+      .maintenanceGateCalls,
+    2
   );
 
   assert.equal(

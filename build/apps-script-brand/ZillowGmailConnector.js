@@ -71,7 +71,24 @@ REOS.ZillowGmailConnector = (function () {
 
     ensureLabels_(config);
     var lock = LockService.getScriptLock();
+
     if (!lock.tryLock(5000)) {
+      if (
+        REOS.ScriptLockObservability &&
+        typeof REOS.ScriptLockObservability
+          .contention ===
+          'function'
+      ) {
+        REOS.ScriptLockObservability
+          .contention(
+            'ZillowGmailConnector',
+            'sync',
+            {
+              waitMilliseconds: 5000
+            }
+          );
+      }
+
       return {
         ok: false,
         status: 'Busy',
@@ -81,6 +98,24 @@ REOS.ZillowGmailConnector = (function () {
         recordsSkipped: 0
       };
     }
+
+    var lockObservation =
+      REOS.ScriptLockObservability &&
+      typeof REOS.ScriptLockObservability
+        .begin ===
+        'function'
+        ? REOS.ScriptLockObservability
+            .begin(
+              'ZillowGmailConnector',
+              'sync',
+              {
+                waitMilliseconds: 5000
+              }
+            )
+        : null;
+
+    var lockOutcome =
+      'SUCCESS';
 
     var summary = {
       ok: true,
@@ -129,8 +164,33 @@ REOS.ZillowGmailConnector = (function () {
 
       publish_('acquisition.zillow.gmail.completed', summary);
       return summary;
+    } catch (error) {
+      lockOutcome =
+        'ERROR';
+
+      throw error;
     } finally {
       lock.releaseLock();
+
+      if (
+        lockObservation &&
+        REOS.ScriptLockObservability &&
+        typeof REOS.ScriptLockObservability
+          .end ===
+          'function'
+      ) {
+        REOS.ScriptLockObservability
+          .end(
+            lockObservation,
+            lockOutcome,
+            {
+              recordsImported:
+                summary.recordsImported,
+              recordsFailed:
+                summary.recordsFailed
+            }
+          );
+      }
     }
   }
 
