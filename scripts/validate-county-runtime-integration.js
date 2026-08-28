@@ -77,7 +77,8 @@ const POST_COUNTY_PRODUCTION_FILES = [
  * status contract.
  */
 const POST_COUNTY_MODIFIED_PRODUCTION_FILES = [
-  'build/apps-script-brand/ZillowGmailConnector.js'
+  'build/apps-script-brand/ZillowGmailConnector.js',
+  'build/apps-script-brand/Database.js'
 ];
 
 const COMPONENT_VALIDATORS = [
@@ -92,6 +93,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-c1-certified-authority.js',
   'validate-county-c1-live-preflight.js',
   'validate-county-c1-schema-migration.js',
+  'validate-database-lock-handoff.js',
   'validate-county-runtime-bridge.js'
 ];
 

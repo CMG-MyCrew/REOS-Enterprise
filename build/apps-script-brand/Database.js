@@ -86,10 +86,112 @@ REOS.Database = (function () {
     return record ? record._rowNumber : null;
   }
 
+  var LOCK_CONTEXT_CAPABILITY_ = {};
+
+  function validateLockContext_(context) {
+    if (
+      !context ||
+      typeof context !== 'object' ||
+      context.capability !==
+        LOCK_CONTEXT_CAPABILITY_ ||
+      !context.lock ||
+      typeof context.lock.hasLock !==
+        'function' ||
+      context.lock.hasLock() !== true
+    ) {
+      throw new Error(
+        'Database lock context is invalid or no longer owns ScriptLock.'
+      );
+    }
+
+    return context.lock;
+  }
+
+  function withScriptLockContext(work) {
+    if (typeof work !== 'function') {
+      throw new Error(
+        'Database lock context callback is required.'
+      );
+    }
+
+    var lock =
+      LockService.getScriptLock();
+
+    if (
+      !lock ||
+      typeof lock.tryLock !== 'function' ||
+      typeof lock.hasLock !== 'function' ||
+      typeof lock.releaseLock !== 'function'
+    ) {
+      throw new Error(
+        'Database fail-fast ScriptLock support is required.'
+      );
+    }
+
+    var acquired =
+      lock.tryLock(
+        1000
+      );
+
+    if (!acquired) {
+      throw new Error(
+        'Database ScriptLock is contended; no operation executed.'
+      );
+    }
+
+    var context =
+      Object.freeze({
+        capability:
+          LOCK_CONTEXT_CAPABILITY_,
+
+        lock:
+          lock
+      });
+
+    try {
+      if (lock.hasLock() !== true) {
+        throw new Error(
+          'Database ScriptLock ownership could not be verified.'
+        );
+      }
+
+      return work(
+        context
+      );
+    } finally {
+      try {
+        SpreadsheetApp.flush();
+      } finally {
+        lock.releaseLock();
+      }
+    }
+  }
+
   function insert(sheetName, record, options) {
     options = options || {};
-    const lock = LockService.getScriptLock();
-    lock.waitLock(30000);
+
+    var callerOwnsLock =
+      Object.prototype.hasOwnProperty.call(
+        options,
+        'lockContext'
+      );
+
+    var lock;
+
+    if (callerOwnsLock) {
+      lock =
+        validateLockContext_(
+          options.lockContext
+        );
+    } else {
+      lock =
+        LockService.getScriptLock();
+
+      lock.waitLock(
+        30000
+      );
+    }
+
     try {
       const sheet = getSheet(sheetName);
       const headers = getHeaders(sheetName);
@@ -104,7 +206,9 @@ REOS.Database = (function () {
       if (REOS.Logger) REOS.Logger.info('DB insert', { sheet: sheetName, id: options.idField ? inserted[options.idField] : null });
       return inserted;
     } finally {
-      lock.releaseLock();
+      if (!callerOwnsLock) {
+        lock.releaseLock();
+      }
     }
   }
 
@@ -154,6 +258,7 @@ REOS.Database = (function () {
     getAll: getAll,
     findById: findById,
     findRowById: findRowById,
+    withScriptLockContext: withScriptLockContext,
     insert: insert,
     update: update,
     upsert: upsert,
