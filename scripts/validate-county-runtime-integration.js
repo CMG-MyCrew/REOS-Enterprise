@@ -66,7 +66,9 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/CountyC1CertifiedAuthority.js',
   'build/apps-script-brand/CountyC1LivePreflight.js',
   'build/apps-script-brand/CountyC1SchemaMigration.js',
-  'build/apps-script-brand/CountyC1InsertRecovery.js'
+  'build/apps-script-brand/CountyC1InsertRecovery.js',
+  'build/apps-script-brand/CountyC1MaintenanceGate.js',
+  'build/apps-script-brand/ScriptLockObservability.js'
 ];
 
 /*
@@ -94,6 +96,8 @@ const COMPONENT_VALIDATORS = [
   'validate-county-c1-certified-authority.js',
   'validate-county-c1-live-preflight.js',
   'validate-county-c1-schema-migration.js',
+  'validate-county-c1-maintenance-gate.js',
+  'validate-script-lock-observability.js',
   'validate-county-c1-insert-recovery.js',
   'validate-database-lock-handoff.js',
   'validate-county-runtime-bridge.js'

@@ -204,6 +204,23 @@ REOS.ProductionOperations = (function () {
       LockService.getScriptLock();
 
     if (!lock.tryLock(LOCK_WAIT_MS)) {
+      if (
+        REOS.ScriptLockObservability &&
+        typeof REOS.ScriptLockObservability
+          .contention ===
+          'function'
+      ) {
+        REOS.ScriptLockObservability
+          .contention(
+            'ProductionOperations',
+            'heartbeat',
+            {
+              waitMilliseconds:
+                LOCK_WAIT_MS
+            }
+          );
+      }
+
       props.setProperty(
         LAST_CONTENDED_AT,
         attemptAt
@@ -216,6 +233,25 @@ REOS.ProductionOperations = (function () {
         attemptedAt: attemptAt
       };
     }
+
+    var lockObservation =
+      REOS.ScriptLockObservability &&
+      typeof REOS.ScriptLockObservability
+        .begin ===
+        'function'
+        ? REOS.ScriptLockObservability
+            .begin(
+              'ProductionOperations',
+              'heartbeat',
+              {
+                waitMilliseconds:
+                  LOCK_WAIT_MS
+              }
+            )
+        : null;
+
+    var lockOutcome =
+      'SUCCESS';
 
     try {
       const scheduler =
@@ -252,6 +288,9 @@ REOS.ProductionOperations = (function () {
         triggerCount: scheduler.triggerCount
       };
     } catch (error) {
+      lockOutcome =
+        'ERROR';
+
       const failureAt = nowIso_();
 
       props.setProperty(
@@ -285,6 +324,24 @@ REOS.ProductionOperations = (function () {
         lock.hasLock()
       ) {
         lock.releaseLock();
+      }
+
+      if (
+        lockObservation &&
+        REOS.ScriptLockObservability &&
+        typeof REOS.ScriptLockObservability
+          .end ===
+          'function'
+      ) {
+        REOS.ScriptLockObservability
+          .end(
+            lockObservation,
+            lockOutcome,
+            {
+              handler:
+                HANDLER
+            }
+          );
       }
     }
   }

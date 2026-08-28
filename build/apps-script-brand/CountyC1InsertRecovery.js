@@ -172,6 +172,17 @@ REOS.CountyC1InsertRecovery = (function () {
     }
 
     if (
+      !REOS.CountyC1MaintenanceGate ||
+      typeof REOS.CountyC1MaintenanceGate
+        .assertRecoveryReady !==
+        'function'
+    ) {
+      throw new Error(
+        'Certified C1 maintenance/quiescence gate is required.'
+      );
+    }
+
+    if (
       !REOS.Security ||
       typeof REOS.Security.requireAdmin !==
         'function'
@@ -912,6 +923,38 @@ REOS.CountyC1InsertRecovery = (function () {
       );
 
     /*
+     * A separately opened maintenance gate is required before network
+     * retrieval. The gate itself grants no insert authority; it proves
+     * that the approved quiescence boundary is active for this candidate.
+     */
+    var maintenance =
+      REOS.CountyC1MaintenanceGate
+        .assertRecoveryReady({
+          sourceObservationKey:
+            candidate
+              .sourceObservationKey,
+
+          maintenanceToken:
+            text_(
+              options
+                .maintenanceToken
+            )
+        });
+
+    if (
+      !maintenance ||
+      maintenance.ready !==
+        true ||
+      !text_(
+        maintenance.gateId
+      )
+    ) {
+      throw new Error(
+        'Certified C1 maintenance gate is not recovery-ready.'
+      );
+    }
+
+    /*
      * NETWORK READ before lock acquisition.
      *
      * This is intentionally independent of CountyC1LivePreflight.
@@ -950,6 +993,43 @@ REOS.CountyC1InsertRecovery = (function () {
             ) {
               throw new Error(
                 'Certified C1 authority changed before insert; no insert executed.'
+              );
+            }
+
+            /*
+             * Recheck the same quiescence capability while the exclusive
+             * database lock is owned. A changed/closed/expired gate or any
+             * newly installed project trigger fails before Database.insert.
+             */
+            var lockedMaintenance =
+              REOS.CountyC1MaintenanceGate
+                .assertRecoveryReady({
+                  sourceObservationKey:
+                    lockedCandidate
+                      .sourceObservationKey,
+
+                  maintenanceToken:
+                    text_(
+                      options
+                        .maintenanceToken
+                    )
+                });
+
+            if (
+              !lockedMaintenance ||
+              lockedMaintenance.ready !==
+                true ||
+              text_(
+                lockedMaintenance
+                  .gateId
+              ) !==
+                text_(
+                  maintenance
+                    .gateId
+                )
+            ) {
+              throw new Error(
+                'C1 maintenance gate changed before insert; no insert executed.'
               );
             }
 
@@ -1129,6 +1209,12 @@ REOS.CountyC1InsertRecovery = (function () {
 
               phase:
                 'c1_insert_only_recovery',
+
+              maintenanceGateId:
+                text_(
+                  lockedMaintenance
+                    .gateId
+                ),
 
               sourceObservationKey:
                 lockedCandidate

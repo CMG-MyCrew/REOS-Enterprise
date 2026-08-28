@@ -86,6 +86,77 @@ REOS.Database = (function () {
     return record ? record._rowNumber : null;
   }
 
+  function beginLockObservation_(
+    owner,
+    operation,
+    details
+  ) {
+    try {
+      if (
+        REOS.ScriptLockObservability &&
+        typeof REOS.ScriptLockObservability
+          .begin ===
+          'function'
+      ) {
+        return REOS.ScriptLockObservability
+          .begin(
+            owner,
+            operation,
+            details || {}
+          );
+      }
+    } catch (ignore) {}
+
+    return null;
+  }
+
+  function noteLockContention_(
+    owner,
+    operation,
+    details
+  ) {
+    try {
+      if (
+        REOS.ScriptLockObservability &&
+        typeof REOS.ScriptLockObservability
+          .contention ===
+          'function'
+      ) {
+        return REOS.ScriptLockObservability
+          .contention(
+            owner,
+            operation,
+            details || {}
+          );
+      }
+    } catch (ignore) {}
+
+    return null;
+  }
+
+  function endLockObservation_(
+    handle,
+    outcome,
+    details
+  ) {
+    try {
+      if (
+        handle &&
+        REOS.ScriptLockObservability &&
+        typeof REOS.ScriptLockObservability
+          .end ===
+          'function'
+      ) {
+        REOS.ScriptLockObservability
+          .end(
+            handle,
+            outcome,
+            details || {}
+          );
+      }
+    } catch (ignore) {}
+  }
+
   var LOCK_CONTEXT_CAPABILITY_ = {};
 
   function validateLockContext_(context) {
@@ -134,10 +205,32 @@ REOS.Database = (function () {
       );
 
     if (!acquired) {
+      noteLockContention_(
+        'Database',
+        'withScriptLockContext',
+        {
+          waitMode: 'tryLock',
+          waitMilliseconds: 1000
+        }
+      );
+
       throw new Error(
         'Database ScriptLock is contended; no operation executed.'
       );
     }
+
+    var lockObservation =
+      beginLockObservation_(
+        'Database',
+        'withScriptLockContext',
+        {
+          waitMode: 'tryLock',
+          waitMilliseconds: 1000
+        }
+      );
+
+    var lockOutcome =
+      'SUCCESS';
 
     var context =
       Object.freeze({
@@ -158,11 +251,35 @@ REOS.Database = (function () {
       return work(
         context
       );
+    } catch (error) {
+      lockOutcome =
+        'ERROR';
+
+      throw error;
     } finally {
       try {
         SpreadsheetApp.flush();
+      } catch (flushError) {
+        lockOutcome =
+          'FLUSH_ERROR';
+
+        throw flushError;
       } finally {
+        /*
+         * Physical release must precede observability finalization.
+         * If release fails, retain owner metadata so status can later
+         * classify it stale rather than falsely reporting RELEASED.
+         */
         lock.releaseLock();
+
+        endLockObservation_(
+          lockObservation,
+          lockOutcome,
+          {
+            waitMode: 'tryLock',
+            waitMilliseconds: 1000
+          }
+        );
       }
     }
   }
@@ -178,6 +295,12 @@ REOS.Database = (function () {
 
     var lock;
 
+    var lockObservation =
+      null;
+
+    var lockOutcome =
+      'SUCCESS';
+
     if (callerOwnsLock) {
       lock =
         validateLockContext_(
@@ -190,6 +313,16 @@ REOS.Database = (function () {
       lock.waitLock(
         30000
       );
+
+      lockObservation =
+        beginLockObservation_(
+          'Database.insert',
+          sheetName,
+          {
+            waitMode: 'waitLock',
+            waitMilliseconds: 30000
+          }
+        );
     }
 
     try {
@@ -205,16 +338,45 @@ REOS.Database = (function () {
       const inserted = rowToObject(headers, row, sheet.getLastRow());
       if (REOS.Logger) REOS.Logger.info('DB insert', { sheet: sheetName, id: options.idField ? inserted[options.idField] : null });
       return inserted;
+    } catch (error) {
+      lockOutcome =
+        'ERROR';
+
+      throw error;
     } finally {
       if (!callerOwnsLock) {
         lock.releaseLock();
+
+        endLockObservation_(
+          lockObservation,
+          lockOutcome,
+          {
+            sheetName:
+              sheetName
+          }
+        );
       }
     }
   }
 
   function update(sheetName, idField, idValue, changes) {
     const lock = LockService.getScriptLock();
+
     lock.waitLock(30000);
+
+    var lockObservation =
+      beginLockObservation_(
+        'Database.update',
+        sheetName,
+        {
+          waitMode: 'waitLock',
+          waitMilliseconds: 30000
+        }
+      );
+
+    var lockOutcome =
+      'SUCCESS';
+
     try {
       const sheet = getSheet(sheetName);
       const headers = getHeaders(sheetName);
@@ -229,8 +391,22 @@ REOS.Database = (function () {
       sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
       if (REOS.Logger) REOS.Logger.info('DB update', { sheet: sheetName, id: idValue });
       return rowToObject(headers, row, rowNumber);
+    } catch (error) {
+      lockOutcome =
+        'ERROR';
+
+      throw error;
     } finally {
       lock.releaseLock();
+
+      endLockObservation_(
+        lockObservation,
+        lockOutcome,
+        {
+          sheetName:
+            sheetName
+        }
+      );
     }
   }
 
