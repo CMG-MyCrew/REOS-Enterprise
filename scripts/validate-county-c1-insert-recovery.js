@@ -37,6 +37,20 @@ const source =
     'utf8'
   );
 
+const SCHEMA_MODULE =
+  path.join(
+    ROOT,
+    'build',
+    'apps-script-brand',
+    'DistressLeadCountySchema.js'
+  );
+
+const schemaSource =
+  fs.readFileSync(
+    SCHEMA_MODULE,
+    'utf8'
+  );
+
 const KEY =
   'pa-philadelphia|code_violations|101';
 
@@ -86,6 +100,76 @@ function expectThrow(
 console.log(
   '=== COUNTY C1 INSERT-ONLY RECOVERY CONTRACT ==='
 );
+
+/*
+ * Cross-module schema authority regression.
+ *
+ * C1 identity fields were introduced through an additive migration and
+ * therefore must remain the final two DISTRESS_LEADS headers.
+ */
+{
+  const saleDateOffset =
+    schemaSource.indexOf(
+      "'Sale Date'"
+    );
+
+  const observationOffset =
+    schemaSource.indexOf(
+      "'Source Observation Key'"
+    );
+
+  const canonicalOffset =
+    schemaSource.indexOf(
+      "'Canonical Property Key'"
+    );
+
+  assert.ok(
+    saleDateOffset >= 0,
+    'Sale Date schema anchor missing'
+  );
+
+  assert.ok(
+    observationOffset >
+      saleDateOffset,
+    'Source Observation Key must follow Sale Date in append-only C1 layout'
+  );
+
+  assert.ok(
+    canonicalOffset >
+      observationOffset,
+    'Canonical Property Key must follow Source Observation Key'
+  );
+
+  assert.equal(
+    observationOffset,
+    schemaSource.lastIndexOf(
+      "'Source Observation Key'"
+    ),
+    'Source Observation Key schema literal must be unique'
+  );
+
+  assert.equal(
+    canonicalOffset,
+    schemaSource.lastIndexOf(
+      "'Canonical Property Key'"
+    ),
+    'Canonical Property Key schema literal must be unique'
+  );
+
+  assert.ok(
+    schemaSource.includes(
+      "'Sale Date',\n" +
+      "    'Source Observation Key',\n" +
+      "    'Canonical Property Key'\n" +
+      "  ];"
+    ),
+    'C1 identity fields must be the final two COUNTY_HEADERS'
+  );
+
+  pass(
+    'county schema authority preserves append-only C1 identity-column order'
+  );
+}
 
 /*
  * Static mutation containment.

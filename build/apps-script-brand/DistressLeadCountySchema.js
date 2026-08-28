@@ -47,8 +47,6 @@ REOS.DistressLeadCountySchema = (function () {
     'Parcel ID',
     'Source Record ID',
     'Source Record Key',
-    'Source Observation Key',
-    'Canonical Property Key',
     'Last Seen At',
     'Source Updated At',
     'Co-Owner Name',
@@ -73,7 +71,9 @@ REOS.DistressLeadCountySchema = (function () {
     'Book/Writ',
     'Sale Type',
     'Sale Status',
-    'Sale Date'
+    'Sale Date',
+    'Source Observation Key',
+    'Canonical Property Key'
   ];
 
   function requiredHeaders() {
