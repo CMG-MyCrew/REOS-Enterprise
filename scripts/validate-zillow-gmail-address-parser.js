@@ -52,13 +52,29 @@ assert.equal(
   'parseMessage_ must remain exposed for deterministic validation'
 );
 
-function message(body, subject) {
+function message(body, subject, messageId) {
   return {
-    getSubject: () => subject || 'Zillow property inquiry',
-    getPlainBody: () => body || '',
-    getFrom: () => 'daily-updates@mail.zillow.com',
-    getReplyTo: () => '',
-    getDate: () => new Date('2026-08-24T00:00:00Z')
+    getId: () =>
+      messageId ||
+      'certified-zillow-message-001',
+
+    getSubject: () =>
+      subject ||
+      'Zillow property inquiry',
+
+    getPlainBody: () =>
+      body || '',
+
+    getFrom: () =>
+      'daily-updates@mail.zillow.com',
+
+    getReplyTo: () =>
+      '',
+
+    getDate: () =>
+      new Date(
+        '2026-08-24T00:00:00Z'
+      )
   };
 }
 
@@ -81,7 +97,19 @@ assert.equal(valid.city, 'Philadelphia');
 assert.equal(valid.state, 'PA');
 assert.equal(valid.zip, '19107');
 
-console.log('PASS: legitimate Zillow property address remains parseable');
+assert.equal(
+  valid.gmailMessageId,
+  'certified-zillow-message-001',
+  'parser must retain Gmail message identity'
+);
+
+console.log(
+  'PASS: legitimate Zillow property address remains parseable'
+);
+
+console.log(
+  'PASS: Gmail message identity remains available for source observation identity'
+);
 
 const malformed =
   'notifications%2Fview-all_target%2FX1-SSt6sdc49cp93e0000000000_8z2rv_sse%2F%3Frtoken%3Dd8963dfb-514f-4828-bd9d-28179b52e88b%257EX1-ZU10ay7lb3otlah_3qul1%26utm_campaign%3Demo-dailysavedsearch';

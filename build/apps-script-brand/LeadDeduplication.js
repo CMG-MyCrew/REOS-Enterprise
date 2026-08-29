@@ -20,7 +20,113 @@ REOS.LeadDeduplication = (function () {
     var hits=0; for(var i=0;i<shorter.length;i++){ if(longer.indexOf(shorter.charAt(i))!==-1) hits++; }
     return hits/Math.max(longer.length,1);
   }
+  function observationKey_(lead){
+    lead=lead||{};
+
+    return s_(
+      lead['Source Observation Key'] ||
+      lead['Source Record Key'] ||
+      ''
+    );
+  }
+
+  function sourceKey_(lead){
+    lead=lead||{};
+
+    return s_(
+      lead.Source ||
+      lead['Lead Source'] ||
+      ''
+    ).toLowerCase();
+  }
+
+  function canonicalKey_(lead){
+    lead=lead||{};
+
+    return s_(
+      lead['Canonical Property Key'] ||
+      ''
+    );
+  }
+
   function compare(candidate,existing){
+    candidate=candidate||{};
+    existing=existing||{};
+
+    var candidateObservation=
+      observationKey_(candidate);
+
+    var existingObservation=
+      observationKey_(existing);
+
+    if(
+      candidateObservation &&
+      existingObservation
+    ){
+      if(
+        candidateObservation ===
+        existingObservation
+      ){
+        return {
+          isDuplicate:true,
+          confidence:'Exact',
+          score:100,
+          reasons:[
+            'Source Observation Key exact'
+          ],
+          candidate:norm_(candidate),
+          existing:norm_(existing)
+        };
+      }
+
+      var reasons=[
+        'Distinct source observations'
+      ];
+
+      if(
+        canonicalKey_(candidate) &&
+        canonicalKey_(candidate) ===
+          canonicalKey_(existing)
+      ){
+        reasons.push(
+          'Canonical Property Key exact'
+        );
+      }
+
+      return {
+        isDuplicate:false,
+        confidence:'None',
+        score:0,
+        reasons:reasons,
+        candidate:norm_(candidate),
+        existing:norm_(existing)
+      };
+    }
+
+    var candidateSource=
+      sourceKey_(candidate);
+
+    var existingSource=
+      sourceKey_(existing);
+
+    if(
+      candidateSource &&
+      existingSource &&
+      candidateSource !==
+        existingSource
+    ){
+      return {
+        isDuplicate:false,
+        confidence:'None',
+        score:0,
+        reasons:[
+          'Cross-source observations are distinct'
+        ],
+        candidate:norm_(candidate),
+        existing:norm_(existing)
+      };
+    }
+
     var c=norm_(candidate), e=norm_(existing), score=0, reasons=[];
     if(c.parcelId&&e.parcelId&&c.parcelId===e.parcelId){ score+=60; reasons.push('Parcel/APN exact'); }
     if(c.normalizedKey&&e.normalizedKey&&c.normalizedKey===e.normalizedKey){ score+=55; reasons.push('Property address exact'); }

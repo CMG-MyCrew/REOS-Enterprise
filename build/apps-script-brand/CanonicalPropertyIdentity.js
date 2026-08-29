@@ -195,7 +195,51 @@ REOS.CanonicalPropertyIdentity = (function () {
     };
   }
 
+  function sourceObservationKey(record) {
+    return buildSourceObservationKey_(
+      record || {}
+    );
+  }
+
+  function canonicalPropertyIdentity(record) {
+    return buildCanonicalPropertyIdentity_(
+      record || {}
+    );
+  }
+
+  function tryCanonicalPropertyIdentity(record) {
+    try {
+      var identity =
+        buildCanonicalPropertyIdentity_(
+          record || {}
+        );
+
+      return {
+        ok: true,
+        key: identity.key,
+        authority: identity.authority,
+        error: ''
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        key: '',
+        authority: '',
+        error:
+          error && error.message
+            ? error.message
+            : String(error)
+      };
+    }
+  }
+
   return {
-    resolve: resolve
+    resolve: resolve,
+    sourceObservationKey:
+      sourceObservationKey,
+    canonicalPropertyIdentity:
+      canonicalPropertyIdentity,
+    tryCanonicalPropertyIdentity:
+      tryCanonicalPropertyIdentity
   };
 })();
