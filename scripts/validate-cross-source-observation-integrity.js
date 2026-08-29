@@ -147,6 +147,44 @@ assert(
 );
 
 
+
+/*
+ * Preserve historical Zillow source authority.
+ *
+ * Source Dataset supplies the new identity dimension.
+ * Source itself must remain compatible with historical
+ * DISTRESS_LEADS rows.
+ */
+const zillowSourceAuthority =
+  zillowSource.match(
+    /Source:\s*'Zillow Gmail'/g
+  ) || [];
+
+assert.strictEqual(
+  zillowSourceAuthority.length,
+  2,
+  'Zillow identity and persistence must preserve historical Source authority'
+);
+
+assert(
+  !/Source:\s*'zillow_gmail'/.test(
+    zillowSource
+  ),
+  'machine-slug Source must not split historical Zillow identity'
+);
+
+assert(
+  /'Source Dataset':\s*'gmail_leads'/.test(
+    zillowSource
+  ),
+  'Zillow Source Dataset identity dimension missing'
+);
+
+console.log(
+  'PASS: Zillow historical Source authority remains continuous'
+);
+
+
 /*
  * Execute the pure identity module to prove two sources can point
  * to one property without becoming one observation.

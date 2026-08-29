@@ -383,7 +383,7 @@ REOS.ZillowGmailConnector = (function () {
         parsed.zip,
 
       Source:
-        'zillow_gmail',
+        'Zillow Gmail',
 
       'Source Dataset':
         'gmail_leads',
@@ -440,7 +440,7 @@ REOS.ZillowGmailConnector = (function () {
         mapDistressType_(parsed.leadType),
 
       Source:
-        'zillow_gmail',
+        'Zillow Gmail',
 
       'Source Dataset':
         'gmail_leads',
