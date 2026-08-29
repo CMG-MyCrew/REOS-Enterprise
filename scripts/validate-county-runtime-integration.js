@@ -14,8 +14,7 @@ const BASELINE = '66069b2';
 
 const LEGACY_PROTECTED_FILES = [
   'build/apps-script-brand/ConnectorRegistry.js',
-  'build/apps-script-brand/AcquisitionConnectorManager.js',
-  'build/apps-script-brand/CSVImportEngine.js'
+  'build/apps-script-brand/AcquisitionConnectorManager.js'
 ];
 
 const RUNTIME_CORE_FILES = [
@@ -81,7 +80,17 @@ const POST_COUNTY_PRODUCTION_FILES = [
  */
 const POST_COUNTY_MODIFIED_PRODUCTION_FILES = [
   'build/apps-script-brand/ZillowGmailConnector.js',
-  'build/apps-script-brand/Database.js'
+  'build/apps-script-brand/Database.js',
+
+  /*
+   * Cross-source observation-integrity repair.
+   *
+   * These remain baseline files rather than additive county
+   * runtime modules, so each must continue to appear exactly
+   * once as Git status M relative to BASELINE.
+   */
+  'build/apps-script-brand/CSVImportEngine.js',
+  'build/apps-script-brand/LeadDeduplication.js'
 ];
 
 const COMPONENT_VALIDATORS = [
@@ -90,6 +99,7 @@ const COMPONENT_VALIDATORS = [
   'validate-generated-county-connectors.js',
   'validate-distress-lead-county-schema.js',
   'validate-canonical-property-upsert-identity.js',
+  'validate-cross-source-observation-integrity.js',
   'validate-county-identity-historical-audit.js',
   'validate-county-identity-source-reconciliation.js',
   'validate-county-identity-repair-evidence-export.js',
@@ -156,7 +166,7 @@ LEGACY_PROTECTED_FILES.forEach(file => {
 });
 
 pass(
-  `legacy acquisition files remain unchanged from ${BASELINE}`
+  `legacy connector-management files remain unchanged from ${BASELINE}`
 );
 
 /*
@@ -491,7 +501,12 @@ pass(
 );
 
 pass(
-  'reconciled production integration is exactly 112 additive files plus 2 controlled modified files with no deletions'
+  'reconciled production integration is exactly 112 additive files plus ' +
+    (
+      CONTROLLED_MODIFIED_BUILD_FILES.length +
+      POST_COUNTY_MODIFIED_PRODUCTION_FILES.length
+    ) +
+    ' explicitly allowlisted modified files with no deletions'
 );
 
 /*

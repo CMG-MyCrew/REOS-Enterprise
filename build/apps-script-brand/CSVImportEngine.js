@@ -82,6 +82,8 @@ REOS.CSVImportEngine = (function () {
 
   function importFile(fileId, options) {
     ensureSheets();
+    requireObservationSchema_();
+
     options = options || {};
     var started = new Date();
     var parsed = parseFile_(fileId, options);
@@ -106,7 +108,8 @@ REOS.CSVImportEngine = (function () {
     var validation = validateFile(fileId, options);
     if (!validation.ok) throw new Error(validation.message);
 
-    var existing = buildExistingIndex_();
+    var existing =
+      buildExistingObservationIndex_();
     var imported = 0;
     var skipped = 0;
     var duplicates = 0;
@@ -127,8 +130,20 @@ REOS.CSVImportEngine = (function () {
           return;
         }
 
-        var key = leadKey_(lead.address, lead.city, lead.state, lead.zip);
-        if (existing[key]) {
+        var identity =
+          buildCsvIdentity_(
+            lead,
+            connectorKey,
+            parsed.file,
+            parsed.contentHash,
+            index
+          );
+
+        if (
+          existing[
+            identity.sourceObservationKey
+          ]
+        ) {
           duplicates++;
           skipped++;
           return;
@@ -139,6 +154,28 @@ REOS.CSVImportEngine = (function () {
           City: lead.city,
           State: lead.state,
           Zip: lead.zip,
+
+          'Parcel ID':
+            lead.parcelId,
+
+          Source:
+            identity.source,
+
+          'Source Dataset':
+            identity.sourceDataset,
+
+          'Source Record ID':
+            identity.sourceRecordId,
+
+          'Source Record Key':
+            identity.sourceObservationKey,
+
+          'Source Observation Key':
+            identity.sourceObservationKey,
+
+          'Canonical Property Key':
+            identity.canonicalPropertyKey,
+
           'Owner Name': lead.ownerName,
           'Owner Mailing Address': lead.ownerMailingAddress,
           'Distress Type': lead.distressType,
@@ -154,7 +191,10 @@ REOS.CSVImportEngine = (function () {
           'Updated At': new Date()
         }, { idField: 'Distress Lead ID', idPrefix: 'DLEAD' });
 
-        existing[key] = true;
+        existing[
+          identity.sourceObservationKey
+        ] = true;
+
         imported++;
       } catch (error) {
         skipped++;
@@ -329,13 +369,33 @@ REOS.CSVImportEngine = (function () {
   function parseFile_(fileId, options) {
     options = options || {};
     var file = getDriveFile_(fileId);
-    var text = file.getBlob().getDataAsString(options.charset || 'UTF-8');
+    var blob = file.getBlob();
+    var bytes = blob.getBytes();
+
+    var text =
+      blob.getDataAsString(
+        options.charset || 'UTF-8'
+      );
+
     text = text.replace(/^\uFEFF/, '');
+
+    var contentHash =
+      Utilities.base64EncodeWebSafe(
+        Utilities.computeDigest(
+          Utilities.DigestAlgorithm.SHA_256,
+          bytes
+        )
+      ).replace(/=+$/, '');
     var delimiter = options.delimiter || detectDelimiter_(text);
     var matrix = Utilities.parseCsv(text, delimiter);
     if (!matrix.length) throw new Error('CSV is empty: ' + file.getName());
     var headers = matrix.shift().map(function (h) { return String(h || '').trim(); });
-    return { file: file, headers: headers, rows: matrix.filter(nonEmptyRow_) };
+    return {
+      file: file,
+      headers: headers,
+      rows: matrix.filter(nonEmptyRow_),
+      contentHash: contentHash
+    };
   }
 
   function normalizeRow_(row, headers, options) {
@@ -377,16 +437,166 @@ REOS.CSVImportEngine = (function () {
       estimatedValue: estimatedValue,
       estimatedRepairs: estimatedRepairs,
       suggestedOffer: suggestedOffer,
+      parcelId: parcelId,
       leadSource: options.sourceName || options.connectorKey || 'Live CSV Connector',
       notes: notes
     };
   }
 
-  function buildExistingIndex_() {
-    return REOS.Database.getAll(LEADS).reduce(function (map, lead) {
-      map[leadKey_(lead.Address, lead.City, lead.State, lead.Zip)] = true;
-      return map;
-    }, {});
+  function requireObservationSchema_() {
+    if (
+      !REOS.Database ||
+      typeof REOS.Database.getHeaders !==
+        'function'
+    ) {
+      throw new Error(
+        'Database.getHeaders is required for observation persistence.'
+      );
+    }
+
+    var headers =
+      REOS.Database.getHeaders(
+        LEADS
+      );
+
+    [
+      'Source',
+      'Source Dataset',
+      'Source Record ID',
+      'Source Record Key',
+      'Source Observation Key',
+      'Canonical Property Key',
+      'Parcel ID'
+    ].forEach(function (header) {
+      if (
+        headers.indexOf(header) === -1
+      ) {
+        throw new Error(
+          'DISTRESS_LEADS observation schema is missing "' +
+          header +
+          '"; CSV import is fail-closed.'
+        );
+      }
+    });
+  }
+
+  function buildExistingObservationIndex_() {
+    return REOS.Database
+      .getAll(LEADS)
+      .reduce(function (map, lead) {
+        var key =
+          String(
+            lead[
+              'Source Observation Key'
+            ] ||
+            lead[
+              'Source Record Key'
+            ] ||
+            ''
+          ).trim();
+
+        if (key) {
+          map[key] = true;
+        }
+
+        return map;
+      }, {});
+  }
+
+  function buildCsvIdentity_(
+    lead,
+    connectorKey,
+    file,
+    contentHash,
+    rowIndex
+  ) {
+    if (
+      !REOS.CanonicalPropertyIdentity ||
+      typeof REOS.CanonicalPropertyIdentity
+        .sourceObservationKey !==
+        'function' ||
+      typeof REOS.CanonicalPropertyIdentity
+        .tryCanonicalPropertyIdentity !==
+        'function'
+    ) {
+      throw new Error(
+        'CanonicalPropertyIdentity observation APIs are required.'
+      );
+    }
+
+    var source =
+      'csv';
+
+    var sourceDataset =
+      String(
+        connectorKey || 'county_csv'
+      ).trim();
+
+    var sourceRecordId =
+      [
+        String(file.getId()),
+        String(contentHash || ''),
+        String(
+          Number(rowIndex) + 2
+        )
+      ].join(':');
+
+    var record = {
+      Address:
+        lead.address,
+
+      City:
+        lead.city,
+
+      State:
+        lead.state,
+
+      Zip:
+        lead.zip,
+
+      'Parcel ID':
+        lead.parcelId,
+
+      Source:
+        source,
+
+      'Source Dataset':
+        sourceDataset,
+
+      'Source Record ID':
+        sourceRecordId
+    };
+
+    var sourceObservationKey =
+      REOS.CanonicalPropertyIdentity
+        .sourceObservationKey(
+          record
+        );
+
+    var canonical =
+      REOS.CanonicalPropertyIdentity
+        .tryCanonicalPropertyIdentity(
+          record
+        );
+
+    return {
+      source:
+        source,
+
+      sourceDataset:
+        sourceDataset,
+
+      sourceRecordId:
+        sourceRecordId,
+
+      sourceObservationKey:
+        sourceObservationKey,
+
+      canonicalPropertyKey:
+        canonical.ok
+          ? canonical.key
+          : ''
+    };
   }
 
   function wasProcessed_(connectorKey, file) {

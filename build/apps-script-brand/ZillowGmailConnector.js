@@ -292,6 +292,9 @@ REOS.ZillowGmailConnector = (function () {
     }
 
     return {
+      gmailMessageId:
+        String(message.getId()),
+
       sourceLabel: labelName,
       subject: subject,
       contactName: name,
@@ -311,8 +314,120 @@ REOS.ZillowGmailConnector = (function () {
     };
   }
 
+  function requireObservationSchema_() {
+    var headers =
+      REOS.Database.getHeaders(
+        'DISTRESS_LEADS'
+      );
+
+    [
+      'Source',
+      'Source Dataset',
+      'Source Record ID',
+      'Source Record Key',
+      'Source Observation Key',
+      'Canonical Property Key'
+    ].forEach(function (header) {
+      if (
+        headers.indexOf(header) === -1
+      ) {
+        throw new Error(
+          'DISTRESS_LEADS observation schema is missing "' +
+          header +
+          '"; Zillow import is fail-closed.'
+        );
+      }
+    });
+  }
+
+  function buildObservationIdentity_(parsed) {
+    if (
+      !REOS.CanonicalPropertyIdentity ||
+      typeof REOS.CanonicalPropertyIdentity
+        .sourceObservationKey !==
+        'function' ||
+      typeof REOS.CanonicalPropertyIdentity
+        .tryCanonicalPropertyIdentity !==
+        'function'
+    ) {
+      throw new Error(
+        'CanonicalPropertyIdentity observation APIs are required.'
+      );
+    }
+
+    var sourceRecordId =
+      String(
+        parsed.externalLeadId ||
+        parsed.naturalKey ||
+        parsed.gmailMessageId ||
+        ''
+      ).trim();
+
+    if (!sourceRecordId) {
+      throw new Error(
+        'Zillow source observation identity is unavailable.'
+      );
+    }
+
+    var record = {
+      Address:
+        parsed.propertyAddress,
+
+      City:
+        parsed.city,
+
+      State:
+        parsed.state,
+
+      Zip:
+        parsed.zip,
+
+      Source:
+        'zillow_gmail',
+
+      'Source Dataset':
+        'gmail_leads',
+
+      'Source Record ID':
+        sourceRecordId
+    };
+
+    var sourceObservationKey =
+      REOS.CanonicalPropertyIdentity
+        .sourceObservationKey(
+          record
+        );
+
+    var canonical =
+      REOS.CanonicalPropertyIdentity
+        .tryCanonicalPropertyIdentity(
+          record
+        );
+
+    return {
+      sourceRecordId:
+        sourceRecordId,
+
+      sourceObservationKey:
+        sourceObservationKey,
+
+      canonicalPropertyKey:
+        canonical.ok
+          ? canonical.key
+          : ''
+    };
+  }
+
   function insertLead_(parsed, config) {
+    requireObservationSchema_();
+
     var now = new Date();
+
+    var identity =
+      buildObservationIdentity_(
+        parsed
+      );
+
     return REOS.Database.insert('DISTRESS_LEADS', {
       Address: parsed.propertyAddress,
       City: parsed.city,
@@ -321,8 +436,27 @@ REOS.ZillowGmailConnector = (function () {
       'Owner Name': parsed.contactName,
       Phone: parsed.phone,
       Email: parsed.email,
-      'Distress Type': mapDistressType_(parsed.leadType),
-      Source: 'Zillow Gmail',
+      'Distress Type':
+        mapDistressType_(parsed.leadType),
+
+      Source:
+        'zillow_gmail',
+
+      'Source Dataset':
+        'gmail_leads',
+
+      'Source Record ID':
+        identity.sourceRecordId,
+
+      'Source Record Key':
+        identity.sourceObservationKey,
+
+      'Source Observation Key':
+        identity.sourceObservationKey,
+
+      'Canonical Property Key':
+        identity.canonicalPropertyKey,
+
       'Source URL': parsed.propertyUrl,
       'External Lead ID': parsed.externalLeadId,
       'Lead Type': parsed.leadType,
