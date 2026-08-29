@@ -722,9 +722,9 @@ function reosZillowGmailInstallDefaultTrigger() {
   reosZillowGmailRemoveTriggers();
   ScriptApp.newTrigger('reosZillowGmailScheduledSync')
     .timeBased()
-    .everyMinutes(5)
+    .everyMinutes(15)
     .create();
-  return { ok: true, schedule: 'Every 5 minutes' };
+  return { ok: true, schedule: 'Every 15 minutes' };
 }
 
 function reosZillowGmailRemoveTriggers() {

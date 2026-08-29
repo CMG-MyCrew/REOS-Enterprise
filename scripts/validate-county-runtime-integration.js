@@ -17,6 +17,28 @@ const LEGACY_PROTECTED_FILES = [
   'build/apps-script-brand/AcquisitionConnectorManager.js'
 ];
 
+/*
+ * ConnectorRegistry.js remains legacy-protected except for one explicitly
+ * certified Zillow scheduler metadata change:
+ *
+ *   Every 5 minutes -> Every 15 minutes
+ *
+ * The hard-baseline check below reconstructs the only permitted current
+ * file from BASELINE and rejects every other byte-level change.
+ */
+const ZILLOW_SCHEDULE_METADATA_FILE =
+  'build/apps-script-brand/ConnectorRegistry.js';
+
+const ZILLOW_SCHEDULE_METADATA_BEFORE =
+  "['zillow_gmail_leads','Zillow Gmail Multi-Folder Leads'," +
+  "'GMAIL','Zillow Lead','reosConnectorHandleZillowGmail'," +
+  "'false','Every 5 minutes',65],";
+
+const ZILLOW_SCHEDULE_METADATA_AFTER =
+  "['zillow_gmail_leads','Zillow Gmail Multi-Folder Leads'," +
+  "'GMAIL','Zillow Lead','reosConnectorHandleZillowGmail'," +
+  "'false','Every 15 minutes',65],";
+
 const RUNTIME_CORE_FILES = [
   'ArcGISAdapter.js',
   'CSVAdapter.js',
@@ -79,6 +101,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
  * status contract.
  */
 const POST_COUNTY_MODIFIED_PRODUCTION_FILES = [
+  ZILLOW_SCHEDULE_METADATA_FILE,
   'build/apps-script-brand/ZillowGmailConnector.js',
   'build/apps-script-brand/Database.js',
 
@@ -150,6 +173,14 @@ console.log('');
  * Hard baseline protection.
  */
 LEGACY_PROTECTED_FILES.forEach(file => {
+  /*
+   * ConnectorRegistry.js has one narrowly certified metadata delta below.
+   * Every other legacy-protected file remains byte-for-byte baseline-bound.
+   */
+  if (file === ZILLOW_SCHEDULE_METADATA_FILE) {
+    return;
+  }
+
   const result = git([
     'diff',
     '--quiet',
@@ -165,8 +196,63 @@ LEGACY_PROTECTED_FILES.forEach(file => {
   );
 });
 
+const baselineRegistry = git([
+  'show',
+  `${BASELINE}:${ZILLOW_SCHEDULE_METADATA_FILE}`
+]);
+
+assert.equal(
+  baselineRegistry.status,
+  0,
+  'unable to read protected ConnectorRegistry baseline'
+);
+
+const baselineRegistryText =
+  baselineRegistry.stdout;
+
+assert.equal(
+  baselineRegistryText
+    .split(ZILLOW_SCHEDULE_METADATA_BEFORE)
+    .length - 1,
+  1,
+  'baseline must contain exactly one certified Zillow 5-minute metadata row'
+);
+
+assert.equal(
+  baselineRegistryText
+    .split(ZILLOW_SCHEDULE_METADATA_AFTER)
+    .length - 1,
+  0,
+  'baseline unexpectedly already contains Zillow 15-minute metadata'
+);
+
+const expectedCurrentRegistry =
+  baselineRegistryText.replace(
+    ZILLOW_SCHEDULE_METADATA_BEFORE,
+    ZILLOW_SCHEDULE_METADATA_AFTER
+  );
+
+const actualCurrentRegistry =
+  fs.readFileSync(
+    path.join(
+      ROOT,
+      ZILLOW_SCHEDULE_METADATA_FILE
+    ),
+    'utf8'
+  );
+
+assert.equal(
+  actualCurrentRegistry,
+  expectedCurrentRegistry,
+  'ConnectorRegistry.js changed beyond the certified Zillow 5 -> 15 minute metadata delta'
+);
+
 pass(
-  `legacy connector-management files remain unchanged from ${BASELINE}`
+  'protected Zillow registry change is exactly Every 5 minutes -> Every 15 minutes'
+);
+
+pass(
+  `legacy connector-management protection remains baseline-bound at ${BASELINE}`
 );
 
 /*
