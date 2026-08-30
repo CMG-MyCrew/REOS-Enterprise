@@ -23,7 +23,8 @@ REOS.CountyAdapters.Http = (function () {
       payload: options.payload,
       contentType: options.contentType,
       muteHttpExceptions: true,
-      followRedirects: options.followRedirects !== false
+      followRedirects: options.followRedirects !== false,
+      escaping: options.escaping !== false
     });
 
     var completed = new Date();

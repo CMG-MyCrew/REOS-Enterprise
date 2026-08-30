@@ -54,7 +54,8 @@ REOS.CountyAdapters.ArcGIS = (function () {
       headers: Object.assign(
         { Accept: 'application/json' },
         options.headers || {}
-      )
+      ),
+      escaping: false
     });
 
     var payload = REOS.CountyAdapters.Http.parseJson(result);
@@ -119,7 +120,8 @@ REOS.CountyAdapters.ArcGIS = (function () {
     var result = REOS.CountyAdapters.Http.request({
       url: url,
       method: 'get',
-      headers: { Accept: 'application/json' }
+      headers: { Accept: 'application/json' },
+      escaping: false
     });
 
     var payload = REOS.CountyAdapters.Http.parseJson(result);

@@ -451,6 +451,21 @@ else
 fi
 
 
+# ArcGIS deterministic pagination and URL-transport certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  ARCGIS_DETERMINISTIC_PAGINATION_CERTIFIER="scripts/validate-arcgis-deterministic-pagination.js"
+
+  if [[ ! -f "$ARCGIS_DETERMINISTIC_PAGINATION_CERTIFIER" ]]; then
+    echo "ERROR: ArcGIS deterministic pagination validator missing: $ARCGIS_DETERMINISTIC_PAGINATION_CERTIFIER"
+    exit 1
+  fi
+
+  echo
+  echo "Running ArcGIS deterministic pagination / URL-transport certification..."
+  node "$ARCGIS_DETERMINISTIC_PAGINATION_CERTIFIER"
+fi
+
+
 # Philadelphia actionable tax-delinquency source-filter certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   PHILADELPHIA_TAX_ACTIONABLE_CERTIFIER="scripts/validate-philadelphia-tax-actionable-filter.js"
