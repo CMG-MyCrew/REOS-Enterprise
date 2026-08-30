@@ -65,25 +65,122 @@ REOS.Database = (function () {
     const headers = getHeaders(sheetName);
     const lastRow = sheet.getLastRow();
     const lastColumn = Math.max(sheet.getLastColumn(), headers.length);
+
     if (lastRow < 2) return [];
-    const rows = sheet.getRange(2, 1, lastRow - 1, lastColumn).getValues();
-    return rows.filter(function (row) {
-      return row.some(function (cell) { return cell !== '' && cell !== null; });
-    }).map(function (row, index) {
-      return rowToObject(headers, row, index + 2);
-    });
+
+    const rows =
+      sheet
+        .getRange(
+          2,
+          1,
+          lastRow - 1,
+          lastColumn
+        )
+        .getValues();
+
+    /*
+     * Preserve physical spreadsheet row authority before filtering
+     * logically blank records.
+     *
+     * Filtering first and then deriving _rowNumber from the compacted
+     * array causes every record after a blank physical row to point at
+     * the wrong spreadsheet row.
+     */
+    return rows
+      .map(function (row, index) {
+        return {
+          row: row,
+          rowNumber: index + 2
+        };
+      })
+      .filter(function (entry) {
+        return entry.row.some(function (cell) {
+          return (
+            cell !== '' &&
+            cell !== null
+          );
+        });
+      })
+      .map(function (entry) {
+        return rowToObject(
+          headers,
+          entry.row,
+          entry.rowNumber
+        );
+      });
   }
 
   function findById(sheetName, idField, idValue) {
     const id = String(idValue || '').trim();
+
     return getAll(sheetName).find(function (record) {
       return String(record[idField] || '').trim() === id;
     }) || null;
   }
 
+  /*
+   * Mutation authority must resolve directly from physical sheet rows.
+   *
+   * Do not derive a writable row number through getAll()/findById(),
+   * because logical filtering must never influence physical row
+   * addressing.
+   */
   function findRowById(sheetName, idField, idValue) {
-    const record = findById(sheetName, idField, idValue);
-    return record ? record._rowNumber : null;
+    const id =
+      String(idValue || '').trim();
+
+    if (!id) {
+      return null;
+    }
+
+    const sheet =
+      getSheet(sheetName);
+
+    const headers =
+      getHeaders(sheetName);
+
+    const idColumnIndex =
+      headers.indexOf(idField);
+
+    if (idColumnIndex === -1) {
+      throw new Error(
+        'ID field not found: ' +
+        idField
+      );
+    }
+
+    const lastRow =
+      sheet.getLastRow();
+
+    if (lastRow < 2) {
+      return null;
+    }
+
+    const values =
+      sheet
+        .getRange(
+          2,
+          idColumnIndex + 1,
+          lastRow - 1,
+          1
+        )
+        .getValues();
+
+    for (
+      let index = 0;
+      index < values.length;
+      index++
+    ) {
+      if (
+        String(
+          values[index][0] || ''
+        ).trim() === id
+      ) {
+        return index + 2;
+      }
+    }
+
+    return null;
   }
 
   function beginLockObservation_(

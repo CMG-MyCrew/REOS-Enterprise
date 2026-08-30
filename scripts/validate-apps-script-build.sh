@@ -288,6 +288,20 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
 fi
 
 
+# Database sparse-row mutation-authority certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  DATABASE_SPARSE_ROW_INTEGRITY_CERTIFIER="scripts/validate-database-sparse-row-integrity.js"
+
+  if [[ ! -f "$DATABASE_SPARSE_ROW_INTEGRITY_CERTIFIER" ]]; then
+    echo "ERROR: Database sparse-row integrity validator missing: $DATABASE_SPARSE_ROW_INTEGRITY_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running database sparse-row integrity certification..."
+  node "$DATABASE_SPARSE_ROW_INTEGRITY_CERTIFIER"
+  echo
+fi
+
 # County runtime execution bridge certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_RUNTIME_BRIDGE_CERTIFIER="scripts/validate-county-runtime-bridge.js"

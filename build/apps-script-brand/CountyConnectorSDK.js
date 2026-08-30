@@ -424,30 +424,55 @@ REOS.CountyConnectorSDK = (function () {
       return null;
     }
 
-    return rows.find(function (row) {
-      var observationKey =
-        String(
-          row['Source Observation Key'] || ''
-        );
+    var matches =
+      rows.filter(function (row) {
+        var observationKey =
+          String(
+            row['Source Observation Key'] || ''
+          );
 
-      var legacyKey =
-        String(
-          row['Source Record Key'] || ''
-        );
+        var legacyKey =
+          String(
+            row['Source Record Key'] || ''
+          );
 
-      /*
-       * Exact source-observation identity only.
-       *
-       * Source Record Key remains a migration-compatible alias for
-       * county observations created before CanonicalPropertyIdentity.
-       *
-       * Address equality is intentionally NOT an upsert authority.
-       */
-      return (
-        observationKey === naturalKey ||
-        legacyKey === naturalKey
+        /*
+         * Exact source-observation identity only.
+         *
+         * Source Record Key remains a migration-compatible alias for
+         * county observations created before CanonicalPropertyIdentity.
+         *
+         * Address equality is intentionally NOT an upsert authority.
+         */
+        return (
+          observationKey === naturalKey ||
+          legacyKey === naturalKey
+        );
+      });
+
+    /*
+     * One immutable source observation may resolve to at most one
+     * persisted row.
+     *
+     * Multiple exact matches are corruption evidence. Never silently
+     * choose Array.find()'s first row because doing so would manufacture
+     * mutation authority over an ambiguous persisted observation.
+     */
+    if (matches.length > 1) {
+      throw new Error(
+        'Duplicate persisted source observation identity ' +
+        naturalKey +
+        ': matched ' +
+        matches.length +
+        ' rows.'
       );
-    }) || null;
+    }
+
+    return (
+      matches.length === 1
+        ? matches[0]
+        : null
+    );
   }
 
   function normalizeLead_(record, connector, dataset, runId) {
