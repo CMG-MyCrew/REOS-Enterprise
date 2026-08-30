@@ -302,6 +302,20 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   echo
 fi
 
+# County sparse-row repair evidence certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  COUNTY_SPARSE_ROW_REPAIR_EVIDENCE_CERTIFIER="scripts/validate-county-sparse-row-repair-evidence.js"
+
+  if [[ ! -f "$COUNTY_SPARSE_ROW_REPAIR_EVIDENCE_CERTIFIER" ]]; then
+    echo "ERROR: County sparse-row repair evidence validator missing: $COUNTY_SPARSE_ROW_REPAIR_EVIDENCE_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county sparse-row repair evidence certification..."
+  node "$COUNTY_SPARSE_ROW_REPAIR_EVIDENCE_CERTIFIER"
+  echo
+fi
+
 # County runtime execution bridge certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_RUNTIME_BRIDGE_CERTIFIER="scripts/validate-county-runtime-bridge.js"
