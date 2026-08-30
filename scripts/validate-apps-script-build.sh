@@ -316,6 +316,20 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   echo
 fi
 
+# County endpoint configuration authority certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  COUNTY_ENDPOINT_CONFIGURATION_AUTHORITY_CERTIFIER="scripts/validate-county-endpoint-configuration-authority.js"
+
+  if [[ ! -f "$COUNTY_ENDPOINT_CONFIGURATION_AUTHORITY_CERTIFIER" ]]; then
+    echo "ERROR: County endpoint configuration authority validator missing: $COUNTY_ENDPOINT_CONFIGURATION_AUTHORITY_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county endpoint configuration authority certification..."
+  node "$COUNTY_ENDPOINT_CONFIGURATION_AUTHORITY_CERTIFIER"
+  echo
+fi
+
 # County runtime execution bridge certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_RUNTIME_BRIDGE_CERTIFIER="scripts/validate-county-runtime-bridge.js"
