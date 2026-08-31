@@ -346,6 +346,101 @@ assert.deepEqual(
 
 assert.equal(result.truncated, false);
 
+assert.equal(result.scanComplete, true);
+assert.equal(result.matchesTruncated, false);
+assert.equal(result.matchCount, result.matches.length);
+assert.equal(
+  result.retainedMatchCount,
+  result.matches.length
+);
+
+console.log(
+  'PASS: complete-scan result semantics are explicit'
+);
+
+const overflowResult =
+  context.reosCountyIdentityReferenceAudit({
+    distressLeadIds: [
+      'DL-SURPLUS-A',
+      'DL-SURPLUS-B',
+      'DL-NO-REFERENCE'
+    ],
+    maxMatches: 1
+  });
+
+assert.equal(
+  overflowResult.scanComplete,
+  true,
+  'match-detail truncation must not truncate workbook scan'
+);
+
+assert.equal(
+  overflowResult.matchesTruncated,
+  true,
+  'overflow must explicitly report truncated match details'
+);
+
+assert.equal(
+  overflowResult.truncated,
+  true,
+  'legacy truncated field must reflect match-detail truncation'
+);
+
+assert.equal(
+  overflowResult.matchCount,
+  2,
+  'total match count must include matches on later sheets'
+);
+
+assert.equal(
+  overflowResult.retainedMatchCount,
+  1,
+  'retained match evidence must honor maxMatches'
+);
+
+assert.equal(
+  overflowResult.matches.length,
+  1,
+  'returned match details must remain bounded'
+);
+
+assert.equal(
+  overflowResult.matchedIdCount,
+  2,
+  'later-sheet IDs must remain classified as matched'
+);
+
+assert.deepEqual(
+  Array.from(overflowResult.unmatchedIds),
+  ['DL-NO-REFERENCE'],
+  'later-sheet matches must never be falsely reported unmatched'
+);
+
+assert.deepEqual(
+  Array.from(overflowResult.matches).map(function (match) {
+    return {
+      distressLeadId: match.distressLeadId,
+      sheet: match.sheet,
+      rowNumber: match.rowNumber,
+      columnNumber: match.columnNumber
+    };
+  }),
+  [
+    {
+      distressLeadId: 'DL-SURPLUS-A',
+      sheet: 'DEALS',
+      rowNumber: 2,
+      columnNumber: 2
+    }
+  ],
+  'retained evidence must be deterministic'
+);
+
+console.log(
+  'PASS: maxMatches bounds evidence without truncating later-sheet discovery'
+);
+
+
 assert.throws(
   () => context.reosCountyIdentityReferenceAudit({
     distressLeadIds: []

@@ -122,13 +122,10 @@ REOS.CountyIdentityReferenceAudit = (function () {
     var matches = [];
     var matchedIds = {};
     var scannedSheets = [];
-    var truncated = false;
+    var totalMatchCount = 0;
+    var matchesTruncated = false;
 
     sheets.forEach(function (sheet) {
-      if (truncated) {
-        return;
-      }
-
       var sheetName = text_(sheet.getName());
 
       if (
@@ -179,24 +176,18 @@ REOS.CountyIdentityReferenceAudit = (function () {
           }
 
           matchedIds[value] = true;
+          totalMatchCount++;
 
-          matches.push({
-            distressLeadId: value,
-            sheet: sheetName,
-            rowNumber: rowIndex + 1,
-            columnNumber: columnIndex + 1
-          });
-
-          if (
-            matches.length >= options.maxMatches
-          ) {
-            truncated = true;
-            break;
+          if (matches.length < options.maxMatches) {
+            matches.push({
+              distressLeadId: value,
+              sheet: sheetName,
+              rowNumber: rowIndex + 1,
+              columnNumber: columnIndex + 1
+            });
+          } else {
+            matchesTruncated = true;
           }
-        }
-
-        if (truncated) {
-          break;
         }
       }
     });
@@ -233,6 +224,9 @@ REOS.CountyIdentityReferenceAudit = (function () {
         scannedSheets,
 
       matchCount:
+        totalMatchCount,
+
+      retainedMatchCount:
         matches.length,
 
       matchedIdCount:
@@ -244,8 +238,14 @@ REOS.CountyIdentityReferenceAudit = (function () {
       matches:
         matches,
 
+      scanComplete:
+        true,
+
+      matchesTruncated:
+        matchesTruncated,
+
       truncated:
-        truncated,
+        matchesTruncated,
 
       maxMatches:
         options.maxMatches
