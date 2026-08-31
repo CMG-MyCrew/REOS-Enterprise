@@ -99,6 +99,9 @@ assert.match(
   'migrationAuthorityGranted',
   'repairPlanAuthorityGranted',
   'requestedIds',
+  'referenceSurface',
+  'formulaTextScanned',
+  'readBatchSize',
   'scannedSheets',
   'matches',
   'unmatchedIds',
@@ -120,6 +123,7 @@ console.log(
 let adminCalls = 0;
 let getSheetsCalls = 0;
 let getValuesCalls = 0;
+let rangeReads = [];
 
 function fakeSheet(name, values) {
   return {
@@ -138,27 +142,60 @@ function fakeSheet(name, values) {
     },
 
     getRange(row, column, rowCount, columnCount) {
-      assert.equal(row, 1);
-      assert.equal(column, 1);
-      assert.equal(rowCount, values.length);
+      assert.ok(
+        row >= 1,
+        'range row must be positive'
+      );
+
+      assert.equal(
+        column,
+        1,
+        'reference scan must begin at column 1'
+      );
+
+      assert.ok(
+        rowCount >= 1,
+        'range rowCount must be positive'
+      );
+
+      assert.ok(
+        row + rowCount - 1 <= values.length,
+        'range must remain inside physical sheet rows'
+      );
 
       getValuesCalls++;
 
+      rangeReads.push({
+        sheet: name,
+        row,
+        rowCount,
+        columnCount
+      });
+
       return {
         getValues() {
-          return values.map(function (sourceRow) {
-            const result = [];
+          return values
+            .slice(
+              row - 1,
+              row - 1 + rowCount
+            )
+            .map(function (sourceRow) {
+              const result = [];
 
-            for (let i = 0; i < columnCount; i++) {
-              result.push(
-                sourceRow[i] === undefined
-                  ? ''
-                  : sourceRow[i]
-              );
-            }
+              for (
+                let i = 0;
+                i < columnCount;
+                i++
+              ) {
+                result.push(
+                  sourceRow[i] === undefined
+                    ? ''
+                    : sourceRow[i]
+                );
+              }
 
-            return result;
-          });
+              return result;
+            });
         }
       };
     }
@@ -249,7 +286,8 @@ const result =
       'DL-NO-REFERENCE',
       'DL-SURPLUS-A'
     ],
-    maxMatches: 25
+    maxMatches: 25,
+    readBatchSize: 2
   });
 
 assert.equal(
@@ -266,12 +304,63 @@ assert.equal(
 
 assert.equal(
   getValuesCalls,
-  2,
-  'audit must read only non-empty non-authoritative sheets'
+  4,
+  'audit must read non-empty non-authoritative sheets in bounded chunks'
+);
+
+assert.deepEqual(
+  rangeReads.map(function (read) {
+    return {
+      sheet: read.sheet,
+      row: read.row,
+      rowCount: read.rowCount
+    };
+  }),
+  [
+    {
+      sheet: 'DEALS',
+      row: 1,
+      rowCount: 2
+    },
+    {
+      sheet: 'DEALS',
+      row: 3,
+      rowCount: 1
+    },
+    {
+      sheet: 'ACQUISITION_HISTORY',
+      row: 1,
+      rowCount: 2
+    },
+    {
+      sheet: 'ACQUISITION_HISTORY',
+      row: 3,
+      rowCount: 1
+    }
+  ],
+  'bounded reads must preserve deterministic physical row windows'
 );
 
 assert.equal(result.ok, true);
 assert.equal(result.mode, 'READ_ONLY');
+
+assert.equal(
+  result.referenceSurface,
+  'CELL_VALUES_ONLY',
+  'audit must explicitly identify its forensic reference surface'
+);
+
+assert.equal(
+  result.formulaTextScanned,
+  false,
+  'formula text exclusion must be explicit'
+);
+
+assert.equal(
+  result.readBatchSize,
+  2,
+  'effective read batch size must be reported'
+);
 assert.equal(
   result.phase,
   'downstream_reference_audit'
@@ -365,7 +454,8 @@ const overflowResult =
       'DL-SURPLUS-B',
       'DL-NO-REFERENCE'
     ],
-    maxMatches: 1
+    maxMatches: 1,
+    readBatchSize: 2
   });
 
 assert.equal(
@@ -438,6 +528,29 @@ assert.deepEqual(
 
 console.log(
   'PASS: maxMatches bounds evidence without truncating later-sheet discovery'
+);
+
+assert.equal(
+  overflowResult.referenceSurface,
+  'CELL_VALUES_ONLY'
+);
+
+assert.equal(
+  overflowResult.formulaTextScanned,
+  false
+);
+
+assert.equal(
+  overflowResult.readBatchSize,
+  2
+);
+
+console.log(
+  'PASS: reference surface and formula-text exclusion are explicit'
+);
+
+console.log(
+  'PASS: bounded chunks preserve complete later-sheet discovery'
 );
 
 

@@ -6,7 +6,9 @@
  * Read-only by construction:
  * - enumerates existing workbook sheets
  * - excludes authoritative DISTRESS_LEADS from downstream reference scanning
- * - reads existing cell values only
+ * - reads existing evaluated cell values only
+ * - does not inspect formula text
+ * - reads sheets in bounded row chunks
  * - searches for exact Distress Lead ID references
  * - returns bounded deterministic evidence
  *
@@ -22,6 +24,9 @@ REOS.CountyIdentityReferenceAudit = (function () {
   var MAX_MATCHES = 1000;
   var DEFAULT_MAX_IDS = 100;
   var MAX_IDS = 500;
+  var DEFAULT_READ_BATCH_SIZE = 250;
+  var MAX_READ_BATCH_SIZE = 1000;
+  var REFERENCE_SURFACE = 'CELL_VALUES_ONLY';
 
   function text_(value) {
     return String(
@@ -71,6 +76,13 @@ REOS.CountyIdentityReferenceAudit = (function () {
           options.maxMatches,
           DEFAULT_MAX_MATCHES,
           MAX_MATCHES
+        ),
+
+      readBatchSize:
+        boundedInteger_(
+          options.readBatchSize,
+          DEFAULT_READ_BATCH_SIZE,
+          MAX_READ_BATCH_SIZE
         )
     };
   }
@@ -148,45 +160,57 @@ REOS.CountyIdentityReferenceAudit = (function () {
         return;
       }
 
-      var values =
-        sheet
-          .getRange(
-            1,
-            1,
-            lastRow,
-            lastColumn
-          )
-          .getValues();
-
       for (
-        var rowIndex = 0;
-        rowIndex < values.length;
-        rowIndex++
+        var startRow = 1;
+        startRow <= lastRow;
+        startRow += options.readBatchSize
       ) {
+        var rowCount =
+          Math.min(
+            options.readBatchSize,
+            lastRow - startRow + 1
+          );
+
+        var values =
+          sheet
+            .getRange(
+              startRow,
+              1,
+              rowCount,
+              lastColumn
+            )
+            .getValues();
+
         for (
-          var columnIndex = 0;
-          columnIndex < values[rowIndex].length;
-          columnIndex++
+          var rowIndex = 0;
+          rowIndex < values.length;
+          rowIndex++
         ) {
-          var value =
-            text_(values[rowIndex][columnIndex]);
+          for (
+            var columnIndex = 0;
+            columnIndex < values[rowIndex].length;
+            columnIndex++
+          ) {
+            var value =
+              text_(values[rowIndex][columnIndex]);
 
-          if (!wanted[value]) {
-            continue;
-          }
+            if (!wanted[value]) {
+              continue;
+            }
 
-          matchedIds[value] = true;
-          totalMatchCount++;
+            matchedIds[value] = true;
+            totalMatchCount++;
 
-          if (matches.length < options.maxMatches) {
-            matches.push({
-              distressLeadId: value,
-              sheet: sheetName,
-              rowNumber: rowIndex + 1,
-              columnNumber: columnIndex + 1
-            });
-          } else {
-            matchesTruncated = true;
+            if (matches.length < options.maxMatches) {
+              matches.push({
+                distressLeadId: value,
+                sheet: sheetName,
+                rowNumber: startRow + rowIndex,
+                columnNumber: columnIndex + 1
+              });
+            } else {
+              matchesTruncated = true;
+            }
           }
         }
       }
@@ -210,6 +234,15 @@ REOS.CountyIdentityReferenceAudit = (function () {
 
       authoritativeTable:
         AUTHORITATIVE_TABLE,
+
+      referenceSurface:
+        REFERENCE_SURFACE,
+
+      formulaTextScanned:
+        false,
+
+      readBatchSize:
+        options.readBatchSize,
 
       requestedIds:
         options.distressLeadIds.slice(),
