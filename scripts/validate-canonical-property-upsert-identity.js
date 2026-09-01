@@ -549,6 +549,120 @@ function observation(
 }
 
 /*
+ * Cross-source persisted-row regression:
+ * A pre-existing Zillow observation at the same property must never
+ * become county source-observation update authority.
+ */
+{
+ const zillowRecord = observation(
+    'ZGMI-EXISTING',
+    '881234502',
+    'gmail_leads',
+    {
+      Source: 'Zillow Gmail'
+    }
+  );
+
+  const identityHarness = createHarness([]);
+  const zillowIdentity =
+    identityHarness.identity.resolve(zillowRecord);
+
+ const zillowLead = Object.assign(
+    {},
+    zillowRecord,
+    {
+      'Distress Lead ID': 'ZIL-EXISTING',
+      'Source Record Key':
+        zillowIdentity.sourceObservationKey,
+      'Source Observation Key':
+        zillowIdentity.sourceObservationKey,
+      'Canonical Property Key':
+        zillowIdentity.canonicalPropertyKey
+    }
+  );
+
+  const harness = createHarness([zillowLead]);
+  harness.sdk.register(
+    makeConnector(
+      'code_violations',
+      [
+        observation(
+          'VIOL-CROSS-SOURCE',
+          '881234502',
+          'code_violations'
+        )
+      ]
+    )
+  );
+
+  const result = harness.sdk.run(
+    'PA-PHILADELPHIA',
+    {
+      dataset: 'code_violations',
+      dryRun: false
+    }
+  );
+
+ assert.strictEqual(
+    result.stats.inserted,
+    1,
+    'county observation must insert beside Zillow observation'
+  );
+
+  assert.strictEqual(
+    result.stats.updated,
+    0,
+    'county observation must not overwrite Zillow observation'
+  );
+
+  assert.strictEqual(
+    harness.calls.leadUpdate,
+    0,
+    'Zillow row must never become county update authority'
+  );
+
+  assert.strictEqual(
+    harness.leads.length,
+    2,
+    'Zillow and county observations must both survive'
+  );
+
+ assert.strictEqual(
+    harness.leads[0]['Distress Lead ID'],
+    'ZIL-EXISTING',
+    'Zillow Distress Lead ID must remain intact'
+  );
+
+  assert.strictEqual(
+    harness.leads[0].Source,
+    'Zillow Gmail',
+    'Zillow source lineage must remain intact'
+  );
+
+  assert.strictEqual(
+    harness.leads[0]['Source Dataset'],
+    'gmail_leads',
+    'Zillow dataset lineage must remain intact'
+  );
+
+  assert.notStrictEqual(
+    harness.leads[0]['Source Observation Key'],
+    harness.leads[1]['Source Observation Key'],
+    'cross-source observations must remain distinct'
+  );
+
+  assert.strictEqual(
+    harness.leads[0]['Canonical Property Key'],
+    harness.leads[1]['Canonical Property Key'],
+    'same parcel must retain shared canonical property identity'
+  );
+
+  console.log(
+    'PASS: persisted Zillow observation cannot become county overwrite authority'
+  );
+}
+
+/*
  * Cross-dataset identity:
  *
  * Same parcel from code violations and vacant properties must
@@ -633,7 +747,6 @@ function observation(
     'PASS: exact normalized address is deterministic fallback authority'
   );
 }
-
 
 /*
  * Adversarial canonical identity contract.
