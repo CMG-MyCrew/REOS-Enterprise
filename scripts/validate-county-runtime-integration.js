@@ -80,6 +80,7 @@ const CONTROLLED_MODIFIED_BUILD_FILES = [
  */
 const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/ZillowProductionEvidence.js',
+ 'build/apps-script-brand/ZillowDistressLeadProvenanceEvidence.js',
   'build/apps-script-brand/CanonicalPropertyIdentity.js',
   'build/apps-script-brand/CountyIdentityHistoricalAudit.js',
   'build/apps-script-brand/CountyIdentitySourceReconciliation.js',
