@@ -80,12 +80,14 @@ const CONTROLLED_MODIFIED_BUILD_FILES = [
  */
 const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/ZillowProductionEvidence.js',
+ 'build/apps-script-brand/ZillowDistressLeadProvenanceEvidence.js',
   'build/apps-script-brand/CanonicalPropertyIdentity.js',
   'build/apps-script-brand/CountyIdentityHistoricalAudit.js',
   'build/apps-script-brand/CountyIdentitySourceReconciliation.js',
   'build/apps-script-brand/CountyIdentityRepairEvidenceExport.js',
   'build/apps-script-brand/CountyIdentityReferenceAudit.js',
   'build/apps-script-brand/CountySparseRowRepairEvidence.js',
+  'build/apps-script-brand/CountySparseRowRepairExecutor.js',
   'build/apps-script-brand/CountyEndpointConfigurationAuthority.js',
   'build/apps-script-brand/CountyC1CertifiedAuthority.js',
   'build/apps-script-brand/CountyC1LivePreflight.js',
@@ -131,6 +133,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-identity-repair-evidence-export.js',
   'validate-county-identity-reference-audit.js',
   'validate-county-sparse-row-repair-evidence.js',
+  'validate-county-sparse-row-repair-executor.js',
   'validate-county-endpoint-configuration-authority.js',
   'validate-county-c1-certified-authority.js',
   'validate-county-c1-live-preflight.js',
