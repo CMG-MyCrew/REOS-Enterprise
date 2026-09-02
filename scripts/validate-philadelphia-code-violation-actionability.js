@@ -289,7 +289,7 @@ const opaFallback = normalize({
   address: '2813 E VENANGO ST',
   zip: '19134-6108',
   violationnumber: 'VI-2026-045623',
-  violationstatus: 'SVN ISSUED'
+  violationstatus: 'OPEN'
 });
 
 assert.ok(
@@ -310,12 +310,21 @@ console.log(
 const source = read('PAPhiladelphiaCountyConnector.js');
 
 assert.ok(
-  source.includes('orderByFields: "objectid ASC"'),
-  'deterministic objectid ordering must remain intact'
+  source.includes(
+    'orderByFields: "violationdate ASC, objectid ASC"'
+  ),
+  'deterministic composite keyset ordering must remain intact'
+);
+
+assert.ok(
+  source.includes(
+    'type: "arcgis-date-objectid-v1"'
+  ),
+  'code-violation keyset cursor domain must remain intact'
 );
 
 console.log(
-  'PASS: deterministic pagination ordering preserved.'
+  'PASS: deterministic composite keyset pagination preserved.'
 );
 
 assert.equal(

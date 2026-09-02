@@ -584,6 +584,22 @@ Object.keys(generatedContext.REOS)
             });
           });
 
+        /*
+         * Synthetic certification records must satisfy declarative
+         * equality filters before normalization. This preserves the
+         * production record filter while allowing schema discovery to
+         * exercise every enabled dataset deterministically.
+         */
+        (filter.requireEquals || [])
+          .forEach(requirement => {
+            const keys =
+              requirement && requirement.keys || [];
+
+            keys.forEach(key => {
+              raw[key] = String(requirement.value);
+            });
+          });
+
         const normalized =
           connector.normalize(
             raw,
