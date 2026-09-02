@@ -147,7 +147,16 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         endpointProperty: "REOS_COUNTY_PA_PHILADELPHIA_CODE_VIOLATIONS_URL",
         enabled: true,
         maxLimit: 2000,
-        orderByFields: "objectid ASC",
+        orderByFields: "violationdate ASC, objectid ASC",
+        sourceQuery: {
+          where: "violationdate >= TIMESTAMP '2025-09-01 00:00:00' AND caseprioritydesc IN ('UNSAFE','IMMINENTLY DANGEROUS','UNFIT','HAZARDOUS','UNLAWFUL') AND objectid <= 636638"
+        },
+        cursorDomain: {
+          type: "arcgis-date-objectid-v1",
+          id: "PHL-CODE-HIGH-SEED-20250901-OID636638-V1",
+          dateField: "violationdate",
+          objectIdField: "objectid"
+        },
         recordFilter: {
           requireAny: [
             [
@@ -156,6 +165,16 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
               "property_address",
               "location"
             ]
+          ],
+          requireEquals: [
+            {
+              keys: [
+                "violationstatus",
+                "VIOLATIONSTATUS"
+              ],
+              value: "OPEN",
+              caseInsensitive: true
+            }
           ]
         },
         mapping: {
@@ -195,6 +214,8 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
             "parcel_number"
           ],
           sourceUpdatedAt: [
+            "violationdate",
+            "VIOLATIONDATE",
             "updated_at",
             "last_updated",
             "date_updated"
@@ -379,6 +400,431 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
     });
   }
 
+  function parseArcGisKeysetCursor_(value, domain) {
+    var cursor =
+      String(value || '')
+        .trim();
+
+    if (!cursor) {
+      return null;
+    }
+
+    var domainId =
+      String(
+        domain &&
+        domain.id
+          ? domain.id
+          : ''
+      ).trim();
+
+    var parts =
+      cursor.split('|');
+
+    if (
+      parts.length !== 4 ||
+      parts[0] !== 'AK1' ||
+      parts[1] !== domainId
+    ) {
+      throw new Error(
+        'ArcGIS keyset cursor domain mismatch for ' +
+        MANIFEST.id +
+        '.'
+      );
+    }
+
+    var dateMs =
+      Number(parts[2]);
+
+    var objectId =
+      Number(parts[3]);
+
+    if (
+      !isFinite(dateMs) ||
+      Math.floor(dateMs) !== dateMs ||
+      dateMs < 0 ||
+      dateMs % 1000 !== 0 ||
+      !isFinite(objectId) ||
+      Math.floor(objectId) !== objectId ||
+      objectId < 0
+    ) {
+      throw new Error(
+        'ArcGIS keyset cursor is malformed for ' +
+        MANIFEST.id +
+        '.'
+      );
+    }
+
+    return {
+      dateMs: dateMs,
+      objectId: objectId
+    };
+  }
+
+  function encodeArcGisKeysetCursor_(domain, key) {
+    var domainId =
+      String(
+        domain &&
+        domain.id
+          ? domain.id
+          : ''
+      ).trim();
+
+    if (!domainId) {
+      throw new Error(
+        'ArcGIS keyset cursor domain ID is required.'
+      );
+    }
+
+    return [
+      'AK1',
+      domainId,
+      String(key.dateMs),
+      String(key.objectId)
+    ].join('|');
+  }
+
+  function formatArcGisTimestamp_(dateMs) {
+    var date =
+      new Date(Number(dateMs));
+
+    if (
+      isNaN(date.getTime())
+    ) {
+      throw new Error(
+        'ArcGIS keyset timestamp is invalid.'
+      );
+    }
+
+    return date
+      .toISOString()
+      .slice(0, 19)
+      .replace('T', ' ');
+  }
+
+  function arcGisRecordKey_(raw, domain) {
+    var dateField =
+      String(
+        domain.dateField || ''
+      ).trim();
+
+    var objectIdField =
+      String(
+        domain.objectIdField || ''
+      ).trim();
+
+    var dateMs =
+      Number(raw[dateField]);
+
+    var objectId =
+      Number(raw[objectIdField]);
+
+    if (
+      !isFinite(dateMs) ||
+      Math.floor(dateMs) !== dateMs ||
+      dateMs < 0 ||
+      dateMs % 1000 !== 0
+    ) {
+      throw new Error(
+        'ArcGIS keyset record has invalid ' +
+        dateField +
+        '.'
+      );
+    }
+
+    if (
+      !isFinite(objectId) ||
+      Math.floor(objectId) !== objectId ||
+      objectId < 0
+    ) {
+      throw new Error(
+        'ArcGIS keyset record has invalid ' +
+        objectIdField +
+        '.'
+      );
+    }
+
+    return {
+      dateMs: dateMs,
+      objectId: objectId
+    };
+  }
+
+  function compareArcGisKeys_(left, right) {
+    if (left.dateMs !== right.dateMs) {
+      return left.dateMs - right.dateMs;
+    }
+
+    return left.objectId - right.objectId;
+  }
+
+  function fetchArcGisKeyset_(
+    definition,
+    endpoint,
+    context
+  ) {
+    context =
+      context || {};
+
+    var domain =
+      definition.cursorDomain || {};
+
+    var dateField =
+      String(
+        domain.dateField || ''
+      ).trim();
+
+    var objectIdField =
+      String(
+        domain.objectIdField || ''
+      ).trim();
+
+    if (
+      !domain.id ||
+      !dateField ||
+      !objectIdField
+    ) {
+      throw new Error(
+        'ArcGIS keyset domain is incomplete for ' +
+        MANIFEST.id +
+        '.'
+      );
+    }
+
+    var maxLimit =
+      Number(
+        definition.maxLimit || 2000
+      );
+
+    var limit =
+      Math.min(
+        Math.max(
+          Number(
+            context.limit || 500
+          ),
+          1
+        ),
+        maxLimit
+      );
+
+    var baseWhere =
+      definition.sourceQuery &&
+      definition.sourceQuery.where
+        ? String(
+            definition.sourceQuery.where
+          )
+        : '1=1';
+
+    var incoming =
+      parseArcGisKeysetCursor_(
+        context.cursor,
+        domain
+      );
+
+    var records = [];
+    var parts = [];
+
+    function fetchPart_(
+      where,
+      requestedLimit,
+      orderByFields
+    ) {
+      if (requestedLimit <= 0) {
+        return [];
+      }
+
+      var partContext =
+        Object.assign(
+          {},
+          context,
+          {
+            cursor: '',
+            limit: requestedLimit
+          }
+        );
+
+      var response =
+        REOS.CountyAdapters.Registry.fetch(
+          definition.adapter,
+          {
+            endpoint: endpoint,
+            context: partContext,
+            maxLimit:
+              definition.maxLimit ||
+              2000,
+            where: where,
+            outFields: '*',
+            returnGeometry: false,
+            orderByFields:
+              orderByFields
+          }
+        ) || {};
+
+      var partRecords =
+        Array.isArray(
+          response.records
+        )
+          ? response.records
+          : [];
+
+      if (
+        partRecords.length >
+        requestedLimit
+      ) {
+        throw new Error(
+          'ArcGIS keyset page exceeded requested limit.'
+        );
+      }
+
+      parts.push({
+        where: where,
+        requestedLimit:
+          requestedLimit,
+        received:
+          partRecords.length,
+        metadata:
+          response.metadata || {}
+      });
+
+      return partRecords;
+    }
+
+    if (!incoming) {
+      records =
+        fetchPart_(
+          baseWhere,
+          limit,
+          definition.orderByFields ||
+            (
+              dateField +
+              ' ASC, ' +
+              objectIdField +
+              ' ASC'
+            )
+        );
+    } else {
+      var timestamp =
+        formatArcGisTimestamp_(
+          incoming.dateMs
+        );
+
+      var sameTimestampWhere =
+        '(' +
+        baseWhere +
+        ') AND ' +
+        dateField +
+        " = TIMESTAMP '" +
+        timestamp +
+        "' AND " +
+        objectIdField +
+        ' > ' +
+        String(
+          incoming.objectId
+        );
+
+      var sameTimestamp =
+        fetchPart_(
+          sameTimestampWhere,
+          limit,
+          objectIdField +
+            ' ASC'
+        );
+
+      records =
+        records.concat(
+          sameTimestamp
+        );
+
+      var remaining =
+        limit -
+        records.length;
+
+      if (remaining > 0) {
+        var laterTimestampWhere =
+          '(' +
+          baseWhere +
+          ') AND ' +
+          dateField +
+          " > TIMESTAMP '" +
+          timestamp +
+          "'";
+
+        var laterTimestamp =
+          fetchPart_(
+            laterTimestampWhere,
+            remaining,
+            definition.orderByFields ||
+              (
+                dateField +
+                ' ASC, ' +
+                objectIdField +
+                ' ASC'
+              )
+          );
+
+        records =
+          records.concat(
+            laterTimestamp
+          );
+      }
+    }
+
+    var previous =
+      incoming;
+
+    records.forEach(
+      function (raw) {
+        var key =
+          arcGisRecordKey_(
+            raw,
+            domain
+          );
+
+        if (
+          previous &&
+          compareArcGisKeys_(
+            key,
+            previous
+          ) <= 0
+        ) {
+          throw new Error(
+            'ArcGIS keyset records are not strictly increasing.'
+          );
+        }
+
+        previous = key;
+      }
+    );
+
+    var nextCursor =
+      records.length >= limit &&
+      previous
+        ? encodeArcGisKeysetCursor_(
+            domain,
+            previous
+          )
+        : '';
+
+    return {
+      records: records,
+      nextCursor: nextCursor,
+      message:
+        'ArcGIS keyset fetched ' +
+        records.length +
+        ' records for domain ' +
+        String(domain.id) +
+        '.',
+      metadata: {
+        adapter: 'arcgis',
+        keyset: true,
+        cursorDomainId:
+          String(domain.id),
+        partCount:
+          parts.length,
+        parts: parts
+      }
+    };
+  }
+
   function fetch_(context) {
     var definition = getDatasetDefinition_(context.dataset);
     var endpoint = getEndpoint_(context.dataset, context.config);
@@ -392,6 +838,19 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         '. Configure ' +
         definition.endpointProperty +
         '.'
+      );
+    }
+
+    if (
+      definition.adapter === 'arcgis' &&
+      definition.cursorDomain &&
+      definition.cursorDomain.type ===
+        'arcgis-date-objectid-v1'
+    ) {
+      return fetchArcGisKeyset_(
+        definition,
+        endpoint,
+        context
       );
     }
 
@@ -793,6 +1252,87 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
       }
 
       if (!matched) {
+        return false;
+      }
+    }
+
+    var requireEquals =
+      filter.requireEquals || [];
+
+    for (
+      var equalsIndex = 0;
+      equalsIndex < requireEquals.length;
+      equalsIndex += 1
+    ) {
+      var rule =
+        requireEquals[equalsIndex] ||
+        {};
+
+      var equalsKeys =
+        rule.keys || [];
+
+      var expected =
+        rule.value === null ||
+        typeof rule.value ===
+          'undefined'
+          ? ''
+          : String(
+              rule.value
+            ).trim();
+
+      var caseInsensitive =
+        rule.caseInsensitive ===
+        true;
+
+      var equalsMatched =
+        false;
+
+      for (
+        var equalsKeyIndex = 0;
+        equalsKeyIndex <
+          equalsKeys.length;
+        equalsKeyIndex += 1
+      ) {
+        var equalsValue =
+          raw[
+            equalsKeys[
+              equalsKeyIndex
+            ]
+          ];
+
+        if (
+          equalsValue === null ||
+          typeof equalsValue ===
+            'undefined'
+        ) {
+          continue;
+        }
+
+        var actual =
+          String(
+            equalsValue
+          ).trim();
+
+        if (
+          caseInsensitive
+        ) {
+          actual =
+            actual.toUpperCase();
+
+          expected =
+            expected.toUpperCase();
+        }
+
+        if (
+          actual === expected
+        ) {
+          equalsMatched =
+            true;
+          break;
+        }
+      }
+
+      if (!equalsMatched) {
         return false;
       }
     }
