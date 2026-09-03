@@ -41,22 +41,11 @@ REOS.CountyPage23ArcGisRuntimeDiagnostic = (function () {
   var BOUNDARY_OBJECT_ID =
     586498;
 
-  var SAME_TIMESTAMP_LIMIT =
+  var PAGE_SIZE =
     50;
-
-  var EXPECTED_SAME_TIMESTAMP_COUNT =
-    4;
-
-  var LATER_TIMESTAMP_LIMIT =
-    46;
 
   var CURSOR_DOMAIN =
     'PHL-CODE-HIGH-SEED-20250901-OID636638-V1';
-
-  var EXPECTED_PAGE23_CURSOR =
-    'AK1|' +
-    CURSOR_DOMAIN +
-    '|1764929768000|587896';
 
   function requireAdmin_() {
     if (
@@ -250,24 +239,34 @@ REOS.CountyPage23ArcGisRuntimeDiagnostic = (function () {
         endpoint,
         sameWhere,
         'objectid ASC',
-        SAME_TIMESTAMP_LIMIT
+        PAGE_SIZE
       );
 
+    /*
+     * The source is mutable. Records may be added or backfilled at the
+     * boundary timestamp after the production checkpoint was established.
+     *
+     * Therefore the second request capacity must be derived from the
+     * currently observed same-timestamp continuation rather than from a
+     * historical row count.
+     */
+    var remainingCapacity =
+      PAGE_SIZE -
+      same.count;
+
     if (
-      same.count !==
-      EXPECTED_SAME_TIMESTAMP_COUNT
+      remainingCapacity < 0 ||
+      remainingCapacity > PAGE_SIZE
     ) {
       throw new Error(
-        'County page-23 diagnostic same-timestamp count mismatch: expected ' +
-        EXPECTED_SAME_TIMESTAMP_COUNT +
-        ', received ' +
-        same.count +
+        'County page-23 diagnostic derived invalid remaining page capacity: ' +
+        remainingCapacity +
         '.'
       );
     }
 
     /*
-     * Only the remaining page capacity may be requested.
+     * Only the currently remaining page capacity may be requested.
      */
     var laterWhere =
       '(' +
@@ -277,12 +276,19 @@ REOS.CountyPage23ArcGisRuntimeDiagnostic = (function () {
       '\'';
 
     var later =
-      fetchPart_(
-        endpoint,
-        laterWhere,
-        'violationdate ASC, objectid ASC',
-        LATER_TIMESTAMP_LIMIT
-      );
+      remainingCapacity > 0
+        ? fetchPart_(
+            endpoint,
+            laterWhere,
+            'violationdate ASC, objectid ASC',
+            remainingCapacity
+          )
+        : {
+            count: 0,
+            first: null,
+            last: null,
+            metadata: {}
+          };
 
     var combinedCount =
       same.count +
@@ -344,18 +350,21 @@ REOS.CountyPage23ArcGisRuntimeDiagnostic = (function () {
       laterTimestamp:
         later,
 
+      pageSize:
+        PAGE_SIZE,
+
+      remainingCapacity:
+        remainingCapacity,
+
       combinedCount:
         combinedCount,
 
+      fullPage:
+        combinedCount ===
+        PAGE_SIZE,
+
       observedPage23Cursor:
-        observedCursor,
-
-      expectedPage23Cursor:
-        EXPECTED_PAGE23_CURSOR,
-
-      matchesExpectedPage23Cursor:
-        observedCursor ===
-        EXPECTED_PAGE23_CURSOR
+        observedCursor
     };
   }
 

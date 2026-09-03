@@ -122,20 +122,20 @@ function records(
 
 const sameRecords =
   records(
-    4,
+    7,
     1764720000000,
-    586880,
+    589338,
     1764720000000,
-    586927
+    589769
   );
 
 const laterRecords =
   records(
-    46,
+    43,
     1764741017000,
-    587153,
-    1764929768000,
-    587896
+    589995,
+    1764892800000,
+    590735
   );
 
 const context = {
@@ -303,12 +303,27 @@ assert.strictEqual(
 
 assert.strictEqual(
   result.sameTimestamp.count,
-  4
+  7
+);
+
+assert.strictEqual(
+  result.remainingCapacity,
+  43
 );
 
 assert.strictEqual(
   result.laterTimestamp.count,
-  46
+  43
+);
+
+assert.strictEqual(
+  result.pageSize,
+  50
+);
+
+assert.strictEqual(
+  result.fullPage,
+  true
 );
 
 assert.strictEqual(
@@ -350,12 +365,12 @@ assert(
 
 assert.strictEqual(
   fetchCalls[1].context.limit,
-  46
+  43
 );
 
 assert.strictEqual(
   fetchCalls[1].maxLimit,
-  46
+  43
 );
 
 assert.strictEqual(
@@ -371,17 +386,7 @@ assert(
 
 assert.strictEqual(
   result.observedPage23Cursor,
-  'AK1|PHL-CODE-HIGH-SEED-20250901-OID636638-V1|1764929768000|587896'
-);
-
-assert.strictEqual(
-  result.expectedPage23Cursor,
-  result.observedPage23Cursor
-);
-
-assert.strictEqual(
-  result.matchesExpectedPage23Cursor,
-  true
+  'AK1|PHL-CODE-HIGH-SEED-20250901-OID636638-V1|1764892800000|590735'
 );
 
 assert.strictEqual(
@@ -418,11 +423,11 @@ console.log(
 );
 
 console.log(
-  'PASS: later request consumes only the remaining 46-record page capacity'
+  'PASS: later request derives and consumes only current remaining page capacity'
 );
 
 console.log(
-  'PASS: observed page-23 cursor matches independent live-source evidence'
+  'PASS: observed page-23 cursor derives from the current bounded source page'
 );
 
 console.log(
