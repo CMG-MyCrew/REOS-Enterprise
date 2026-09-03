@@ -683,21 +683,44 @@ REOS.CountyProductionScheduler = (function () {
           result: result
         };
       } catch (error) {
-        feedResult = {
-          connectorId: item.connectorId,
-          dataset: item.dataset,
+        /*
+         * A thrown adapter/network/source error is not terminal feed
+         * evidence. Preserve the incoming cursor and feed authority so
+         * the exact failed page remains retry authority.
+         *
+         * This mirrors the record-level persistence failure contract:
+         * failed work must never manufacture completed-feed evidence or
+         * advance to another dataset.
+         */
+        return {
           ok: false,
-          error: String(
-            error && error.message
-              ? error.message
-              : error
-          )
+          skipped: false,
+          status: 'Degraded',
+          attemptedAt: attemptAt,
+          cycleId: cycle.id,
+          feedIndex: feedIndex,
+          completedFeeds: cycle.completedFeeds,
+          total: ALLOWLIST.length,
+          cursor: currentFeedCursor,
+          result: {
+            connectorId: item.connectorId,
+            dataset: item.dataset,
+            ok: false,
+            error: String(
+              error && error.message
+                ? error.message
+                : error
+            )
+          },
+          error:
+            'County page execution failed; checkpoint preserved.'
         };
       }
 
       /*
-       * Terminal success or a failed page ends this feed attempt.
-       * Only now may completed-feed evidence and the feed index advance.
+       * Only a successful terminal page may complete a feed.
+       * A non-terminal success returned above after persisting its
+       * nextCursor; all failure paths returned above without mutation.
        */
       props.deleteProperty(
         CURRENT_FEED_CURSOR
