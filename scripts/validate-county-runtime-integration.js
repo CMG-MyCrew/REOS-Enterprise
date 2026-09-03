@@ -97,6 +97,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/ScriptLockObservability.js',
   'build/apps-script-brand/CountyCheckpointRecovery.js',
   'build/apps-script-brand/CountyPage23ArcGisRuntimeDiagnostic.js',
+  'build/apps-script-brand/CountyArcGisKeysetBoundaryDiagnostic.js',
 ];
 
 /*
@@ -146,6 +147,7 @@ const COMPONENT_VALIDATORS = [
   'validate-database-lock-handoff.js',
   'validate-county-checkpoint-recovery.js',
   'validate-county-page23-arcgis-runtime-diagnostic.js',
+  'validate-county-arcgis-keyset-boundary-diagnostic.js',
   'validate-county-runtime-bridge.js'
 ];
 
