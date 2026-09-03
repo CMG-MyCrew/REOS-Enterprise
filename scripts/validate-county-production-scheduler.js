@@ -737,9 +737,11 @@ assert(
 );
 
 /*
- * A failed feed must remain visible while later bounded invocations
- * continue the same cycle. The degraded cycle must not advance
- * complete-workload freshness.
+ * A thrown page error is incomplete work, not completed-feed evidence.
+ *
+ * The scheduler must preserve the exact feed/cursor authority, create
+ * no completed result, and retry the same feed on the next bounded
+ * invocation. It must not advance complete-workload freshness.
  */
 syncCalls = [];
 failingDataset = '';
@@ -754,6 +756,26 @@ assert(
   'degraded-cycle setup executes first feed only'
 );
 
+assert(
+  syncCalls[0].dataset === 'code_violations',
+  'degraded-cycle setup completes code_violations'
+);
+
+const failureCursorBefore =
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_CURRENT_FEED_CURSOR'
+  ) || '';
+
+const failureIndexBefore =
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_NEXT_FEED_INDEX'
+  );
+
+const failureResultsBefore =
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_CYCLE_RESULTS_JSON'
+  );
+
 failingDataset = 'vacant_properties';
 
 const degradedFailure =
@@ -763,7 +785,7 @@ assert(
   syncCalls.length === 2 &&
   degradedFailure.ok === false &&
   degradedFailure.status === 'Degraded',
-  'failed bounded feed marks active cycle degraded'
+  'thrown bounded page failure marks invocation degraded'
 );
 
 assert(
@@ -772,111 +794,81 @@ assert(
 );
 
 assert(
+  degradedFailure.feedIndex === 1 &&
+  degradedFailure.completedFeeds === 1,
+  'thrown page failure reports existing feed authority only'
+);
+
+assert(
+  degradedFailure.cursor === failureCursorBefore,
+  'thrown page failure returns incoming cursor authority'
+);
+
+assert(
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_NEXT_FEED_INDEX'
+  ) === failureIndexBefore,
+  'thrown page failure does not advance feed index'
+);
+
+assert(
+  (
+    properties.get(
+      'REOS_COUNTY_SCHEDULER_CURRENT_FEED_CURSOR'
+    ) || ''
+  ) === failureCursorBefore,
+  'thrown page failure preserves current feed cursor'
+);
+
+assert(
+  properties.get(
+    'REOS_COUNTY_SCHEDULER_CYCLE_RESULTS_JSON'
+  ) === failureResultsBefore,
+  'thrown page failure creates no completed-feed evidence'
+);
+
+assert(
   properties.get(
     'REOS_COUNTY_SCHEDULER_LAST_SUCCESS_AT'
   ) === firstSuccessAt,
-  'failed bounded feed does not advance complete-workload freshness'
+  'thrown page failure does not advance complete-workload freshness'
 );
 
-/*
- * Scheduler-level failure authority is complete-cycle telemetry.
- * The active checkpoint carries the individual failed-feed evidence
- * until the remaining bounded invocations complete the workload.
- */
 assert(
   !properties.get(
     'REOS_COUNTY_SCHEDULER_LAST_FAILURE_AT'
   ),
-  'active degraded cycle does not publish complete-cycle failure authority'
-);
-
-const activeDegradedResults = JSON.parse(
-  properties.get(
-    'REOS_COUNTY_SCHEDULER_CYCLE_RESULTS_JSON'
-  )
-);
-
-assert(
-  activeDegradedResults.length === 2 &&
-  activeDegradedResults.some(
-    result =>
-      result.dataset === 'vacant_properties' &&
-      result.ok === false
-  ),
-  'active degraded cycle preserves failed-feed checkpoint evidence'
+  'incomplete failed page does not publish complete-cycle failure authority'
 );
 
 failingDataset = '';
 
-for (let index = 2; index < requiredPairs.length; index += 1) {
-  const beforeCount = syncCalls.length;
-
+const retryAfterFailure =
   context.reosCountyProductionSchedulerRun();
 
-  assert(
-    syncCalls.length === beforeCount + 1,
-    `degraded cycle continues with exactly one feed at invocation ${index + 1}`
-  );
-}
-
 assert(
-  syncCalls.length === requiredPairs.length,
-  'one failed feed does not prevent later bounded feeds from being attempted'
+  syncCalls.length === 3,
+  'retry after thrown page failure executes exactly one page'
 );
 
 assert(
-  properties.get(
-    'REOS_COUNTY_SCHEDULER_LAST_SUCCESS_AT'
-  ) === firstSuccessAt,
-  'degraded complete cycle does not advance complete-workload freshness'
+  syncCalls[2].dataset === 'vacant_properties',
+  'retry after thrown page failure remains on same dataset'
 );
 
 assert(
-  Boolean(
+  retryAfterFailure.ok === true &&
+  retryAfterFailure.status === 'In Progress',
+  'successful retry resumes bounded cycle'
+);
+
+assert(
+  Number(
     properties.get(
-      'REOS_COUNTY_SCHEDULER_LAST_FAILURE_AT'
+      'REOS_COUNTY_SCHEDULER_NEXT_FEED_INDEX'
     )
-  ) &&
-  /1 failed dataset/.test(
-    properties.get(
-      'REOS_COUNTY_SCHEDULER_LAST_FAILURE_MESSAGE'
-    ) || ''
-  ),
-  'completed degraded cycle publishes scheduler failure telemetry'
-);
-
-const resultJson = JSON.parse(
-  properties.get(
-    'REOS_COUNTY_SCHEDULER_LAST_RESULT_JSON'
-  )
-);
-
-assert(
-  resultJson.failed === 1 &&
-  resultJson.succeeded === 3 &&
-  resultJson.results.length === 4 &&
-  resultJson.results.some(
-    result =>
-      result.dataset === 'vacant_properties' &&
-      result.ok === false
-  ),
-  'failed feed remains visible in completed bounded-cycle telemetry'
-);
-
-assert(
-  !properties.get(
-    'REOS_COUNTY_SCHEDULER_CYCLE_ID'
-  ) &&
-  !properties.get(
-    'REOS_COUNTY_SCHEDULER_CYCLE_STARTED_AT'
-  ) &&
-  !properties.get(
-    'REOS_COUNTY_SCHEDULER_NEXT_FEED_INDEX'
-  ) &&
-  !properties.get(
-    'REOS_COUNTY_SCHEDULER_CYCLE_RESULTS_JSON'
-  ),
-  'completed degraded cycle clears active checkpoint state'
+  ) === 2,
+  'successful retry alone advances to next feed'
 );
 
 /* Duplicate managed authority must fail closed. */
