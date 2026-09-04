@@ -2470,6 +2470,437 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
     }
   }
 
+  function probateEstateParserEvidence_(
+    options
+  ) {
+    requireProbateSourceAuthority_();
+
+    REOS.Security
+      .requireAdmin();
+
+    options =
+      options || {};
+
+    if (
+      probateSchedulerTriggerCount_() !==
+      0
+    ) {
+      throw new Error(
+        'County scheduler must remain frozen for probate parser evidence.'
+      );
+    }
+
+    var sourceUrl =
+      assertProbateNoticeUrl_(
+        options.sourceUrl
+      );
+
+    var text =
+      extractProbateNoticeText_(
+        sourceUrl
+      );
+
+    if (
+      probateSchedulerTriggerCount_() !==
+      0
+    ) {
+      throw new Error(
+        'County scheduler authority changed during probate parser evidence.'
+      );
+    }
+
+    var normalized =
+      String(text || '')
+        .replace(/\r/g, '')
+        .replace(/[’‘]/g, "'")
+        .replace(/\u00a0/g, ' ');
+
+    var markerPattern =
+      /ESTATE[\s]+NOTICES[\s]+ORPHANS'?[\s]+COURT[\s]+DIVISION/i;
+
+    var markerMatch =
+      markerPattern.exec(
+        normalized
+      );
+
+    if (!markerMatch) {
+      throw new Error(
+        'Philadelphia probate source marker was not found during parser evidence.'
+      );
+    }
+
+    var section =
+      normalized.slice(
+        markerMatch.index +
+        markerMatch[0].length
+      );
+
+    var currentAnchorPattern =
+      /(^|\n)\s*([A-Z][A-Z0-9 .,'()\/&-]{2,120})\s*--\s*/gm;
+
+    var anchors = [];
+    var match;
+
+    while (
+      (
+        match =
+          currentAnchorPattern.exec(
+            section
+          )
+      ) !== null
+    ) {
+      anchors.push({
+        index:
+          match.index,
+        bodyStart:
+          currentAnchorPattern.lastIndex,
+        name:
+          String(
+            match[2] ||
+            ''
+          )
+            .replace(
+              /\s+/g,
+              ' '
+            )
+            .trim()
+      });
+    }
+
+    var qualifiedAnchorCount =
+      0;
+
+    anchors.forEach(function (
+      anchor,
+      index
+    ) {
+      var end =
+        index + 1 <
+        anchors.length
+          ? anchors[
+              index + 1
+            ].index
+          : section.length;
+
+      var body =
+        section
+          .slice(
+            anchor.bodyStart,
+            end
+          )
+          .replace(
+            /\s+/g,
+            ' '
+          )
+          .trim();
+
+      if (
+        /\b(?:EXECUTOR|EXECUTRIX|ADMINISTRATOR|ADMINISTRATRIX|PERSONAL REPRESENTATIVE|CO-EXECUTOR|CO-EXECUTRIX)\b/i
+          .test(body)
+      ) {
+        qualifiedAnchorCount +=
+          1;
+      }
+    });
+
+    function count_(
+      pattern
+    ) {
+      return (
+        section.match(
+          pattern
+        ) || []
+      ).length;
+    }
+
+    function escapeEvidence_(
+      value
+    ) {
+      return String(
+        value || ''
+      ).replace(
+        /[^\x20-\x7e]/g,
+        function (character) {
+          var hex =
+            character
+              .charCodeAt(0)
+              .toString(16)
+              .toUpperCase();
+
+          while (
+            hex.length <
+            4
+          ) {
+            hex =
+              '0' +
+              hex;
+          }
+
+          return (
+            '\\u' +
+            hex
+          );
+        }
+      );
+    }
+
+    var lines =
+      section.split(
+        '\n'
+      );
+
+    var firstNonEmptyLines =
+      [];
+
+    for (
+      var lineIndex = 0;
+      lineIndex < lines.length &&
+      firstNonEmptyLines.length < 80;
+      lineIndex += 1
+    ) {
+      var line =
+        String(
+          lines[
+            lineIndex
+          ] ||
+          ''
+        ).trim();
+
+      if (!line) {
+        continue;
+      }
+
+      firstNonEmptyLines.push({
+        lineNumber:
+          lineIndex + 1,
+        text:
+          line.slice(
+            0,
+            220
+          ),
+        escaped:
+          escapeEvidence_(
+            line.slice(
+              0,
+              220
+            )
+          )
+      });
+    }
+
+    var upper =
+      section.toUpperCase();
+
+    var terms = [
+      '--',
+      'EXECUTOR',
+      'EXECUTRIX',
+      'ADMINISTRATOR',
+      'ADMINISTRATRIX',
+      'PERSONAL REPRESENTATIVE',
+      'DECEASED',
+      'DECEDENT',
+      'LETTERS TESTAMENTARY',
+      'LETTERS OF ADMINISTRATION',
+      'LATE OF'
+    ];
+
+    var snippets = [];
+
+    terms.forEach(function (
+      term
+    ) {
+      var start =
+        0;
+
+      var foundForTerm =
+        0;
+
+      while (
+        snippets.length <
+          16 &&
+        foundForTerm <
+          2
+      ) {
+        var index =
+          upper.indexOf(
+            term,
+            start
+          );
+
+        if (
+          index <
+          0
+        ) {
+          break;
+        }
+
+        var from =
+          Math.max(
+            0,
+            index - 180
+          );
+
+        var to =
+          Math.min(
+            section.length,
+            index +
+            term.length +
+            360
+          );
+
+        var raw =
+          section.slice(
+            from,
+            to
+          );
+
+        snippets.push({
+          term:
+            term,
+          index:
+            index,
+          preview:
+            raw
+              .replace(
+                /\s+/g,
+                ' '
+              )
+              .trim()
+              .slice(
+                0,
+                560
+              ),
+          escaped:
+            escapeEvidence_(
+              raw.slice(
+                0,
+                300
+              )
+            )
+        });
+
+        foundForTerm +=
+          1;
+
+        start =
+          index +
+          term.length;
+      }
+    });
+
+    return {
+      ok: true,
+      readOnly: true,
+      mode:
+        'PHILADELPHIA_PROBATE_ENTRY_SHAPE_EVIDENCE',
+      sourceUrl:
+        sourceUrl,
+      textLength:
+        normalized.length,
+      sectionLength:
+        section.length,
+      sectionLineCount:
+        lines.length,
+      currentAnchorCount:
+        anchors.length,
+      currentQualifiedAnchorCount:
+        qualifiedAnchorCount,
+      firstAnchors:
+        anchors
+          .slice(
+            0,
+            12
+          )
+          .map(function (
+            anchor
+          ) {
+            return {
+              index:
+                anchor.index,
+              name:
+                anchor.name
+            };
+          }),
+      separatorCounts: {
+        doubleHyphen:
+          count_(
+            /--/g
+          ),
+        spacedDoubleHyphen:
+          count_(
+            /\s--\s/g
+          ),
+        emDash:
+          count_(
+            /\u2014/g
+          ),
+        enDash:
+          count_(
+            /\u2013/g
+          )
+      },
+      keywordCounts: {
+        executor:
+          count_(
+            /\bEXECUTOR\b/gi
+          ),
+        executrix:
+          count_(
+            /\bEXECUTRIX\b/gi
+          ),
+        administrator:
+          count_(
+            /\bADMINISTRATOR\b/gi
+          ),
+        administratrix:
+          count_(
+            /\bADMINISTRATRIX\b/gi
+          ),
+        deceased:
+          count_(
+            /\bDECEASED\b/gi
+          ),
+        decedent:
+          count_(
+            /\bDECEDENT\b/gi
+          ),
+        letters:
+          count_(
+            /\bLETTERS\b/gi
+          ),
+        lateOf:
+          count_(
+            /\bLATE\s+OF\b/gi
+          )
+      },
+      firstNonEmptyLines:
+        firstNonEmptyLines,
+      snippets:
+        snippets,
+      snippetCount:
+        snippets.length,
+      sourceConfigurationExecuted:
+        false,
+      distressLeadMutationExecuted:
+        false,
+      connectorExecutionAuthorityGranted:
+        false,
+      schedulerAuthorityGranted:
+        false,
+      checkpointMutationAuthorityGranted:
+        false,
+      productionDataMutationAuthorityGranted:
+        false,
+      repairAuthorityGranted:
+        false,
+      automaticOfferAuthorityGranted:
+        false,
+      countySchedulerTriggerCount:
+        0
+    };
+  }
+
   function probateSourceStatus_() {
     requireProbateSourceAuthority_();
 
@@ -2965,7 +3396,9 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
     manifest: MANIFEST,
     register: register,
     probateSourceAuthority:
-      probateSourceAuthority
+      probateSourceAuthority,
+    probateEstateParserEvidence:
+      probateEstateParserEvidence_
   };
 })();
 
@@ -2975,6 +3408,17 @@ function reosPhiladelphiaProbateSourceAuthority(
   return REOS
     .PAPhiladelphiaCountyConnector
     .probateSourceAuthority(
+      options ||
+      {}
+    );
+}
+
+function reosPhiladelphiaProbateEstateParserEvidence(
+  options
+) {
+  return REOS
+    .PAPhiladelphiaCountyConnector
+    .probateEstateParserEvidence(
       options ||
       {}
     );

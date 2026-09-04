@@ -157,9 +157,15 @@ assert.equal(
 );
 
 assert.equal(
-  /OfferGenerator|QualifiedDealQueue|automaticOffer/i
+  /OfferGenerator|QualifiedDealQueue/
     .test(source),
   false
+);
+
+assert.ok(
+  /automaticOfferAuthorityGranted:\s*false/
+    .test(source),
+  'probate diagnostic must explicitly deny automatic-offer authority'
 );
 
 pass(
@@ -169,6 +175,7 @@ pass(
 let registered = null;
 let temporaryDocTrashed = false;
 let noticeFetchCount = 0;
+const projectTriggers = [];
 const opaQueries = [];
 
 const noticeText = [
@@ -213,6 +220,18 @@ const sandbox = {
 
   REOS: {
     GeneratedCountyConnectorRegistrars: [],
+
+    Security: {
+      requireAdmin() {
+        return true;
+      }
+    },
+
+    CountyRuntimeBridge: {
+      registerConnectors() {
+        return true;
+      }
+    },
 
     CountyConnectorSDK: {
       register(connector) {
@@ -371,6 +390,19 @@ const sandbox = {
           };
         }
       }
+    }
+  },
+
+  Utilities: {
+    computeDigest() {
+      return new Array(32)
+        .fill(0);
+    }
+  },
+
+  ScriptApp: {
+    getProjectTriggers() {
+      return projectTriggers;
     }
   },
 
@@ -661,6 +693,127 @@ pass(
   'temporary OCR document is cleaned up after source extraction'
 );
 
+const parserEvidence =
+  sandbox.REOS
+    .PAPhiladelphiaCountyConnector
+    .probateEstateParserEvidence({
+      sourceUrl:
+        'https://assets.alm.com/certification/tlipn033026.pdf'
+    });
+
+assert.equal(
+  noticeFetchCount,
+  2
+);
+
+assert.equal(
+  parserEvidence.ok,
+  true
+);
+
+assert.equal(
+  parserEvidence.readOnly,
+  true
+);
+
+assert.equal(
+  parserEvidence.mode,
+  'PHILADELPHIA_PROBATE_ENTRY_SHAPE_EVIDENCE'
+);
+
+assert.equal(
+  parserEvidence.currentAnchorCount,
+  2
+);
+
+assert.equal(
+  parserEvidence.currentQualifiedAnchorCount,
+  2
+);
+
+assert.equal(
+  parserEvidence.separatorCounts.doubleHyphen,
+  2
+);
+
+assert.ok(
+  parserEvidence.keywordCounts.executor >=
+    1
+);
+
+assert.ok(
+  parserEvidence.keywordCounts.administratrix >=
+    1
+);
+
+assert.ok(
+  parserEvidence.firstNonEmptyLines.length >
+    0
+);
+
+assert.ok(
+  parserEvidence.snippetCount >
+    0
+);
+
+assert.equal(
+  parserEvidence.sourceConfigurationExecuted,
+  false
+);
+
+assert.equal(
+  parserEvidence.distressLeadMutationExecuted,
+  false
+);
+
+assert.equal(
+  parserEvidence.schedulerAuthorityGranted,
+  false
+);
+
+assert.equal(
+  parserEvidence.productionDataMutationAuthorityGranted,
+  false
+);
+
+assert.equal(
+  parserEvidence.automaticOfferAuthorityGranted,
+  false
+);
+
+pass(
+  'bounded estate-entry shape diagnostic reproduces current parser contract read-only'
+);
+
+projectTriggers.push({
+  getHandlerFunction() {
+    return 'reosCountyProductionSchedulerRun';
+  }
+});
+
+assert.throws(
+  () =>
+    sandbox.REOS
+      .PAPhiladelphiaCountyConnector
+      .probateEstateParserEvidence({
+        sourceUrl:
+          'https://assets.alm.com/certification/tlipn033026.pdf'
+      }),
+  /scheduler must remain frozen/i
+);
+
+assert.equal(
+  noticeFetchCount,
+  2
+);
+
+projectTriggers.length =
+  0;
+
+pass(
+  'estate-entry shape diagnostic fails before network execution when scheduler is active'
+);
+
 assert.ok(
   opaQueries.some(
     query =>
@@ -700,6 +853,16 @@ assert.throws(
 
 pass(
   'unapproved probate source URL fails before PDF conversion or property persistence'
+);
+
+assert.ok(
+  source.includes(
+    'reosPhiladelphiaProbateEstateParserEvidence'
+  )
+);
+
+pass(
+  'controlled read-only probate estate-entry evidence RPC is present'
 );
 
 assert.ok(
