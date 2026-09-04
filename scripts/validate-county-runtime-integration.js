@@ -155,6 +155,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-page85-source-observation-214-repair-failure-paths.js',
   'validate-county-page86-duplicate-source-repair.js',
   'validate-county-page86-duplicate-source-repair-failure-paths.js',
+  'validate-county-page89-source-observation-622060-repair.js',
   'validate-county-runtime-bridge.js'
 ];
 
@@ -527,7 +528,8 @@ const expectedCountyDiagnosticFiles = new Set([
  */
 const expectedCountyPage86RepairFiles = new Set([
   'build/apps-script-brand/CountyPage86DuplicateSourceRepair.js',
-  'build/apps-script-brand/CountyPage86DuplicateSourceRepairEvidence.js'
+  'build/apps-script-brand/CountyPage86DuplicateSourceRepairEvidence.js',
+  'build/apps-script-brand/CountyPage89SourceObservation622060Repair.js'
 ]);
 
 const expectedProductionFiles = new Set([
@@ -578,8 +580,8 @@ assert.ok(
 
 assert.equal(
   expectedCountyPage86RepairFiles.size,
-  2,
-  'expected Page-86 repair inventory must contain exactly 2 files'
+  3,
+  'expected Page-86/Page-89 repair inventory must contain exactly 3 files'
 );
 
 assert.ok(
@@ -598,8 +600,8 @@ assert.ok(
 
 assert.equal(
   expectedProductionFiles.size,
-  115,
-  'expected reconciled production inventory must contain 115 files'
+  116,
+  'expected reconciled production inventory must contain 116 files'
 );
 
 assert.equal(
@@ -656,7 +658,7 @@ expectedCountyPage86RepairFiles.forEach(file => {
 });
 
 pass(
-  'Page-86 repair production surface is exactly two explicitly allowlisted additive files'
+  'Page-86/Page-89 repair production surface is exactly three explicitly allowlisted additive files'
 );
 
 expectedPreservationFiles.forEach(file => {
