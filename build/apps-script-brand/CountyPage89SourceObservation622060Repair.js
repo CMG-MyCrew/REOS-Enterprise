@@ -67,15 +67,15 @@ REOS.CountyPage89SourceObservation622060Repair = (function () {
 
   function requireAdmin_() {
     if (
-      !REOS.Admin ||
-      typeof REOS.Admin.requireAdmin !== 'function'
+      !REOS.Security ||
+      typeof REOS.Security.requireAdmin !== 'function'
     ) {
       throw new Error(
         'Page-89 repair admin authority is unavailable.'
       );
     }
 
-    REOS.Admin.requireAdmin();
+    REOS.Security.requireAdmin();
   }
 
   function requireDependencies_() {
