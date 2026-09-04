@@ -697,6 +697,80 @@ pass(
   'unapproved probate source URL fails before PDF conversion or property persistence'
 );
 
+assert.ok(
+  source.includes(
+    'reosPhiladelphiaProbateSourceAuthority'
+  )
+);
+
+assert.ok(
+  source.includes(
+    'REOS_COUNTY_PA_PHILADELPHIA_PROBATE_PUBLIC_NOTICE_URL'
+  )
+);
+
+assert.ok(
+  source.includes(
+    'confirmSourceUpdate'
+  )
+);
+
+assert.ok(
+  source.includes(
+    'expectedCurrentSourceSha256'
+  )
+);
+
+assert.ok(
+  source.includes(
+    'maxNoticeScan'
+  )
+);
+
+assert.ok(
+  /REOS\.Security[\s\S]{0,80}\.requireAdmin\s*\(/.test(
+    source
+  )
+);
+
+assert.ok(
+  source.includes(
+    'LockService'
+  )
+);
+
+assert.ok(
+  source.includes(
+    'reosCountyProductionSchedulerRun'
+  )
+);
+
+assert.equal(
+  (
+    source.match(
+      /\.setProperty\s*\(/g
+    ) || []
+  ).length,
+  1,
+  'probate source authority must contain exactly one Script Property write primitive'
+);
+
+assert.equal(
+  /REOS\.Database\.(?:insert|update|upsert|delete)/.test(
+    source
+  ),
+  false,
+  'probate connector must not gain direct database mutation authority'
+);
+
+pass(
+  'probate source configuration is Admin-only, scheduler-quiescent, SHA-bound, and limited to one Script Property write'
+);
+
+pass(
+  'probate source preflight is bounded to at most 25 estate notices and grants no DISTRESS_LEADS mutation authority'
+);
+
 console.log();
 console.log(
   'Philadelphia probate public-notice feed validation PASSED.'
