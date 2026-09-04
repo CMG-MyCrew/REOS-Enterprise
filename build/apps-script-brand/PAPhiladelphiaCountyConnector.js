@@ -1307,8 +1307,28 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         markerMatch[0].length
       );
 
+    /*
+     * Live Google Drive OCR evidence from the March 30, 2026
+     * Legal Intelligencer source establishes the estate-entry
+     * grammar as a numbered court-audit entry using an en dash:
+     *
+     *   1. MILNER, THERESA
+     *   P. – Jahmir Dean, Adminis
+     *   trator.
+     *
+     *   3. KURUC SR., GEORGE F. – George F. Kuruc, Jr., Executor.
+     *
+     * Authority therefore requires:
+     * - a bounded numeric list prefix,
+     * - an uppercase comma-form candidate,
+     * - at most one OCR-wrapped candidate-name continuation line,
+     * - the observed U+2013 en-dash delimiter.
+     *
+     * This intentionally excludes generic public-notice text,
+     * sheriff-sale record numbers, and unnumbered captions.
+     */
     var anchorPattern =
-      /(^|\n)\s*([A-Z][A-Z0-9 .,'()\/&-]{2,120})\s*--\s*/gm;
+      /(^|\n)\s*\d{1,2}\.\s*([A-Z][A-Z0-9 .,'()\/&-]{2,120}(?:\n[A-Z][A-Z0-9 .,'()\/&-]{0,40})?)\s*\u2013\s*/gm;
 
     var anchors = [];
     var match;
@@ -1354,8 +1374,38 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
       var candidate =
         anchor.name;
 
+      /*
+       * Probate decedent identities in the certified source are
+       * surname-first comma forms. Requiring the comma prevents
+       * numbered trust captions such as:
+       *
+       *   1. ROBERT SCHAFFER JR. SPECIAL NEEDS TRUST – Trustee...
+       *
+       * from becoming decedent authority.
+       */
       if (
-        !/\b(?:EXECUTOR|EXECUTRIX|ADMINISTRATOR|ADMINISTRATRIX|PERSONAL REPRESENTATIVE|CO-EXECUTOR|CO-EXECUTRIX)\b/i
+        candidate.indexOf(',') ===
+        -1
+      ) {
+        return;
+      }
+
+      /*
+       * OCR may split representative titles internally:
+       *
+       *   Adminis
+       *   trator
+       *
+       * or:
+       *
+       *   Ad
+       *   ministrator
+       *
+       * Preserve the existing representative-role contract while
+       * tolerating only those whitespace splits.
+       */
+      if (
+        !/\b(?:EXECU\s*TOR|EXECU\s*TRIX|AD\s*MINIS\s*TRATOR|AD\s*MINIS\s*TRATRIX|PERSONAL\s+REPRESENTATIVE|CO-EXECU\s*TOR|CO-EXECU\s*TRIX)\b/i
           .test(body)
       ) {
         return;

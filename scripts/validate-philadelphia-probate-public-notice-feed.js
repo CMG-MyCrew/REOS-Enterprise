@@ -179,9 +179,15 @@ const noticeText = [
   "ORPHANS' COURT DIVISION",
   'COURT OF COMMON PLEAS',
   'AUDIT LIST',
-  'Letters have been granted on the Estate of each of the following decedents.',
-  'SMITH, ROBERT L. -- John Smith, Executor, 100 Test Street, Philadelphia, PA 19103.',
-  'JONES, ALICE M. -- Mary Jones, Administratrix, 200 Test Street, Philadelphia, PA 19104.'
+  "DECEDENT'S ESTATES",
+  '1. SMITH, ROBERT',
+  'L. – John Smith, Execu',
+  'tor, 100 Test Street, Philadelphia, PA 19103.',
+  '1. ROBERT SCHAFFER, JR. SPECIAL NEEDS TRUST – Truist Bank, Trustee.',
+  '2. JONES, ALICE M. – Mary Jones, Adminis',
+  'tratrix, 200 Test Street, Philadelphia, PA 19104.',
+  '2604-304',
+  'MARLENY PINEDA, SOLELY IN HER CAPACITY AS EXECUTRIX TO THE ESTATE OF GABRIEL PINEDA, DECEASED.'
 ].join('\n');
 
 const fakeBlob = {
@@ -532,6 +538,10 @@ assert.equal(
 assert.equal(
   result.metadata.parsedNoticeCount,
   2
+);
+
+pass(
+  'live-OCR numbered en-dash estate entries tolerate bounded name and representative wrapping'
 );
 
 assert.equal(
