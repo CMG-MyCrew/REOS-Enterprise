@@ -99,6 +99,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/CountyPage23ArcGisRuntimeDiagnostic.js',
   'build/apps-script-brand/CountyArcGisKeysetBoundaryDiagnostic.js',
   'build/apps-script-brand/CountyCodeViolationSourceRecordDiagnostic.js',
+  'build/apps-script-brand/CountyPage85SourceObservation214Repair.js'
 ];
 
 /*
