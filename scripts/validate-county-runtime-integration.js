@@ -321,7 +321,7 @@ pass('exactly 94 generated county connectors are present');
  * The county integration remains exactly additive except for explicitly
  * controlled production hardening files. Controlled files must remain
  * modifications of existing baseline files. All remaining baseline deltas
- * must remain the exact 112-file additive county/preservation/scheduler inventory.
+ * must remain the exact 113-file additive county/preservation/scheduler/diagnostic inventory.
  */
 const productionDiff = git([
   'diff',
@@ -508,10 +508,20 @@ const expectedCountySchedulerFiles = new Set([
   'build/apps-script-brand/CountyProductionScheduler.js'
 ]);
 
+/*
+ * Page-86 recovery diagnostics add exactly one read-only production
+ * diagnostic module. Keep this explicit so the inventory increase
+ * cannot authorize an arbitrary additional build file.
+ */
+const expectedCountyDiagnosticFiles = new Set([
+  'build/apps-script-brand/CountyArcGisPageRecordDiagnostic.js'
+]);
+
 const expectedProductionFiles = new Set([
   ...expectedCountyProductionFiles,
   ...expectedPreservationFiles,
-  ...expectedCountySchedulerFiles
+  ...expectedCountySchedulerFiles,
+  ...expectedCountyDiagnosticFiles
 ]);
 
 assert.equal(
@@ -540,9 +550,22 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCountyDiagnosticFiles.size,
+  1,
+  'expected county diagnostic inventory must contain exactly 1 file'
+);
+
+assert.ok(
+  expectedCountyDiagnosticFiles.has(
+    'build/apps-script-brand/CountyArcGisPageRecordDiagnostic.js'
+  ),
+  'CountyArcGisPageRecordDiagnostic.js must be the explicit Page-86 read-only diagnostic addition'
+);
+
+assert.equal(
   expectedProductionFiles.size,
-  112,
-  'expected reconciled production inventory must contain 112 files'
+  113,
+  'expected reconciled production inventory must contain 113 files'
 );
 
 assert.equal(
@@ -607,7 +630,7 @@ pass(
 );
 
 pass(
-  'reconciled production integration is exactly 112 additive files plus ' +
+  'reconciled production integration is exactly 113 additive files plus ' +
     (
       CONTROLLED_MODIFIED_BUILD_FILES.length +
       POST_COUNTY_MODIFIED_PRODUCTION_FILES.length
