@@ -135,7 +135,7 @@ REOS.CountyArcGisPageRecordDiagnostic = (function () {
         where: where,
 
         outFields:
-          'objectid,violationdate,address,parcel_id,caseprioritydesc,violationstatus,violationnumber,violationcodetitle',
+          '*',
 
         returnGeometry: false,
 
