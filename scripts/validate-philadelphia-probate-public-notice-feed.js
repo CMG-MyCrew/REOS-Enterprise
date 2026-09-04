@@ -176,12 +176,18 @@ const noticeText = [
   'MONDAY, MARCH 30, 2026',
   'PUBLIC NOTICES',
   'ESTATE NOTICES',
-  'NOTICE TO COUNSEL',
-  "ORPHANS' COURT OF",
-  'PHILADELPHIA COUNTY',
-  'Letters have been granted on the Estate of each of the following decedents.',
-  'SMITH, ROBERT L. -- John Smith, Executor, 100 Test Street, Philadelphia, PA 19103.',
-  'JONES, ALICE M. -- Mary Jones, Administratrix, 200 Test Street, Philadelphia, PA 19104.'
+  "ORPHANS' COURT DIVISION",
+  'COURT OF COMMON PLEAS',
+  'AUDIT LIST',
+  "DECEDENT'S ESTATES",
+  '1. SMITH, ROBERT',
+  'L. – John Smith, Execu',
+  'tor, 100 Test Street, Philadelphia, PA 19103.',
+  '1. ROBERT SCHAFFER, JR. SPECIAL NEEDS TRUST – Truist Bank, Trustee.',
+  '2. JONES, ALICE M. – Mary Jones, Adminis',
+  'tratrix, 200 Test Street, Philadelphia, PA 19104.',
+  '2604-304',
+  'MARLENY PINEDA, SOLELY IN HER CAPACITY AS EXECUTRIX TO THE ESTATE OF GABRIEL PINEDA, DECEASED.'
 ].join('\n');
 
 const fakeBlob = {
@@ -534,6 +540,10 @@ assert.equal(
   2
 );
 
+pass(
+  'live-OCR numbered en-dash estate entries tolerate bounded name and representative wrapping'
+);
+
 assert.equal(
   result.metadata.matchedNoticeCount,
   1
@@ -649,7 +659,7 @@ pass(
 );
 
 pass(
-  'OCR-wrapped Philadelphia Orphans Court marker is accepted'
+  'live-OCR Estate Notices / Orphans Court Division marker is accepted'
 );
 
 assert.equal(
