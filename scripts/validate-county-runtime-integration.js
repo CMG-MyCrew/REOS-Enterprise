@@ -150,6 +150,8 @@ const COMPONENT_VALIDATORS = [
   'validate-county-page23-arcgis-runtime-diagnostic.js',
   'validate-county-arcgis-keyset-boundary-diagnostic.js',
   'validate-county-code-violation-source-record-diagnostic.js',
+  'validate-county-page85-source-observation-214-repair.js',
+  'validate-county-page85-source-observation-214-repair-failure-paths.js',
   'validate-county-runtime-bridge.js'
 ];
 
