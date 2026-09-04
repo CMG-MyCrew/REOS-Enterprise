@@ -157,9 +157,15 @@ assert.equal(
 );
 
 assert.equal(
-  /OfferGenerator|QualifiedDealQueue|automaticOffer/i
+  /OfferGenerator|QualifiedDealQueue/
     .test(source),
   false
+);
+
+assert.ok(
+  /automaticOfferAuthorityGranted:\s*false/
+    .test(source),
+  'probate diagnostic must explicitly deny automatic-offer authority'
 );
 
 pass(
@@ -169,6 +175,7 @@ pass(
 let registered = null;
 let temporaryDocTrashed = false;
 let noticeFetchCount = 0;
+const projectTriggers = [];
 const opaQueries = [];
 
 const noticeText = [
@@ -213,6 +220,18 @@ const sandbox = {
 
   REOS: {
     GeneratedCountyConnectorRegistrars: [],
+
+    Security: {
+      requireAdmin() {
+        return true;
+      }
+    },
+
+    CountyRuntimeBridge: {
+      registerConnectors() {
+        return true;
+      }
+    },
 
     CountyConnectorSDK: {
       register(connector) {
@@ -371,6 +390,26 @@ const sandbox = {
           };
         }
       }
+    }
+  },
+
+  Utilities: {
+    DigestAlgorithm: {
+      SHA_256: 'SHA_256'
+    },
+
+    Charset: {
+      UTF_8: 'UTF_8'
+    },
+
+    computeDigest() {
+      return new Array(32).fill(0);
+    }
+  },
+
+  ScriptApp: {
+    getProjectTriggers() {
+      return projectTriggers;
     }
   },
 
@@ -661,6 +700,115 @@ pass(
   'temporary OCR document is cleaned up after source extraction'
 );
 
+const ocrEvidence =
+  sandbox.REOS
+    .PAPhiladelphiaCountyConnector
+    .probateOcrEvidence({
+      sourceUrl:
+        'https://assets.alm.com/certification/tlipn033026.pdf'
+    });
+
+assert.equal(
+  noticeFetchCount,
+  2
+);
+
+assert.equal(
+  ocrEvidence.ok,
+  true
+);
+
+assert.equal(
+  ocrEvidence.readOnly,
+  true
+);
+
+assert.equal(
+  ocrEvidence.mode,
+  'PHILADELPHIA_PROBATE_OCR_EVIDENCE'
+);
+
+assert.equal(
+  ocrEvidence.currentParserMarkerMatched,
+  true
+);
+
+assert.ok(
+  ocrEvidence.textLength > 0
+);
+
+assert.ok(
+  ocrEvidence.snippetCount > 0
+);
+
+assert.equal(
+  ocrEvidence.tokenCounts.orphans,
+  1
+);
+
+assert.equal(
+  ocrEvidence.sourceConfigurationExecuted,
+  false
+);
+
+assert.equal(
+  ocrEvidence.distressLeadMutationExecuted,
+  false
+);
+
+assert.equal(
+  ocrEvidence.schedulerAuthorityGranted,
+  false
+);
+
+assert.equal(
+  ocrEvidence.checkpointMutationAuthorityGranted,
+  false
+);
+
+assert.equal(
+  ocrEvidence.productionDataMutationAuthorityGranted,
+  false
+);
+
+assert.equal(
+  ocrEvidence.automaticOfferAuthorityGranted,
+  false
+);
+
+pass(
+  'bounded OCR evidence diagnostic uses production extraction path without mutation authority'
+);
+
+projectTriggers.push({
+  getHandlerFunction() {
+    return 'reosCountyProductionSchedulerRun';
+  }
+});
+
+assert.throws(
+  () =>
+    sandbox.REOS
+      .PAPhiladelphiaCountyConnector
+      .probateOcrEvidence({
+        sourceUrl:
+          'https://assets.alm.com/certification/tlipn033026.pdf'
+      }),
+  /scheduler must remain frozen/
+);
+
+assert.equal(
+  noticeFetchCount,
+  2,
+  'active scheduler must fail before probate OCR PDF fetch'
+);
+
+projectTriggers.length = 0;
+
+pass(
+  'OCR evidence diagnostic fails before network execution when county scheduler is active'
+);
+
 assert.ok(
   opaQueries.some(
     query =>
@@ -700,6 +848,16 @@ assert.throws(
 
 pass(
   'unapproved probate source URL fails before PDF conversion or property persistence'
+);
+
+assert.ok(
+  source.includes(
+    'reosPhiladelphiaProbateOcrEvidence'
+  )
+);
+
+pass(
+  'controlled read-only probate OCR evidence RPC is present'
 );
 
 assert.ok(

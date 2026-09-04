@@ -2912,6 +2912,335 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
     }
   }
 
+  function probateOcrEvidence_(
+    options
+  ) {
+    requireProbateSourceAuthority_();
+
+    REOS.Security
+      .requireAdmin();
+
+    options =
+      options || {};
+
+    if (
+      probateSchedulerTriggerCount_() !==
+      0
+    ) {
+      throw new Error(
+        'County scheduler must remain frozen for probate OCR evidence diagnostic.'
+      );
+    }
+
+    var sourceUrl =
+      assertProbateNoticeUrl_(
+        options.sourceUrl
+      );
+
+    /*
+     * Use the exact production PDF -> Advanced Drive OCR ->
+     * DocumentApp text extraction path.
+     *
+     * This diagnostic deliberately does NOT call the estate parser,
+     * OPA enrichment, county persistence runtime, or source
+     * configuration surface.
+     */
+    var text =
+      extractProbateNoticeText_(
+        sourceUrl,
+        'PHILADELPHIA-PROBATE-OCR-EVIDENCE'
+      );
+
+    if (
+      probateSchedulerTriggerCount_() !==
+      0
+    ) {
+      throw new Error(
+        'County scheduler authority changed during probate OCR evidence diagnostic.'
+      );
+    }
+
+    var normalized =
+      String(text || '')
+        .replace(/\r/g, '')
+        .replace(/[’‘]/g, "'")
+        .replace(/\u00a0/g, ' ');
+
+    var upper =
+      normalized.toUpperCase();
+
+    function countTerm_(term) {
+      var count = 0;
+      var cursor = 0;
+
+      while (true) {
+        var index =
+          upper.indexOf(
+            term,
+            cursor
+          );
+
+        if (index === -1) {
+          break;
+        }
+
+        count += 1;
+        cursor =
+          index +
+          Math.max(
+            term.length,
+            1
+          );
+      }
+
+      return count;
+    }
+
+    function escapedEvidence_(value) {
+      return String(value || '')
+        .split('')
+        .map(function (character) {
+          var code =
+            character.charCodeAt(0);
+
+          if (
+            code >= 32 &&
+            code <= 126
+          ) {
+            return character;
+          }
+
+          var hex =
+            code
+              .toString(16)
+              .toUpperCase();
+
+          while (
+            hex.length < 4
+          ) {
+            hex =
+              '0' + hex;
+          }
+
+          return (
+            '\\u' +
+            hex
+          );
+        })
+        .join('');
+    }
+
+    var tokenCounts = {
+      orphans:
+        countTerm_(
+          'ORPHANS'
+        ),
+      orphan:
+        countTerm_(
+          'ORPHAN'
+        ),
+      court:
+        countTerm_(
+          'COURT'
+        ),
+      philadelphia:
+        countTerm_(
+          'PHILADELPHIA'
+        ),
+      county:
+        countTerm_(
+          'COUNTY'
+        ),
+      estate:
+        countTerm_(
+          'ESTATE'
+        ),
+      executor:
+        countTerm_(
+          'EXECUTOR'
+        ),
+      administrator:
+        countTerm_(
+          'ADMINISTRATOR'
+        )
+    };
+
+    var probeTerms = [
+      'ORPHAN',
+      'COURT',
+      'PHILADELPHIA',
+      'ESTATE'
+    ];
+
+    var snippets = [];
+    var seen = {};
+
+    probeTerms.forEach(function (
+      term
+    ) {
+      var cursor = 0;
+
+      while (
+        snippets.length < 8
+      ) {
+        var index =
+          upper.indexOf(
+            term,
+            cursor
+          );
+
+        if (
+          index === -1
+        ) {
+          break;
+        }
+
+        var start =
+          Math.max(
+            0,
+            index - 100
+          );
+
+        var end =
+          Math.min(
+            normalized.length,
+            index +
+              term.length +
+              140
+          );
+
+        var raw =
+          normalized.slice(
+            start,
+            end
+          );
+
+        var preview =
+          raw
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(
+              0,
+              320
+            );
+
+        if (
+          preview &&
+          !seen[preview]
+        ) {
+          seen[preview] =
+            true;
+
+          snippets.push({
+            term:
+              term,
+            index:
+              index,
+            preview:
+              preview,
+            escaped:
+              escapedEvidence_(
+                raw.slice(
+                  0,
+                  140
+                )
+              )
+          });
+        }
+
+        cursor =
+          index +
+          term.length;
+      }
+    });
+
+    var currentMarkerPattern =
+      /ORPHANS'?[\s]+COURT[\s]+OF[\s]+PHILADELPHIA[\s]+COUNTY/i;
+
+    var publicationDate =
+      '';
+
+    try {
+      publicationDate =
+        parseProbatePublicationDate_(
+          normalized
+        );
+    } catch (
+      publicationDateError
+    ) {
+      publicationDate =
+        '';
+    }
+
+    return {
+      ok:
+        true,
+
+      readOnly:
+        true,
+
+      mode:
+        'PHILADELPHIA_PROBATE_OCR_EVIDENCE',
+
+      sourceUrl:
+        sourceUrl,
+
+      textLength:
+        normalized.length,
+
+      lineCount:
+        normalized
+          .split('\n')
+          .length,
+
+      publicationDate:
+        publicationDate,
+
+      currentParserMarkerMatched:
+        currentMarkerPattern
+          .test(
+            normalized
+          ),
+
+      tokenCounts:
+        tokenCounts,
+
+      snippets:
+        snippets,
+
+      snippetCount:
+        snippets.length,
+
+      sourceConfigurationExecuted:
+        false,
+
+      distressLeadMutationExecuted:
+        false,
+
+      connectorExecutionAuthorityGranted:
+        false,
+
+      schedulerAuthorityGranted:
+        false,
+
+      checkpointMutationAuthorityGranted:
+        false,
+
+      productionDataMutationAuthorityGranted:
+        false,
+
+      repairAuthorityGranted:
+        false,
+
+      automaticOfferAuthorityGranted:
+        false,
+
+      countySchedulerTriggerCount:
+        0
+    };
+  }
+
+
   function probateSourceAuthority(
     options
   ) {
@@ -2959,10 +3288,23 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
     connectorId: MANIFEST.id,
     manifest: MANIFEST,
     register: register,
+    probateOcrEvidence:
+      probateOcrEvidence_,
     probateSourceAuthority:
       probateSourceAuthority
   };
 })();
+
+function reosPhiladelphiaProbateOcrEvidence(
+  options
+) {
+  return REOS
+    .PAPhiladelphiaCountyConnector
+    .probateOcrEvidence(
+      options || {}
+    );
+}
+
 
 function reosPhiladelphiaProbateSourceAuthority(
   options
