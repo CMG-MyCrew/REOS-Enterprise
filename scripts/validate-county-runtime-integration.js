@@ -156,6 +156,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-page86-duplicate-source-repair.js',
   'validate-county-page86-duplicate-source-repair-failure-paths.js',
   'validate-county-page89-source-observation-622060-repair.js',
+  'validate-philadelphia-probate-public-notice-feed.js',
   'validate-county-runtime-bridge.js'
 ];
 

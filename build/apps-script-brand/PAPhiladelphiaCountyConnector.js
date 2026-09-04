@@ -65,6 +65,40 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
           ]
         }
       },
+      probate: {
+        adapter: "legal-intelligencer-probate",
+        endpointProperty: "REOS_COUNTY_PA_PHILADELPHIA_PROBATE_PUBLIC_NOTICE_URL",
+        enabled: true,
+        maxLimit: 500,
+        mapping: {
+          address: [
+            "location"
+          ],
+          city: [
+            "city"
+          ],
+          zip: [
+            "zip_code"
+          ],
+          parcelId: [
+            "parcel_number"
+          ],
+          ownerName: [
+            "PROBATE_MATCHED_OWNER",
+            "owner_1",
+            "owner_2"
+          ],
+          sourceRecordId: [
+            "PROBATE_SOURCE_RECORD_ID"
+          ],
+          sourceUpdatedAt: [
+            "PUBLICATION_DATE"
+          ],
+          estimatedValue: [
+            "market_value"
+          ]
+        }
+      },
       tax_delinquent: {
         adapter: "arcgis",
         endpointProperty: "REOS_COUNTY_PA_PHILADELPHIA_TAX_DELINQUENT_URL",
@@ -842,6 +876,17 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
     }
 
     if (
+      definition.adapter ===
+        'legal-intelligencer-probate'
+    ) {
+      return fetchProbatePublicNotice_(
+        definition,
+        endpoint,
+        context
+      );
+    }
+
+    if (
       definition.adapter === 'arcgis' &&
       definition.cursorDomain &&
       definition.cursorDomain.type ===
@@ -887,6 +932,877 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
       definition.adapter,
       adapterOptions
     );
+  }
+
+  function assertProbateNoticeUrl_(value) {
+    var url =
+      String(value || '').trim();
+
+    if (
+      !/^https:\/\/(?:assets\.alm\.com|images\.law\.com)\//i
+        .test(url)
+    ) {
+      throw new Error(
+        'Philadelphia probate feed requires an approved ' +
+        'Legal Intelligencer public-notice PDF URL.'
+      );
+    }
+
+    return url;
+  }
+
+  function extractProbateNoticeText_(
+    noticeUrl,
+    runId
+  ) {
+    noticeUrl =
+      assertProbateNoticeUrl_(noticeUrl);
+
+    if (
+      typeof Drive === 'undefined' ||
+      !Drive.Files ||
+      typeof Drive.Files.create !== 'function'
+    ) {
+      throw new Error(
+        'Philadelphia probate feed requires Advanced Drive v3.'
+      );
+    }
+
+    if (
+      typeof DocumentApp === 'undefined' ||
+      typeof DocumentApp.openById !== 'function'
+    ) {
+      throw new Error(
+        'Philadelphia probate feed requires DocumentApp.'
+      );
+    }
+
+    var response =
+      UrlFetchApp.fetch(
+        noticeUrl,
+        {
+          method: 'get',
+          followRedirects: true,
+          muteHttpExceptions: true,
+          headers: {
+            Accept: 'application/pdf'
+          }
+        }
+      );
+
+    var status =
+      Number(response.getResponseCode());
+
+    if (
+      status < 200 ||
+      status >= 300
+    ) {
+      throw new Error(
+        'Philadelphia probate public-notice fetch failed: HTTP ' +
+        status
+      );
+    }
+
+    var blob =
+      response.getBlob();
+
+    var contentType =
+      String(
+        blob &&
+        typeof blob.getContentType === 'function'
+          ? blob.getContentType()
+          : ''
+      ).toLowerCase();
+
+    if (
+      contentType.indexOf('pdf') === -1 &&
+      !/\.pdf(?:\?|$)/i.test(noticeUrl)
+    ) {
+      throw new Error(
+        'Philadelphia probate source did not return a PDF.'
+      );
+    }
+
+    if (
+      blob &&
+      typeof blob.setName === 'function'
+    ) {
+      blob.setName(
+        'reos-philadelphia-probate-' +
+        String(runId || 'run') +
+        '.pdf'
+      );
+    }
+
+    var converted =
+      Drive.Files.create(
+        {
+          name:
+            'REOS Philadelphia Probate ' +
+            String(runId || 'run'),
+          mimeType:
+            'application/vnd.google-apps.document'
+        },
+        blob,
+        {
+          ocrLanguage: 'en',
+          fields: 'id,name,mimeType'
+        }
+      );
+
+    if (
+      !converted ||
+      !converted.id
+    ) {
+      throw new Error(
+        'Philadelphia probate PDF conversion returned no document ID.'
+      );
+    }
+
+    try {
+      var document =
+        DocumentApp.openById(
+          converted.id
+        );
+
+      var text =
+        document
+          .getBody()
+          .getText();
+
+      if (!String(text || '').trim()) {
+        throw new Error(
+          'Philadelphia probate PDF conversion returned no text.'
+        );
+      }
+
+      return String(text);
+    } finally {
+      try {
+        DriveApp
+          .getFileById(
+            converted.id
+          )
+          .setTrashed(true);
+      } catch (cleanupError) {
+        /*
+         * Temporary-document cleanup is best effort only.
+         * It grants no persistence authority over DISTRESS_LEADS.
+         */
+      }
+    }
+  }
+
+  function parseProbatePublicationDate_(text) {
+    var months = {
+      JANUARY: '01',
+      FEBRUARY: '02',
+      MARCH: '03',
+      APRIL: '04',
+      MAY: '05',
+      JUNE: '06',
+      JULY: '07',
+      AUGUST: '08',
+      SEPTEMBER: '09',
+      OCTOBER: '10',
+      NOVEMBER: '11',
+      DECEMBER: '12'
+    };
+
+    var match =
+      String(text || '').match(
+        /\b(JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+([0-3]?\d),?\s+(20\d{2})\b/i
+      );
+
+    if (!match) {
+      throw new Error(
+        'Philadelphia probate publication date was not found.'
+      );
+    }
+
+    var month =
+      months[
+        String(match[1]).toUpperCase()
+      ];
+
+    var day =
+      (
+        '0' +
+        String(
+          Number(match[2])
+        )
+      ).slice(-2);
+
+    return (
+      String(match[3]) +
+      '-' +
+      month +
+      '-' +
+      day
+    );
+  }
+
+  function normalizeProbateName_(value) {
+    var name =
+      String(value || '')
+        .toUpperCase()
+        .replace(/[’‘]/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    name =
+      name
+        .split(
+          /\s+(?:A\/K\/A|AKA)\s+/i
+        )[0]
+        .split(
+          /\(\s*(?:A\/K\/A|AKA)\b/i
+        )[0]
+        .trim();
+
+    var pieces =
+      name
+        .split(',')
+        .map(function (piece) {
+          return piece.trim();
+        })
+        .filter(Boolean);
+
+    if (pieces.length > 1) {
+      var last =
+        pieces.shift();
+
+      var rest =
+        pieces
+          .filter(function (piece) {
+            return !/^(?:JR|SR|II|III|IV)\.?$/i
+              .test(piece);
+          })
+          .join(' ');
+
+      name =
+        last +
+        ' ' +
+        rest;
+    }
+
+    return name
+      .replace(
+        /\b(?:JR|SR|II|III|IV)\b\.?/g,
+        ' '
+      )
+      .replace(
+        /[^A-Z0-9]+/g,
+        ' '
+      )
+      .replace(
+        /\s+/g,
+        ' '
+      )
+      .trim();
+  }
+
+  function probateNameParts_(value) {
+    var normalized =
+      normalizeProbateName_(value);
+
+    var tokens =
+      normalized
+        .split(' ')
+        .filter(Boolean);
+
+    if (
+      tokens.length < 2 ||
+      tokens[0].length < 2 ||
+      tokens[1].length < 2
+    ) {
+      return null;
+    }
+
+    return {
+      normalized: normalized,
+      last: tokens[0],
+      first: tokens[1],
+      tokens: tokens
+    };
+  }
+
+  function ownerIdentityKey_(value) {
+    return normalizeProbateName_(value)
+      .split(' ')
+      .filter(Boolean)
+      .sort()
+      .join(' ');
+  }
+
+  function ownerMatchesProbateName_(
+    owner,
+    decedent
+  ) {
+    var target =
+      probateNameParts_(decedent);
+
+    if (!target) {
+      return false;
+    }
+
+    var ownerTokens =
+      normalizeProbateName_(owner)
+        .split(' ')
+        .filter(Boolean);
+
+    return (
+      ownerTokens.indexOf(
+        target.last
+      ) !== -1 &&
+      ownerTokens.indexOf(
+        target.first
+      ) !== -1
+    );
+  }
+
+  function parseProbateEstateNotices_(text) {
+    var normalized =
+      String(text || '')
+        .replace(/\r/g, '')
+        .replace(/[’‘]/g, "'")
+        .replace(/\u00a0/g, ' ');
+
+    var marker =
+      "ORPHANS' COURT OF PHILADELPHIA COUNTY";
+
+    var markerIndex =
+      normalized
+        .toUpperCase()
+        .indexOf(marker);
+
+    if (markerIndex === -1) {
+      throw new Error(
+        'Philadelphia probate source marker was not found.'
+      );
+    }
+
+    var publicationDate =
+      parseProbatePublicationDate_(
+        normalized
+      );
+
+    var section =
+      normalized.slice(
+        markerIndex +
+        marker.length
+      );
+
+    var anchorPattern =
+      /(^|\n)\s*([A-Z][A-Z0-9 .,'()\/&-]{2,120})\s*--\s*/gm;
+
+    var anchors = [];
+    var match;
+
+    while (
+      (
+        match =
+          anchorPattern.exec(section)
+      ) !== null
+    ) {
+      anchors.push({
+        index: match.index,
+        bodyStart:
+          anchorPattern.lastIndex,
+        name:
+          String(match[2] || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+      });
+    }
+
+    var notices = [];
+    var seen = {};
+
+    anchors.forEach(function (
+      anchor,
+      index
+    ) {
+      var end =
+        index + 1 < anchors.length
+          ? anchors[index + 1].index
+          : section.length;
+
+      var body =
+        section
+          .slice(
+            anchor.bodyStart,
+            end
+          )
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      var candidate =
+        anchor.name;
+
+      if (
+        !/\b(?:EXECUTOR|EXECUTRIX|ADMINISTRATOR|ADMINISTRATRIX|PERSONAL REPRESENTATIVE|CO-EXECUTOR|CO-EXECUTRIX)\b/i
+          .test(body)
+      ) {
+        return;
+      }
+
+      if (
+        /\b(?:NOTICE TO COUNSEL|CITY COUNCIL|CERTIFICATE|COURT OF COMMON PLEAS)\b/i
+          .test(candidate)
+      ) {
+        return;
+      }
+
+      var parts =
+        probateNameParts_(
+          candidate
+        );
+
+      if (!parts) {
+        return;
+      }
+
+      if (seen[parts.normalized]) {
+        return;
+      }
+
+      seen[parts.normalized] =
+        true;
+
+      notices.push({
+        decedent:
+          candidate,
+        normalizedDecedent:
+          parts.normalized,
+        representativeText:
+          body.slice(0, 500),
+        publicationDate:
+          publicationDate
+      });
+    });
+
+    if (!notices.length) {
+      throw new Error(
+        'No Philadelphia estate notices were parsed from the public-notice source.'
+      );
+    }
+
+    return notices;
+  }
+
+  function escapeArcGisSql_(value) {
+    return String(value || '')
+      .replace(/'/g, "''");
+  }
+
+  function buildProbateOwnerWhere_(decedent) {
+    var parts =
+      probateNameParts_(
+        decedent
+      );
+
+    if (!parts) {
+      throw new Error(
+        'Probate decedent name is insufficient for OPA matching.'
+      );
+    }
+
+    var last =
+      escapeArcGisSql_(
+        parts.last
+      );
+
+    var first =
+      escapeArcGisSql_(
+        parts.first
+      );
+
+    return (
+      '(' +
+      "UPPER(owner_1) LIKE '%" +
+      last +
+      "%' AND UPPER(owner_1) LIKE '%" +
+      first +
+      "%'" +
+      ') OR (' +
+      "UPPER(owner_2) LIKE '%" +
+      last +
+      "%' AND UPPER(owner_2) LIKE '%" +
+      first +
+      "%'" +
+      ')'
+    );
+  }
+
+  function resolveProbateNoticeProperties_(
+    notice,
+    opaEndpoint
+  ) {
+    var response =
+      REOS.CountyAdapters.Registry.fetch(
+        'arcgis',
+        {
+          endpoint:
+            opaEndpoint,
+          context: {
+            cursor: '',
+            limit: 50
+          },
+          maxLimit: 50,
+          where:
+            buildProbateOwnerWhere_(
+              notice.decedent
+            ),
+          outFields:
+            'objectid,parcel_number,location,zip_code,owner_1,owner_2,market_value',
+          returnGeometry:
+            false
+        }
+      );
+
+    if (
+      response &&
+      response.metadata &&
+      response.metadata
+        .exceededTransferLimit ===
+        true
+    ) {
+      return {
+        status: 'AMBIGUOUS',
+        records: []
+      };
+    }
+
+    var candidates =
+      response &&
+      Array.isArray(
+        response.records
+      )
+        ? response.records
+        : [];
+
+    var matches = [];
+    var ownerKeys = {};
+
+    candidates.forEach(function (
+      record
+    ) {
+      record =
+        record || {};
+
+      var matchedOwner =
+        '';
+
+      if (
+        ownerMatchesProbateName_(
+          record.owner_1,
+          notice.decedent
+        )
+      ) {
+        matchedOwner =
+          String(
+            record.owner_1 || ''
+          ).trim();
+      } else if (
+        ownerMatchesProbateName_(
+          record.owner_2,
+          notice.decedent
+        )
+      ) {
+        matchedOwner =
+          String(
+            record.owner_2 || ''
+          ).trim();
+      }
+
+      if (!matchedOwner) {
+        return;
+      }
+
+      var parcel =
+        String(
+          record.parcel_number || ''
+        ).trim();
+
+      var location =
+        String(
+          record.location || ''
+        ).trim();
+
+      if (
+        !parcel ||
+        !location
+      ) {
+        return;
+      }
+
+      var ownerKey =
+        ownerIdentityKey_(
+          matchedOwner
+        );
+
+      if (!ownerKey) {
+        return;
+      }
+
+      ownerKeys[ownerKey] =
+        true;
+
+      matches.push({
+        record: record,
+        matchedOwner:
+          matchedOwner,
+        ownerKey:
+          ownerKey
+      });
+    });
+
+    var uniqueOwners =
+      Object.keys(
+        ownerKeys
+      );
+
+    if (!matches.length) {
+      return {
+        status: 'UNMATCHED',
+        records: []
+      };
+    }
+
+    /*
+     * Multiple parcels held by one reconciled owner are legitimate.
+     * Multiple different owners sharing the same first/last tokens are
+     * ambiguous and receive no persistence authority.
+     */
+    if (
+      uniqueOwners.length !== 1
+    ) {
+      return {
+        status: 'AMBIGUOUS',
+        records: []
+      };
+    }
+
+    var seenParcels = {};
+    var resolved = [];
+
+    matches.forEach(function (
+      match
+    ) {
+      var parcel =
+        String(
+          match.record.parcel_number ||
+          ''
+        ).trim();
+
+      if (
+        seenParcels[parcel]
+      ) {
+        return;
+      }
+
+      seenParcels[parcel] =
+        true;
+
+      resolved.push(
+        Object.assign(
+          {},
+          match.record,
+          {
+            PROBATE_MATCHED_OWNER:
+              match.matchedOwner
+          }
+        )
+      );
+    });
+
+    return {
+      status: 'MATCHED',
+      records: resolved
+    };
+  }
+
+  function buildProbateSourceRecordId_(
+    decedent,
+    parcel
+  ) {
+    var slug =
+      normalizeProbateName_(
+        decedent
+      )
+        .replace(/\s+/g, '-')
+        .slice(0, 60);
+
+    return (
+      'TLI-ESTATE-' +
+      slug +
+      '-' +
+      String(parcel || '')
+        .replace(/[^A-Z0-9]/gi, '')
+    );
+  }
+
+  function fetchProbatePublicNotice_(
+    definition,
+    endpoint,
+    context
+  ) {
+    var text =
+      extractProbateNoticeText_(
+        endpoint,
+        context.runId
+      );
+
+    var notices =
+      parseProbateEstateNotices_(
+        text
+      );
+
+    var opaDefinition =
+      MANIFEST.datasets
+        .property_assessment;
+
+    var opaEndpoint =
+      PropertiesService
+        .getScriptProperties()
+        .getProperty(
+          opaDefinition
+            .endpointProperty
+        ) ||
+      opaDefinition.endpoint ||
+      '';
+
+    if (!opaEndpoint) {
+      throw new Error(
+        'Philadelphia probate feed requires the configured OPA property-assessment endpoint.'
+      );
+    }
+
+    var limit =
+      Math.min(
+        Math.max(
+          Number(
+            context.limit ||
+            definition.maxLimit ||
+            500
+          ),
+          1
+        ),
+        Number(
+          definition.maxLimit ||
+          500
+        )
+      );
+
+    var records = [];
+    var matchedNoticeCount = 0;
+    var unmatchedNoticeCount = 0;
+    var ambiguousNoticeCount = 0;
+
+    notices.forEach(function (
+      notice
+    ) {
+      if (
+        records.length >= limit
+      ) {
+        return;
+      }
+
+      var resolution =
+        resolveProbateNoticeProperties_(
+          notice,
+          opaEndpoint
+        );
+
+      if (
+        resolution.status ===
+        'UNMATCHED'
+      ) {
+        unmatchedNoticeCount += 1;
+        return;
+      }
+
+      if (
+        resolution.status ===
+        'AMBIGUOUS'
+      ) {
+        ambiguousNoticeCount += 1;
+        return;
+      }
+
+      matchedNoticeCount += 1;
+
+      resolution.records
+        .forEach(function (
+          property
+        ) {
+          if (
+            records.length >= limit
+          ) {
+            return;
+          }
+
+          records.push(
+            Object.assign(
+              {},
+              property,
+              {
+                PROBATE_DECEDENT:
+                  notice.decedent,
+                PROBATE_REPRESENTATIVE_TEXT:
+                  notice
+                    .representativeText,
+                PUBLICATION_DATE:
+                  notice
+                    .publicationDate,
+                PROBATE_SOURCE_RECORD_ID:
+                  buildProbateSourceRecordId_(
+                    notice.decedent,
+                    property
+                      .parcel_number
+                  )
+              }
+            )
+          );
+        });
+    });
+
+    return {
+      records: records,
+      nextCursor: '',
+      message:
+        'Philadelphia probate public notice parsed ' +
+        notices.length +
+        ' estate notice(s); ' +
+        matchedNoticeCount +
+        ' matched, ' +
+        unmatchedNoticeCount +
+        ' unmatched, ' +
+        ambiguousNoticeCount +
+        ' ambiguous; ' +
+        records.length +
+        ' property-backed record(s).',
+      metadata: {
+        adapter:
+          'legal-intelligencer-probate',
+        publicationDate:
+          notices[0]
+            .publicationDate,
+        parsedNoticeCount:
+          notices.length,
+        matchedNoticeCount:
+          matchedNoticeCount,
+        unmatchedNoticeCount:
+          unmatchedNoticeCount,
+        ambiguousNoticeCount:
+          ambiguousNoticeCount,
+        propertyRecordCount:
+          records.length,
+        truncated:
+          records.length >= limit
+      }
+    };
   }
 
   function getHtmlParser_(name, dataset) {
@@ -1064,6 +1980,18 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         ' / ' +
         context.dataset
     };
+
+    if (context.dataset === 'probate') {
+      record['Distress Type'] =
+        'Probate';
+
+      record.Notes =
+        'Philadelphia probate estate notice for ' +
+        String(
+          raw.PROBATE_DECEDENT || ''
+        ).trim() +
+        '; property ownership reconciled through Philadelphia OPA.';
+    }
 
     if (context.dataset === 'tax_delinquent') {
       record['Distress Type'] = 'Tax Delinquent';

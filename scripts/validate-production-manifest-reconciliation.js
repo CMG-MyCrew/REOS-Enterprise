@@ -33,10 +33,20 @@ assert.strictEqual(
   'production exception logging must remain STACKDRIVER'
 );
 
+const expectedDependencies = {
+  enabledAdvancedServices: [
+    {
+      userSymbol: 'Drive',
+      serviceId: 'drive',
+      version: 'v3'
+    }
+  ]
+};
+
 assert.deepStrictEqual(
   manifest.dependencies,
-  {},
-  'Apps Script dependencies contract must remain unchanged'
+  expectedDependencies,
+  'Apps Script dependencies must contain only the certified Drive v3 service'
 );
 
 assert.deepStrictEqual(
@@ -127,6 +137,15 @@ function collectSource(root) {
 }
 
 const source = collectSource(BUILD_DIR);
+
+assert.ok(
+  /\bDrive\.Files\.create\s*\(/.test(source),
+  'Advanced Drive v3 source evidence is missing'
+);
+
+console.log(
+  'PASS: Advanced Drive v3 is bound only through the certified production manifest'
+);
 
 const scopeEvidence = [
   {
