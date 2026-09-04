@@ -177,7 +177,8 @@ const noticeText = [
   'PUBLIC NOTICES',
   'ESTATE NOTICES',
   'NOTICE TO COUNSEL',
-  "ORPHANS' COURT OF PHILADELPHIA COUNTY",
+  "ORPHANS' COURT OF",
+  'PHILADELPHIA COUNTY',
   'Letters have been granted on the Estate of each of the following decedents.',
   'SMITH, ROBERT L. -- John Smith, Executor, 100 Test Street, Philadelphia, PA 19103.',
   'JONES, ALICE M. -- Mary Jones, Administratrix, 200 Test Street, Philadelphia, PA 19104.'
@@ -645,6 +646,10 @@ assert.equal(
 
 pass(
   'property-backed probate record satisfies county lead validation'
+);
+
+pass(
+  'OCR-wrapped Philadelphia Orphans Court marker is accepted'
 );
 
 assert.equal(

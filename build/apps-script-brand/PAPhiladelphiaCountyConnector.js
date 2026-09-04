@@ -1268,15 +1268,24 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         .replace(/[’‘]/g, "'")
         .replace(/\u00a0/g, ' ');
 
-    var marker =
-      "ORPHANS' COURT OF PHILADELPHIA COUNTY";
+    /*
+     * Legal Intelligencer public-notice PDFs use newspaper-column
+     * layout. Google Drive OCR may preserve a line break between
+     * "ORPHANS' COURT OF" and "PHILADELPHIA COUNTY".
+     *
+     * Marker recognition therefore treats whitespace as layout,
+     * not identity, while remaining hard-bound to the exact
+     * Philadelphia Orphans' Court heading.
+     */
+    var markerPattern =
+      /ORPHANS'?[\s]+COURT[\s]+OF[\s]+PHILADELPHIA[\s]+COUNTY/i;
 
-    var markerIndex =
-      normalized
-        .toUpperCase()
-        .indexOf(marker);
+    var markerMatch =
+      markerPattern.exec(
+        normalized
+      );
 
-    if (markerIndex === -1) {
+    if (!markerMatch) {
       throw new Error(
         'Philadelphia probate source marker was not found.'
       );
@@ -1289,8 +1298,8 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
 
     var section =
       normalized.slice(
-        markerIndex +
-        marker.length
+        markerMatch.index +
+        markerMatch[0].length
       );
 
     var anchorPattern =
