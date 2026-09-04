@@ -1700,9 +1700,29 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
     var unmatchedNoticeCount = 0;
     var ambiguousNoticeCount = 0;
 
-    notices.forEach(function (
-      notice
-    ) {
+    var maxNoticeScan =
+      Math.min(
+        Math.max(
+          Number(
+            context &&
+            context.config &&
+            context.config.maxNoticeScan
+              ? context.config.maxNoticeScan
+              : notices.length
+          ),
+          1
+        ),
+        notices.length
+      );
+
+    notices
+      .slice(
+        0,
+        maxNoticeScan
+      )
+      .forEach(function (
+        notice
+      ) {
       if (
         records.length >= limit
       ) {
@@ -1791,6 +1811,8 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
             .publicationDate,
         parsedNoticeCount:
           notices.length,
+        scannedNoticeCount:
+          maxNoticeScan,
         matchedNoticeCount:
           matchedNoticeCount,
         unmatchedNoticeCount:
@@ -2309,12 +2331,640 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
       });
   }
 
+  var PROBATE_SOURCE_PROPERTY =
+    'REOS_COUNTY_PA_PHILADELPHIA_PROBATE_PUBLIC_NOTICE_URL';
+
+  function probateText_(value) {
+    return String(
+      value === undefined ||
+      value === null
+        ? ''
+        : value
+    ).trim();
+  }
+
+  function probateSha256_(value) {
+    var digest =
+      Utilities.computeDigest(
+        Utilities.DigestAlgorithm.SHA_256,
+        probateText_(value),
+        Utilities.Charset.UTF_8
+      );
+
+    return digest
+      .map(function (byte) {
+        var normalized =
+          byte < 0
+            ? byte + 256
+            : byte;
+
+        return (
+          normalized < 16
+            ? '0'
+            : ''
+        ) +
+          normalized.toString(16);
+      })
+      .join('');
+  }
+
+  function probateProperties_() {
+    return PropertiesService
+      .getScriptProperties();
+  }
+
+  function probateCurrentSource_() {
+    return probateText_(
+      probateProperties_()
+        .getProperty(
+          PROBATE_SOURCE_PROPERTY
+        )
+    );
+  }
+
+  function probateSchedulerTriggerCount_() {
+    return ScriptApp
+      .getProjectTriggers()
+      .filter(function (trigger) {
+        return (
+          trigger &&
+          typeof trigger
+            .getHandlerFunction ===
+            'function' &&
+          trigger.getHandlerFunction() ===
+            'reosCountyProductionSchedulerRun'
+        );
+      })
+      .length;
+  }
+
+  function requireProbateSourceAuthority_() {
+    if (
+      !REOS.Security ||
+      typeof REOS.Security.requireAdmin !==
+        'function'
+    ) {
+      throw new Error(
+        'Probate source authority requires Admin security.'
+      );
+    }
+
+    if (
+      typeof PropertiesService ===
+        'undefined' ||
+      !PropertiesService ||
+      typeof PropertiesService
+        .getScriptProperties !==
+        'function'
+    ) {
+      throw new Error(
+        'Probate source authority requires Script Properties.'
+      );
+    }
+
+    if (
+      typeof Utilities === 'undefined' ||
+      !Utilities ||
+      typeof Utilities.computeDigest !==
+        'function'
+    ) {
+      throw new Error(
+        'Probate source authority requires SHA-256 support.'
+      );
+    }
+
+    if (
+      typeof ScriptApp === 'undefined' ||
+      !ScriptApp ||
+      typeof ScriptApp.getProjectTriggers !==
+        'function'
+    ) {
+      throw new Error(
+        'Probate source authority requires trigger inspection.'
+      );
+    }
+
+    if (
+      !REOS.CountyRuntimeBridge ||
+      typeof REOS.CountyRuntimeBridge
+        .registerConnectors !==
+        'function'
+    ) {
+      throw new Error(
+        'Probate source authority requires CountyRuntimeBridge.'
+      );
+    }
+  }
+
+  function probateSourceStatus_() {
+    requireProbateSourceAuthority_();
+
+    REOS.Security
+      .requireAdmin();
+
+    var current =
+      probateCurrentSource_();
+
+    return {
+      ok: true,
+      action:
+        'status',
+      sourceProperty:
+        PROBATE_SOURCE_PROPERTY,
+      sourcePresent:
+        Boolean(current),
+      sourceUrl:
+        current,
+      sourceSha256:
+        probateSha256_(current),
+      sourceHostApproved:
+        /^https:\/\/(?:assets\.alm\.com|images\.law\.com)\//i
+          .test(current),
+      schedulerTriggerCount:
+        probateSchedulerTriggerCount_(),
+      sourceConfigurationExecuted:
+        false,
+      distressLeadMutationExecuted:
+        false
+    };
+  }
+
+  function probateSourcePreflight_(options) {
+    requireProbateSourceAuthority_();
+
+    REOS.Security
+      .requireAdmin();
+
+    options =
+      options || {};
+
+    if (
+      probateSchedulerTriggerCount_() !==
+      0
+    ) {
+      throw new Error(
+        'County scheduler must remain frozen for probate source preflight.'
+      );
+    }
+
+    var sourceUrl =
+      assertProbateNoticeUrl_(
+        options.sourceUrl
+      );
+
+    REOS.CountyRuntimeBridge
+      .registerConnectors();
+
+    var limit =
+      Math.min(
+        Math.max(
+          Number(
+            options.limit ||
+            10
+          ),
+          1
+        ),
+        25
+      );
+
+    var context = {
+      runId:
+        'PHILADELPHIA-PROBATE-SOURCE-PREFLIGHT',
+      connectorId:
+        MANIFEST.id,
+      dataset:
+        'probate',
+      cursor:
+        '',
+      limit:
+        limit,
+      since:
+        null,
+      dryRun:
+        true,
+      config: {
+        endpoint:
+          sourceUrl,
+        maxNoticeScan:
+          25
+      },
+      now:
+        new Date()
+    };
+
+    var response =
+      fetch_(
+        context
+      ) || {};
+
+    var records =
+      Array.isArray(
+        response.records
+      )
+        ? response.records
+        : [];
+
+    if (!records.length) {
+      throw new Error(
+        'Probate source produced no property-backed records within the bounded estate-notice scan.'
+      );
+    }
+
+    var validCount =
+      0;
+
+    records.forEach(function (
+      raw,
+      index
+    ) {
+      var normalized =
+        normalize_(
+          raw,
+          context
+        );
+
+      if (
+        !normalized ||
+        normalized.__skip === true
+      ) {
+        throw new Error(
+          'Probate preflight unexpectedly filtered property-backed record ' +
+          index +
+          '.'
+        );
+      }
+
+      var validation =
+        validate_(
+          normalized,
+          context
+        );
+
+      if (
+        !validation ||
+        validation.ok !== true
+      ) {
+        throw new Error(
+          'Probate preflight property record failed county lead validation at index ' +
+          index +
+          '.'
+        );
+      }
+
+      validCount +=
+        1;
+    });
+
+    var metadata =
+      response.metadata ||
+      {};
+
+    return {
+      ok: true,
+      action:
+        'preflight',
+      sourceUrl:
+        sourceUrl,
+      sourceSha256:
+        probateSha256_(
+          sourceUrl
+        ),
+      publicationDate:
+        probateText_(
+          metadata.publicationDate
+        ),
+      parsedNoticeCount:
+        Number(
+          metadata.parsedNoticeCount ||
+          0
+        ),
+      scannedNoticeCount:
+        Number(
+          metadata.scannedNoticeCount ||
+          0
+        ),
+      matchedNoticeCount:
+        Number(
+          metadata.matchedNoticeCount ||
+          0
+        ),
+      unmatchedNoticeCount:
+        Number(
+          metadata.unmatchedNoticeCount ||
+          0
+        ),
+      ambiguousNoticeCount:
+        Number(
+          metadata.ambiguousNoticeCount ||
+          0
+        ),
+      propertyRecordCount:
+        records.length,
+      validPropertyRecordCount:
+        validCount,
+      schedulerTriggerCount:
+        0,
+      sourceConfigurationExecuted:
+        false,
+      distressLeadMutationExecuted:
+        false
+    };
+  }
+
+  function probateSourceConfigure_(options) {
+    requireProbateSourceAuthority_();
+
+    REOS.Security
+      .requireAdmin();
+
+    options =
+      options || {};
+
+    if (
+      options.confirmSourceUpdate !==
+      true
+    ) {
+      throw new Error(
+        'Probate source configuration requires confirmSourceUpdate=true.'
+      );
+    }
+
+    var expectedCurrentSha =
+      probateText_(
+        options.expectedCurrentSourceSha256
+      );
+
+    if (
+      !/^[0-9a-f]{64}$/
+        .test(
+          expectedCurrentSha
+        )
+    ) {
+      throw new Error(
+        'expectedCurrentSourceSha256 must be an exact SHA-256.'
+      );
+    }
+
+    var candidates =
+      Array.isArray(
+        options.candidateSourceUrls
+      )
+        ? options.candidateSourceUrls
+            .slice(0, 4)
+        : [];
+
+    if (!candidates.length) {
+      throw new Error(
+        'At least one probate source candidate is required.'
+      );
+    }
+
+    if (
+      probateSchedulerTriggerCount_() !==
+      0
+    ) {
+      throw new Error(
+        'County scheduler must remain frozen before probate source configuration.'
+      );
+    }
+
+    var selected =
+      null;
+
+    var attempts =
+      [];
+
+    for (
+      var index = 0;
+      index < candidates.length;
+      index += 1
+    ) {
+      var candidate =
+        probateText_(
+          candidates[index]
+        );
+
+      try {
+        var proof =
+          probateSourcePreflight_({
+            sourceUrl:
+              candidate,
+            limit:
+              10
+          });
+
+        attempts.push({
+          sourceSha256:
+            proof.sourceSha256,
+          ok:
+            true
+        });
+
+        selected =
+          proof;
+
+        break;
+      } catch (error) {
+        attempts.push({
+          sourceSha256:
+            probateSha256_(
+              candidate
+            ),
+          ok:
+            false,
+          error:
+            probateText_(
+              error &&
+              error.message
+                ? error.message
+                : error
+            ).slice(
+              0,
+              180
+            )
+        });
+      }
+    }
+
+    if (!selected) {
+      throw new Error(
+        'No bounded probate source candidate produced a valid property-backed feed. ' +
+        JSON.stringify(
+          attempts
+        )
+      );
+    }
+
+    if (
+      typeof LockService ===
+        'undefined' ||
+      !LockService ||
+      typeof LockService
+        .getScriptLock !==
+        'function'
+    ) {
+      throw new Error(
+        'Probate source configuration requires ScriptLock.'
+      );
+    }
+
+    var lock =
+      LockService
+        .getScriptLock();
+
+    if (
+      !lock.tryLock(
+        1000
+      )
+    ) {
+      throw new Error(
+        'Unable to acquire probate source configuration ScriptLock.'
+      );
+    }
+
+    try {
+      var before =
+        probateCurrentSource_();
+
+      var beforeSha =
+        probateSha256_(
+          before
+        );
+
+      if (
+        beforeSha !==
+        expectedCurrentSha
+      ) {
+        throw new Error(
+          'Probate source configuration prestate SHA-256 changed.'
+        );
+      }
+
+      if (
+        probateSchedulerTriggerCount_() !==
+        0
+      ) {
+        throw new Error(
+          'County scheduler authority changed before probate source configuration.'
+        );
+      }
+
+      probateProperties_()
+        .setProperty(
+          PROBATE_SOURCE_PROPERTY,
+          selected.sourceUrl
+        );
+
+      var after =
+        probateCurrentSource_();
+
+      if (
+        after !==
+        selected.sourceUrl
+      ) {
+        throw new Error(
+          'Probate source Script Property verification failed after write.'
+        );
+      }
+
+      return {
+        ok: true,
+        action:
+          'configure',
+        previousSourceSha256:
+          beforeSha,
+        configuredSourceSha256:
+          probateSha256_(
+            after
+          ),
+        configuredSourceUrl:
+          after,
+        publicationDate:
+          selected.publicationDate,
+        parsedNoticeCount:
+          selected.parsedNoticeCount,
+        scannedNoticeCount:
+          selected.scannedNoticeCount,
+        propertyRecordCount:
+          selected.propertyRecordCount,
+        validPropertyRecordCount:
+          selected.validPropertyRecordCount,
+        candidateAttempts:
+          attempts.length,
+        schedulerTriggerCount:
+          0,
+        sourceConfigurationExecuted:
+          true,
+        distressLeadMutationExecuted:
+          false
+      };
+    } finally {
+      lock.releaseLock();
+    }
+  }
+
+  function probateSourceAuthority(
+    options
+  ) {
+    options =
+      options || {};
+
+    var action =
+      probateText_(
+        options.action ||
+        'status'
+      ).toLowerCase();
+
+    if (
+      action ===
+      'status'
+    ) {
+      return probateSourceStatus_();
+    }
+
+    if (
+      action ===
+      'preflight'
+    ) {
+      return probateSourcePreflight_(
+        options
+      );
+    }
+
+    if (
+      action ===
+      'configure'
+    ) {
+      return probateSourceConfigure_(
+        options
+      );
+    }
+
+    throw new Error(
+      'Unsupported probate source authority action: ' +
+      action
+    );
+  }
+
   return {
     connectorId: MANIFEST.id,
     manifest: MANIFEST,
-    register: register
+    register: register,
+    probateSourceAuthority:
+      probateSourceAuthority
   };
 })();
+
+function reosPhiladelphiaProbateSourceAuthority(
+  options
+) {
+  return REOS
+    .PAPhiladelphiaCountyConnector
+    .probateSourceAuthority(
+      options ||
+      {}
+    );
+}
 
 REOS.GeneratedCountyConnectorRegistrars.push(function () {
   if (
