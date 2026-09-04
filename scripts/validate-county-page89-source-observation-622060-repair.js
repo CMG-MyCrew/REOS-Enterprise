@@ -73,6 +73,23 @@ assert(
 
 assert(
   source.includes(
+    "typeof REOS.Security.requireAdmin !== 'function'"
+  ) &&
+  source.includes(
+    "REOS.Security.requireAdmin();"
+  ),
+  'Repair must use canonical Security admin authority.'
+);
+
+assert(
+  !source.includes(
+    "REOS.Admin.requireAdmin"
+  ),
+  'Repair must not derive admin authority from REOS.Admin.'
+);
+
+assert(
+  source.includes(
     "options.confirmRepair !== true"
   ),
   'Explicit repair confirmation must be required.'
