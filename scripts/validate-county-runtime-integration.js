@@ -153,6 +153,8 @@ const COMPONENT_VALIDATORS = [
   'validate-county-code-violation-source-record-diagnostic.js',
   'validate-county-page85-source-observation-214-repair.js',
   'validate-county-page85-source-observation-214-repair-failure-paths.js',
+  'validate-county-page86-duplicate-source-repair.js',
+  'validate-county-page86-duplicate-source-repair-failure-paths.js',
   'validate-county-runtime-bridge.js'
 ];
 
@@ -321,7 +323,7 @@ pass('exactly 94 generated county connectors are present');
  * The county integration remains exactly additive except for explicitly
  * controlled production hardening files. Controlled files must remain
  * modifications of existing baseline files. All remaining baseline deltas
- * must remain the exact 113-file additive county/preservation/scheduler/diagnostic inventory.
+ * must remain the exact 115-file additive county/preservation/scheduler/diagnostic/Page-86-repair inventory.
  */
 const productionDiff = git([
   'diff',
@@ -517,11 +519,23 @@ const expectedCountyDiagnosticFiles = new Set([
   'build/apps-script-brand/CountyArcGisPageRecordDiagnostic.js'
 ]);
 
+/*
+ * Page-86 duplicate-source remediation adds exactly two bounded
+ * production modules: one read-only evidence boundary and one
+ * explicitly invoked repair executor. Keep both explicit so the
+ * production inventory increase cannot authorize arbitrary files.
+ */
+const expectedCountyPage86RepairFiles = new Set([
+  'build/apps-script-brand/CountyPage86DuplicateSourceRepair.js',
+  'build/apps-script-brand/CountyPage86DuplicateSourceRepairEvidence.js'
+]);
+
 const expectedProductionFiles = new Set([
   ...expectedCountyProductionFiles,
   ...expectedPreservationFiles,
   ...expectedCountySchedulerFiles,
-  ...expectedCountyDiagnosticFiles
+  ...expectedCountyDiagnosticFiles,
+  ...expectedCountyPage86RepairFiles
 ]);
 
 assert.equal(
@@ -563,9 +577,29 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCountyPage86RepairFiles.size,
+  2,
+  'expected Page-86 repair inventory must contain exactly 2 files'
+);
+
+assert.ok(
+  expectedCountyPage86RepairFiles.has(
+    'build/apps-script-brand/CountyPage86DuplicateSourceRepair.js'
+  ),
+  'CountyPage86DuplicateSourceRepair.js must be the explicit bounded Page-86 repair executor'
+);
+
+assert.ok(
+  expectedCountyPage86RepairFiles.has(
+    'build/apps-script-brand/CountyPage86DuplicateSourceRepairEvidence.js'
+  ),
+  'CountyPage86DuplicateSourceRepairEvidence.js must be the explicit read-only Page-86 repair evidence boundary'
+);
+
+assert.equal(
   expectedProductionFiles.size,
-  113,
-  'expected reconciled production inventory must contain 113 files'
+  115,
+  'expected reconciled production inventory must contain 115 files'
 );
 
 assert.equal(
@@ -611,6 +645,20 @@ pass(
   'CountyProductionScheduler.js is the only Increment 2 controlled production addition'
 );
 
+expectedCountyPage86RepairFiles.forEach(file => {
+  assert.ok(
+    diffEntries.some(entry =>
+      entry.file === file &&
+      entry.status === 'A'
+    ),
+    `expected Page-86 repair production file missing from baseline diff: ${file}`
+  );
+});
+
+pass(
+  'Page-86 repair production surface is exactly two explicitly allowlisted additive files'
+);
+
 expectedPreservationFiles.forEach(file => {
   assert.ok(
     diffEntries.some(entry =>
@@ -630,7 +678,7 @@ pass(
 );
 
 pass(
-  'reconciled production integration is exactly 113 additive files plus ' +
+  'reconciled production integration is exactly 115 additive files plus ' +
     (
       CONTROLLED_MODIFIED_BUILD_FILES.length +
       POST_COUNTY_MODIFIED_PRODUCTION_FILES.length
