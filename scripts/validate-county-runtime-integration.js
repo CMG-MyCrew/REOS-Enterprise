@@ -99,6 +99,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/CountyPage23ArcGisRuntimeDiagnostic.js',
   'build/apps-script-brand/CountyArcGisKeysetBoundaryDiagnostic.js',
   'build/apps-script-brand/CountyCodeViolationSourceRecordDiagnostic.js',
+  'build/apps-script-brand/CountyPage85SourceObservation214Repair.js'
 ];
 
 /*
@@ -150,6 +151,8 @@ const COMPONENT_VALIDATORS = [
   'validate-county-page23-arcgis-runtime-diagnostic.js',
   'validate-county-arcgis-keyset-boundary-diagnostic.js',
   'validate-county-code-violation-source-record-diagnostic.js',
+  'validate-county-page85-source-observation-214-repair.js',
+  'validate-county-page85-source-observation-214-repair-failure-paths.js',
   'validate-county-runtime-bridge.js'
 ];
 
