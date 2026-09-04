@@ -208,11 +208,51 @@ REOS.CountyPage89SourceObservation622060Repair = (function () {
       ]);
   }
 
+  function normalizeDateForSheet_(value) {
+    if (
+      value === '' ||
+      value === null ||
+      typeof value === 'undefined'
+    ) {
+      return '';
+    }
+
+    var date =
+      value instanceof Date
+        ? new Date(
+            value.getTime()
+          )
+        : new Date(value);
+
+    if (
+      isNaN(
+        date.getTime()
+      )
+    ) {
+      throw new Error(
+        'Page-89 repair encountered invalid fresh-source date value.'
+      );
+    }
+
+    return date;
+  }
+
   function stableCell_(value) {
     if (value instanceof Date) {
+      var time =
+        value.getTime();
+
+      if (isNaN(time)) {
+        throw new Error(
+          'Page-89 repair fingerprint encountered invalid Date cell.'
+        );
+      }
+
       return {
         type: 'date',
-        value: value.toISOString()
+        value:
+          new Date(time)
+            .toISOString()
       };
     }
 
@@ -451,6 +491,33 @@ REOS.CountyPage89SourceObservation622060Repair = (function () {
       ) {
         corrected[field] =
           normalized[field];
+      }
+    });
+
+    /*
+     * CountyConnectorSDK normally converts source date values before
+     * persistence. This one-purpose physical-row repair bypasses that
+     * runtime layer, so preserve the same date semantics explicitly
+     * before writing into date-formatted Sheets cells.
+     *
+     * ArcGIS supplies Source Updated At as epoch milliseconds. Writing
+     * that raw integer directly into a date-formatted cell can produce
+     * an invalid Sheets Date on readback.
+     */
+    [
+      'Source Updated At',
+      'Last Sale Date'
+    ].forEach(function (field) {
+      if (
+        Object.prototype.hasOwnProperty.call(
+          normalized,
+          field
+        )
+      ) {
+        corrected[field] =
+          normalizeDateForSheet_(
+            normalized[field]
+          );
       }
     });
 

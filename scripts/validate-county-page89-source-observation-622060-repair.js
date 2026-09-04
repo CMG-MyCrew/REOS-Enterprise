@@ -166,6 +166,30 @@ assert(
 
 assert(
   source.includes(
+    'function normalizeDateForSheet_('
+  ) &&
+  source.includes(
+    "'Source Updated At'"
+  ) &&
+  source.includes(
+    "'Last Sale Date'"
+  ) &&
+  source.includes(
+    'normalizeDateForSheet_('
+  ),
+  'Repair must normalize source dates before physical Sheets write.'
+);
+
+assert(
+  source.includes(
+    'Page-89 repair fingerprint encountered invalid Date cell.'
+  ),
+  'Repair fingerprint must fail explicitly on invalid Date values.'
+);
+
+
+assert(
+  source.includes(
     "writePhysicalRow_("
   ) &&
   source.includes(
