@@ -1269,16 +1269,21 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         .replace(/\u00a0/g, ' ');
 
     /*
-     * Legal Intelligencer public-notice PDFs use newspaper-column
-     * layout. Google Drive OCR may preserve a line break between
-     * "ORPHANS' COURT OF" and "PHILADELPHIA COUNTY".
+     * Live Google Drive OCR evidence from the March 30, 2026
+     * Legal Intelligencer public-notice PDF identifies the probate
+     * section as:
      *
-     * Marker recognition therefore treats whitespace as layout,
-     * not identity, while remaining hard-bound to the exact
-     * Philadelphia Orphans' Court heading.
+     *   ESTATE NOTICES
+     *   ORPHANS' COURT DIVISION
+     *
+     * The source does not contain the previously assumed
+     * "ORPHANS' COURT OF PHILADELPHIA COUNTY" section marker.
+     *
+     * Whitespace remains layout-only, while marker authority is
+     * hard-bound to the two adjacent probate section identities.
      */
     var markerPattern =
-      /ORPHANS'?[\s]+COURT[\s]+OF[\s]+PHILADELPHIA[\s]+COUNTY/i;
+      /ESTATE[\s]+NOTICES[\s]+ORPHANS'?[\s]+COURT[\s]+DIVISION/i;
 
     var markerMatch =
       markerPattern.exec(
