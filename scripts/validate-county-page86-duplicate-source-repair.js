@@ -198,3 +198,49 @@ assert(
 
 console.log();
 console.log('Page-86 duplicate source repair static contract PASSED.');
+
+(function validatePage86FreshSourceDiagnosticApiContract() {
+  var fs = require('fs');
+  var path = require('path');
+
+  var evidencePath = path.join(
+    process.cwd(),
+    'build/apps-script-brand/CountyPage86DuplicateSourceRepairEvidence.js'
+  );
+
+  var source = fs.readFileSync(evidencePath, 'utf8');
+
+  if (
+    source.indexOf(
+      "typeof REOS.CountyCodeViolationSourceRecordDiagnostic.run !== 'function'"
+    ) === -1
+  ) {
+    throw new Error(
+      'Page-86 evidence must require the certified source-record diagnostic run() API.'
+    );
+  }
+
+  if (
+    source.indexOf(
+      '.run(Number(target.sourceRecordId));'
+    ) === -1
+  ) {
+    throw new Error(
+      'Page-86 fresh-source evidence must invoke the certified diagnostic run() API.'
+    );
+  }
+
+  if (
+    source.indexOf(
+      'CountyCodeViolationSourceRecordDiagnostic.inspect'
+    ) !== -1
+  ) {
+    throw new Error(
+      'Page-86 evidence must not depend on nonexistent diagnostic inspect() authority.'
+    );
+  }
+
+  console.log(
+    'PASS: Page-86 evidence uses certified source-record diagnostic run() authority'
+  );
+})();
