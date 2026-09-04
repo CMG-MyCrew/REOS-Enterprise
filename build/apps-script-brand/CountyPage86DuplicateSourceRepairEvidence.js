@@ -255,7 +255,7 @@ REOS.CountyPage86DuplicateSourceRepairEvidence = (function () {
 
     if (
       !REOS.CountyCodeViolationSourceRecordDiagnostic ||
-      typeof REOS.CountyCodeViolationSourceRecordDiagnostic.inspect !== 'function'
+      typeof REOS.CountyCodeViolationSourceRecordDiagnostic.run !== 'function'
     ) {
       throw new Error(
         'Page-86 repair evidence requires fresh ArcGIS source diagnostic authority.'
@@ -309,7 +309,7 @@ REOS.CountyPage86DuplicateSourceRepairEvidence = (function () {
   function freshSource_(target) {
     var diagnostic =
       REOS.CountyCodeViolationSourceRecordDiagnostic
-        .inspect(Number(target.sourceRecordId));
+        .run(Number(target.sourceRecordId));
 
     if (
       !diagnostic ||
