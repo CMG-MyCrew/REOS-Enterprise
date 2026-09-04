@@ -126,14 +126,14 @@ REOS.CountyPage89SourceObservation622060Repair = (function () {
   function checkpoint_() {
     if (
       !REOS.CountyProductionScheduler ||
-      typeof REOS.CountyProductionScheduler.checkpoint !== 'function'
+      typeof REOS.CountyProductionScheduler.getCheckpoint !== 'function'
     ) {
       throw new Error(
         'Page-89 repair checkpoint authority is unavailable.'
       );
     }
 
-    return REOS.CountyProductionScheduler.checkpoint();
+    return REOS.CountyProductionScheduler.getCheckpoint();
   }
 
   function requireCheckpointAuthority_() {

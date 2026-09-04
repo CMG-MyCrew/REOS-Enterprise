@@ -111,6 +111,23 @@ assert(
 
 assert(
   source.includes(
+    "typeof REOS.CountyProductionScheduler.getCheckpoint !== 'function'"
+  ) &&
+  source.includes(
+    "REOS.CountyProductionScheduler.getCheckpoint();"
+  ),
+  'Repair must use canonical county scheduler checkpoint API.'
+);
+
+assert(
+  !source.includes(
+    "REOS.CountyProductionScheduler.checkpoint"
+  ),
+  'Repair must not use nonexistent scheduler checkpoint API.'
+);
+
+assert(
+  source.includes(
     '.CountyCodeViolationSourceRecordDiagnostic'
   ) &&
   source.includes(
