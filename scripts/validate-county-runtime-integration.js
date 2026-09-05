@@ -99,6 +99,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/CountyPage23ArcGisRuntimeDiagnostic.js',
   'build/apps-script-brand/CountyArcGisKeysetBoundaryDiagnostic.js',
   'build/apps-script-brand/CountyCodeViolationSourceRecordDiagnostic.js',
+  'build/apps-script-brand/CountyCodeViolationDurableIdentityAudit.js',
   'build/apps-script-brand/CountyPage85SourceObservation214Repair.js'
 ];
 
@@ -134,6 +135,7 @@ const COMPONENT_VALIDATORS = [
   'validate-canonical-property-upsert-identity.js',
   'validate-cross-source-observation-integrity.js',
   'validate-county-identity-historical-audit.js',
+  'validate-county-code-violation-durable-identity-audit.js',
   'validate-county-identity-source-reconciliation.js',
   'validate-county-identity-repair-evidence-export.js',
   'validate-county-identity-reference-audit.js',
