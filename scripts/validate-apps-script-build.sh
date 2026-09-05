@@ -227,6 +227,20 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   echo
 fi
 
+# Philadelphia code-violation durable source reconciliation certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  COUNTY_CODE_VIOLATION_DURABLE_SOURCE_RECONCILIATION_CERTIFIER="scripts/validate-county-code-violation-durable-source-reconciliation.js"
+
+  if [[ ! -f "$COUNTY_CODE_VIOLATION_DURABLE_SOURCE_RECONCILIATION_CERTIFIER" ]]; then
+    echo "ERROR: County code-violation durable source reconciliation validator missing: $COUNTY_CODE_VIOLATION_DURABLE_SOURCE_RECONCILIATION_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county code-violation durable source reconciliation certification..."
+  node "$COUNTY_CODE_VIOLATION_DURABLE_SOURCE_RECONCILIATION_CERTIFIER"
+  echo
+fi
+
 # County identity source reconciliation certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_IDENTITY_SOURCE_RECONCILIATION_CERTIFIER="scripts/validate-county-identity-source-reconciliation.js"
