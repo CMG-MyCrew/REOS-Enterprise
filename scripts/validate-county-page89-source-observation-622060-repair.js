@@ -189,6 +189,28 @@ assert(
 
 assert(
   source.includes(
+    'function normalizeParcelForSheet_('
+  ) &&
+  source.includes(
+    'parcel !=='
+  ) &&
+  source.includes(
+    'EXPECTED_PARCEL'
+  ) &&
+  source.includes(
+    'String(numeric) !== parcel'
+  ) &&
+  source.includes(
+    "corrected['Parcel ID'] ="
+  ) &&
+  source.includes(
+    'normalizeParcelForSheet_('
+  ),
+  'Repair must normalize the certified Parcel ID to its physical Sheets round-trip type.'
+);
+
+assert(
+  source.includes(
     'function comparePoststateCells_('
   ) &&
   source.includes(
