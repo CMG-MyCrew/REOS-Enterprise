@@ -237,6 +237,35 @@ REOS.CountyPage89SourceObservation622060Repair = (function () {
     return date;
   }
 
+  function normalizeParcelForSheet_(value) {
+    var parcel =
+      text_(value);
+
+    if (
+      parcel !==
+        EXPECTED_PARCEL
+    ) {
+      throw new Error(
+        'Page-89 repair encountered unexpected fresh-source parcel value.'
+      );
+    }
+
+    var numeric =
+      Number(parcel);
+
+    if (
+      !isFinite(numeric) ||
+      Math.floor(numeric) !== numeric ||
+      String(numeric) !== parcel
+    ) {
+      throw new Error(
+        'Page-89 repair fresh-source parcel cannot round-trip as certified numeric Sheets value.'
+      );
+    }
+
+    return numeric;
+  }
+
   function stableCell_(value) {
     if (value instanceof Date) {
       var time =
@@ -583,6 +612,24 @@ REOS.CountyPage89SourceObservation622060Repair = (function () {
           );
       }
     });
+
+    /*
+     * Production diagnostic @73 proved that this certified Parcel ID
+     * round-trips through the existing physical Sheets column as a
+     * number. Match that storage representation before fingerprinting;
+     * canonical identity remains value-based and unchanged.
+     */
+    if (
+      Object.prototype.hasOwnProperty.call(
+        normalized,
+        'Parcel ID'
+      )
+    ) {
+      corrected['Parcel ID'] =
+        normalizeParcelForSheet_(
+          normalized['Parcel ID']
+        );
+    }
 
     /*
      * Preserve REOS identity and workflow fields that are not
