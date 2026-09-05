@@ -293,6 +293,69 @@ REOS.CountyPage89SourceObservation622060Repair = (function () {
       .join('');
   }
 
+  function comparePoststateCells_(
+    headers,
+    expectedValues,
+    actualValues
+  ) {
+    var differences = [];
+    var total = 0;
+
+    var width =
+      Math.max(
+        headers.length,
+        expectedValues.length,
+        actualValues.length
+      );
+
+    for (
+      var index = 0;
+      index < width;
+      index += 1
+    ) {
+      var expected =
+        stableCell_(
+          expectedValues[index]
+        );
+
+      var actual =
+        stableCell_(
+          actualValues[index]
+        );
+
+      if (
+        JSON.stringify(expected) ===
+        JSON.stringify(actual)
+      ) {
+        continue;
+      }
+
+      total += 1;
+
+      if (
+        differences.length < 8
+      ) {
+        differences.push({
+          columnNumber:
+            index + 1,
+          header:
+            headers[index] || '',
+          expected:
+            expected,
+          actual:
+            actual
+        });
+      }
+    }
+
+    return {
+      total:
+        total,
+      sample:
+        differences
+    };
+  }
+
   function fetchFreshSource_() {
     var diagnostic =
       REOS.CountyCodeViolationSourceRecordDiagnostic
@@ -545,12 +608,38 @@ REOS.CountyPage89SourceObservation622060Repair = (function () {
         TARGET_ROW
       );
 
+    var afterFingerprint =
+      fingerprint_(
+        after.values
+      );
+
+    var expectedFingerprint =
+      fingerprint_(
+        expectedValues
+      );
+
     if (
-      fingerprint_(after.values) !==
-        fingerprint_(expectedValues)
+      afterFingerprint !==
+        expectedFingerprint
     ) {
+      var differences =
+        comparePoststateCells_(
+          headers,
+          expectedValues,
+          after.values
+        );
+
       throw new Error(
-        'Page-89 repair physical poststate fingerprint mismatch.'
+        'Page-89 repair physical poststate fingerprint mismatch. ' +
+        'detail=' +
+        JSON.stringify({
+          expectedFingerprint:
+            expectedFingerprint,
+          actualFingerprint:
+            afterFingerprint,
+          differences:
+            differences
+        })
       );
     }
 

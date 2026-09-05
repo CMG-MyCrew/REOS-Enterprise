@@ -187,6 +187,32 @@ assert(
   'Repair fingerprint must fail explicitly on invalid Date values.'
 );
 
+assert(
+  source.includes(
+    'function comparePoststateCells_('
+  ) &&
+  source.includes(
+    'differences.length < 8'
+  ) &&
+  source.includes(
+    "'detail='"
+  ),
+  'Repair must expose bounded per-column poststate mismatch evidence.'
+);
+
+assert(
+  source.includes(
+    'var afterFingerprint ='
+  ) &&
+  source.includes(
+    'var expectedFingerprint ='
+  ) &&
+  source.includes(
+    'afterFingerprint !=='
+  ),
+  'Repair must retain the physical fingerprint acceptance gate.'
+);
+
 
 assert(
   source.includes(
