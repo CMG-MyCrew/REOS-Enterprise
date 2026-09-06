@@ -139,6 +139,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-code-violation-durable-identity-audit.js',
   'validate-county-code-violation-durable-source-reconciliation.js',
   'validate-code-violations-gate1-recovery-authority.js',
+  'validate-code-violations-gate1-recovery-preflight.js',
   'validate-county-identity-source-reconciliation.js',
   'validate-county-identity-repair-evidence-export.js',
   'validate-county-identity-reference-audit.js',
@@ -539,15 +540,17 @@ const expectedCountyPage86RepairFiles = new Set([
 ]);
 
 /*
- * Code Violations Production Completion Gate 1 adds exactly one
- * admin-only, read-only population reconciliation module.
+ * Code Violations Production Completion Gate 1 contains the
+ * explicitly allowlisted read-only reconciliation, durable recovery
+ * authority, and recovery preflight modules.
  *
  * Keep this explicit so an inventory-count increase cannot authorize
  * an arbitrary additional production build file.
  */
 const expectedCodeViolationCompletionFiles = new Set([
   'build/apps-script-brand/CountyCodeViolationGate1Reconciliation.js',
-  'build/apps-script-brand/CountyCodeViolationGate1RecoveryAuthority.js'
+  'build/apps-script-brand/CountyCodeViolationGate1RecoveryAuthority.js',
+  'build/apps-script-brand/CountyCodeViolationGate1RecoveryPreflight.js'
 ]);
 
 const expectedProductionFiles = new Set([
@@ -619,8 +622,8 @@ assert.ok(
 
 assert.equal(
   expectedCodeViolationCompletionFiles.size,
-  2,
-  'expected Code Violations Production Completion inventory must contain exactly 2 files'
+  3,
+  'expected Code Violations Production Completion inventory must contain exactly 3 files'
 );
 
 assert.ok(
@@ -637,10 +640,17 @@ assert.ok(
   'CountyCodeViolationGate1RecoveryAuthority.js must be the explicit read-only durable recovery-authority addition'
 );
 
+assert.ok(
+  expectedCodeViolationCompletionFiles.has(
+    'build/apps-script-brand/CountyCodeViolationGate1RecoveryPreflight.js'
+  ),
+  'CountyCodeViolationGate1RecoveryPreflight.js must be the explicit read-only durable recovery-preflight addition'
+);
+
 assert.equal(
   expectedProductionFiles.size,
-  118,
-  'expected reconciled production inventory must contain 118 files'
+  119,
+  'expected reconciled production inventory must contain 119 files'
 );
 
 assert.equal(
@@ -711,7 +721,7 @@ expectedCodeViolationCompletionFiles.forEach(file => {
 });
 
 pass(
-  'Code Violations Production Completion Gate 1 surface is exactly two explicitly allowlisted read-only additive files'
+  'Code Violations Production Completion Gate 1 surface is exactly three explicitly allowlisted read-only additive files'
 );
 
 expectedPreservationFiles.forEach(file => {
@@ -733,7 +743,7 @@ pass(
 );
 
 pass(
-  'reconciled production integration is exactly 116 additive files plus ' +
+  'reconciled production integration is exactly ' + expectedProductionFiles.size + ' additive files plus ' +
     (
       CONTROLLED_MODIFIED_BUILD_FILES.length +
       POST_COUNTY_MODIFIED_PRODUCTION_FILES.length
