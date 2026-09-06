@@ -311,16 +311,30 @@ const source = read('PAPhiladelphiaCountyConnector.js');
 
 assert.ok(
   source.includes(
-    'orderByFields: "violationdate ASC, objectid ASC"'
+    'orderByFields: "violationdate ASC, violationnumber ASC"'
   ),
   'deterministic composite keyset ordering must remain intact'
 );
 
 assert.ok(
   source.includes(
-    'type: "arcgis-date-objectid-v1"'
+    'type: "arcgis-date-string-v1"'
   ),
   'code-violation keyset cursor domain must remain intact'
+);
+
+assert.ok(
+  source.includes(
+    'valueField: "violationnumber"'
+  ),
+  'Violation Number must be durable cursor authority'
+);
+
+assert.ok(
+  !source.includes(
+    'AND objectid <= 636638'
+  ),
+  'unstable ObjectID must not bound production source membership'
 );
 
 console.log(
