@@ -1,275 +1,159 @@
+#!/usr/bin/env node
 'use strict';
 
 const fs = require('fs');
-const path = require('path');
+const vm = require('vm');
 
-const target = path.join(
-  process.cwd(),
-  'build/apps-script-brand/CountyPage89SourceObservation622060Repair.js'
-);
+const FILE =
+  'build/apps-script-brand/' +
+  'CountyPage89SourceObservation622060Repair.js';
 
-const source = fs.readFileSync(
-  target,
-  'utf8'
-);
+function fail(message) {
+  console.error('FAIL:', message);
+  process.exit(1);
+}
 
 function assert(condition, message) {
   if (!condition) {
-    throw new Error(message);
+    fail(message);
   }
 }
 
-assert(
-  source.includes(
-    "var TARGET_OBJECT_ID = 622060;"
-  ),
-  'Target object 622060 must be immutable.'
-);
+const source =
+  fs.readFileSync(FILE, 'utf8');
 
-assert(
-  source.includes(
-    "var TARGET_ROW = 5422;"
-  ),
-  'Target physical row 5422 must be immutable.'
-);
+[
+  'RETIRED Page-89 ObjectID Repair',
+  'pa-philadelphia|code_violations|622060',
+  'DL-20260903195030-8061',
+  'VI-2026-027246',
+  'property|parcel|pa|philadelphia|518651',
+  '622924',
+  'SOURCE_CANONICAL_MATCH',
+  'No Page-89 repair authority exists.',
+  'reosCountyPage89SourceObservation622060Repair'
+].forEach(function (text) {
+  assert(
+    source.includes(text),
+    'Missing retirement authority: ' + text
+  );
+});
 
-assert(
-  source.includes(
-    "var TARGET_LEAD = 'DL-20260903195030-8061';"
-  ),
-  'Target distress lead must be immutable.'
-);
-
-assert(
-  source.includes(
-    "'pa-philadelphia|code_violations|622060'"
-  ),
-  'Source observation key must be immutable.'
-);
-
-assert(
-  source.includes(
-    "var OLD_PARCEL = '518651';"
-  ),
-  'Certified old parcel must be asserted.'
-);
-
-assert(
-  source.includes(
-    "var EXPECTED_PARCEL = '479933';"
-  ),
-  'Fresh source parcel must be asserted.'
-);
-
-assert(
-  source.includes(
-    "var EXPECTED_ADDRESS ="
-  ) &&
-  source.includes(
-    "'5518 JEFFERSON ST'"
-  ),
-  'Fresh source address must be asserted.'
-);
-
-assert(
-  source.includes(
-    "typeof REOS.Security.requireAdmin !== 'function'"
-  ) &&
-  source.includes(
-    "REOS.Security.requireAdmin();"
-  ),
-  'Repair must use canonical Security admin authority.'
-);
+[
+  '.setValues(',
+  '.setValue(',
+  '.deleteRow(',
+  '.deleteRows(',
+  'Database.insert(',
+  'Database.update(',
+  'Database.upsert(',
+  'Database.delete(',
+  'withScriptLockContext(',
+  'SpreadsheetApp',
+  'ScriptApp',
+  'UrlFetchApp',
+  'CountyCodeViolationSourceRecordDiagnostic',
+  'CountyProductionScheduler',
+  'CanonicalPropertyIdentity',
+  'PropertiesService',
+  'newTrigger('
+].forEach(function (text) {
+  assert(
+    !source.includes(text),
+    'Retired repair retains forbidden authority: ' +
+      text
+  );
+});
 
 assert(
   !source.includes(
-    "REOS.Admin.requireAdmin"
+    'repairAuthorityGranted: true'
   ),
-  'Repair must not derive admin authority from REOS.Admin.'
+  'Retired repair must grant no repair authority.'
+);
+
+const context = {
+  REOS: {}
+};
+
+vm.createContext(context);
+
+vm.runInContext(
+  source,
+  context,
+  {
+    filename: FILE
+  }
 );
 
 assert(
-  source.includes(
-    "options.confirmRepair !== true"
-  ),
-  'Explicit repair confirmation must be required.'
+  typeof context
+    .reosCountyPage89SourceObservation622060Repair ===
+    'function',
+  'Compatibility RPC must remain present.'
+);
+
+let blocked = false;
+let message = '';
+
+try {
+  context
+    .reosCountyPage89SourceObservation622060Repair(
+      {
+        confirmRepair: true,
+        sourceObservationKey:
+          'pa-philadelphia|code_violations|622060'
+      }
+    );
+} catch (error) {
+  blocked = true;
+  message =
+    String(
+      error &&
+      error.message
+        ? error.message
+        : error
+    );
+}
+
+assert(
+  blocked,
+  'Retired Page-89 RPC must always fail closed.'
 );
 
 assert(
-  source.includes(
-    "managedTriggerCount_() !== 0"
+  message.includes(
+    'Page-89 repair retired'
   ),
-  'Repair must require scheduler quiescence.'
+  'Retired RPC must state retirement authority.'
 );
 
 assert(
-  source.includes(
-    "requireCheckpointAuthority_();"
+  message.includes(
+    'VI-2026-027246'
   ),
-  'Repair must bind to certified checkpoint.'
+  'Retired RPC must identify durable observation authority.'
 );
 
 assert(
-  source.includes(
-    "typeof REOS.CountyProductionScheduler.getCheckpoint !== 'function'"
-  ) &&
-  source.includes(
-    "REOS.CountyProductionScheduler.getCheckpoint();"
+  message.includes(
+    'No Page-89 repair authority exists'
   ),
-  'Repair must use canonical county scheduler checkpoint API.'
-);
-
-assert(
-  !source.includes(
-    "REOS.CountyProductionScheduler.checkpoint"
-  ),
-  'Repair must not use nonexistent scheduler checkpoint API.'
-);
-
-assert(
-  source.includes(
-    '.CountyCodeViolationSourceRecordDiagnostic'
-  ) &&
-  source.includes(
-    '.run(TARGET_OBJECT_ID)'
-  ),
-  'Repair must revalidate fresh source through certified diagnostic.'
-);
-
-assert(
-  source.includes(
-    '.withScriptLockContext('
-  ),
-  'Repair must execute under ScriptLock.'
-);
-
-assert(
-  source.includes(
-    'downstreamReferences_()'
-  ),
-  'Repair must re-prove downstream reference safety.'
-);
-
-assert(
-  source.includes(
-    'writePhysicalRow_('
-  ),
-  'Repair must use bounded physical-row mutation.'
-);
-
-assert(
-  source.includes(
-    'verifyPoststate_('
-  ),
-  'Repair must perform post-write verification.'
-);
-
-assert(
-  source.includes(
-    'function normalizeDateForSheet_('
-  ) &&
-  source.includes(
-    "'Source Updated At'"
-  ) &&
-  source.includes(
-    "'Last Sale Date'"
-  ) &&
-  source.includes(
-    'normalizeDateForSheet_('
-  ),
-  'Repair must normalize source dates before physical Sheets write.'
-);
-
-assert(
-  source.includes(
-    'Page-89 repair fingerprint encountered invalid Date cell.'
-  ),
-  'Repair fingerprint must fail explicitly on invalid Date values.'
-);
-
-assert(
-  source.includes(
-    'function normalizeParcelForSheet_('
-  ) &&
-  source.includes(
-    'parcel !=='
-  ) &&
-  source.includes(
-    'EXPECTED_PARCEL'
-  ) &&
-  source.includes(
-    'String(numeric) !== parcel'
-  ) &&
-  source.includes(
-    "corrected['Parcel ID'] ="
-  ) &&
-  source.includes(
-    'normalizeParcelForSheet_('
-  ),
-  'Repair must normalize the certified Parcel ID to its physical Sheets round-trip type.'
-);
-
-assert(
-  source.includes(
-    'function comparePoststateCells_('
-  ) &&
-  source.includes(
-    'differences.length < 8'
-  ) &&
-  source.includes(
-    "'detail='"
-  ),
-  'Repair must expose bounded per-column poststate mismatch evidence.'
-);
-
-assert(
-  source.includes(
-    'var afterFingerprint ='
-  ) &&
-  source.includes(
-    'var expectedFingerprint ='
-  ) &&
-  source.includes(
-    'afterFingerprint !=='
-  ),
-  'Repair must retain the physical fingerprint acceptance gate.'
-);
-
-
-assert(
-  source.includes(
-    "writePhysicalRow_("
-  ) &&
-  source.includes(
-    "before.values"
-  ),
-  'Repair must support exact prestate rollback.'
-);
-
-assert(
-  source.includes(
-    'automatic retry prohibited'
-  ),
-  'Ambiguous rollback failures must prohibit automatic retry.'
-);
-
-assert(
-  source.includes(
-    'automaticOfferAuthorityGranted:'
-  ) &&
-  source.includes(
-    'false'
-  ),
-  'Repair must not grant offer authority.'
-);
-
-assert(
-  source.includes(
-    'repairAuthorityGranted:'
-  ),
-  'Repair result must not retain mutation authority.'
+  'Retired RPC must explicitly deny repair authority.'
 );
 
 console.log(
-  'Page-89 source observation 622060 repair static contract PASSED.'
+  'PASS: Page-89 ObjectID repair is permanently retired.'
+);
+
+console.log(
+  'PASS: compatibility RPC fails before all production I/O.'
+);
+
+console.log(
+  'PASS: durable VI-2026-027246 / parcel 518651 authority is preserved.'
+);
+
+console.log(
+  'Page-89 retired repair contract PASSED.'
 );
