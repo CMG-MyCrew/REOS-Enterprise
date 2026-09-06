@@ -181,15 +181,15 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         endpointProperty: "REOS_COUNTY_PA_PHILADELPHIA_CODE_VIOLATIONS_URL",
         enabled: true,
         maxLimit: 2000,
-        orderByFields: "violationdate ASC, objectid ASC",
+        orderByFields: "violationdate ASC, violationnumber ASC",
         sourceQuery: {
-          where: "violationdate >= TIMESTAMP '2025-09-01 00:00:00' AND caseprioritydesc IN ('UNSAFE','IMMINENTLY DANGEROUS','UNFIT','HAZARDOUS','UNLAWFUL') AND objectid <= 636638"
+          where: "violationdate >= TIMESTAMP '2025-09-01 00:00:00' AND caseprioritydesc IN ('UNSAFE','IMMINENTLY DANGEROUS','UNFIT','HAZARDOUS','UNLAWFUL')"
         },
         cursorDomain: {
-          type: "arcgis-date-objectid-v1",
-          id: "PHL-CODE-HIGH-SEED-20250901-OID636638-V1",
+          type: "arcgis-date-string-v1",
+          id: "PHL-CODE-HIGH-DURABLE-20250901-VIOLATIONNUMBER-V1",
           dateField: "violationdate",
-          objectIdField: "objectid"
+          valueField: "violationnumber"
         },
         recordFilter: {
           requireAny: [
@@ -456,7 +456,7 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
 
     if (
       parts.length !== 4 ||
-      parts[0] !== 'AK1' ||
+      parts[0] !== 'AK2' ||
       parts[1] !== domainId
     ) {
       throw new Error(
@@ -469,17 +469,17 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
     var dateMs =
       Number(parts[2]);
 
-    var objectId =
-      Number(parts[3]);
+    var keyValue =
+      String(parts[3] || '').trim();
 
     if (
       !isFinite(dateMs) ||
       Math.floor(dateMs) !== dateMs ||
       dateMs < 0 ||
       dateMs % 1000 !== 0 ||
-      !isFinite(objectId) ||
-      Math.floor(objectId) !== objectId ||
-      objectId < 0
+      !keyValue ||
+      keyValue.length > 64 ||
+      !/^[A-Za-z0-9._-]+$/.test(keyValue)
     ) {
       throw new Error(
         'ArcGIS keyset cursor is malformed for ' +
@@ -490,7 +490,7 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
 
     return {
       dateMs: dateMs,
-      objectId: objectId
+      keyValue: keyValue
     };
   }
 
@@ -510,10 +510,10 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
     }
 
     return [
-      'AK1',
+      'AK2',
       domainId,
       String(key.dateMs),
-      String(key.objectId)
+      String(key.keyValue)
     ].join('|');
   }
 
@@ -541,16 +541,21 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         domain.dateField || ''
       ).trim();
 
-    var objectIdField =
+    var valueField =
       String(
-        domain.objectIdField || ''
+        domain.valueField || ''
       ).trim();
 
     var dateMs =
       Number(raw[dateField]);
 
-    var objectId =
-      Number(raw[objectIdField]);
+    var keyValue =
+      String(
+        raw[valueField] === undefined ||
+        raw[valueField] === null
+          ? ''
+          : raw[valueField]
+      ).trim();
 
     if (
       !isFinite(dateMs) ||
@@ -566,20 +571,20 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
     }
 
     if (
-      !isFinite(objectId) ||
-      Math.floor(objectId) !== objectId ||
-      objectId < 0
+      !keyValue ||
+      keyValue.length > 64 ||
+      !/^[A-Za-z0-9._-]+$/.test(keyValue)
     ) {
       throw new Error(
         'ArcGIS keyset record has invalid ' +
-        objectIdField +
+        valueField +
         '.'
       );
     }
 
     return {
       dateMs: dateMs,
-      objectId: objectId
+      keyValue: keyValue
     };
   }
 
@@ -588,7 +593,13 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
       return left.dateMs - right.dateMs;
     }
 
-    return left.objectId - right.objectId;
+    if (left.keyValue === right.keyValue) {
+      return 0;
+    }
+
+    return left.keyValue < right.keyValue
+      ? -1
+      : 1;
   }
 
   function fetchArcGisKeyset_(
@@ -607,15 +618,15 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         domain.dateField || ''
       ).trim();
 
-    var objectIdField =
+    var valueField =
       String(
-        domain.objectIdField || ''
+        domain.valueField || ''
       ).trim();
 
     if (
       !domain.id ||
       !dateField ||
-      !objectIdField
+      !valueField
     ) {
       throw new Error(
         'ArcGIS keyset domain is incomplete for ' +
@@ -731,7 +742,7 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
             (
               dateField +
               ' ASC, ' +
-              objectIdField +
+              valueField +
               ' ASC'
             )
         );
@@ -749,17 +760,16 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         " = TIMESTAMP '" +
         timestamp +
         "' AND " +
-        objectIdField +
-        ' > ' +
-        String(
-          incoming.objectId
-        );
+        valueField +
+        " > '" +
+        incoming.keyValue +
+        "'";
 
       var sameTimestamp =
         fetchPart_(
           sameTimestampWhere,
           limit,
-          objectIdField +
+          valueField +
             ' ASC'
         );
 
@@ -790,7 +800,7 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
               (
                 dateField +
                 ' ASC, ' +
-                objectIdField +
+                valueField +
                 ' ASC'
               )
           );
@@ -890,7 +900,7 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
       definition.adapter === 'arcgis' &&
       definition.cursorDomain &&
       definition.cursorDomain.type ===
-        'arcgis-date-objectid-v1'
+        'arcgis-date-string-v1'
     ) {
       return fetchArcGisKeyset_(
         definition,

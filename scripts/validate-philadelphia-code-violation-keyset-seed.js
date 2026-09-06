@@ -31,7 +31,7 @@ const source =
   );
 
 const DOMAIN_ID =
-  'PHL-CODE-HIGH-SEED-20250901-OID636638-V1';
+  'PHL-CODE-HIGH-DURABLE-20250901-VIOLATIONNUMBER-V1';
 
 let registered = null;
 let adapterCalls = [];
@@ -144,13 +144,13 @@ const definition =
 
 assert.equal(
   definition.orderByFields,
-  'violationdate ASC, objectid ASC',
+  'violationdate ASC, violationnumber ASC',
   'keyset ordering changed'
 );
 
 assert.equal(
   definition.cursorDomain.type,
-  'arcgis-date-objectid-v1',
+  'arcgis-date-string-v1',
   'keyset cursor type changed'
 );
 
@@ -167,19 +167,19 @@ assert.equal(
 );
 
 assert.equal(
-  definition.cursorDomain.objectIdField,
-  'objectid',
-  'keyset object-ID field changed'
+  definition.cursorDomain.valueField,
+  'violationnumber',
+  'keyset durable value field changed'
 );
 
 assert.equal(
   definition.sourceQuery.where,
-  "violationdate >= TIMESTAMP '2025-09-01 00:00:00' AND caseprioritydesc IN ('UNSAFE','IMMINENTLY DANGEROUS','UNFIT','HAZARDOUS','UNLAWFUL') AND objectid <= 636638",
+  "violationdate >= TIMESTAMP '2025-09-01 00:00:00' AND caseprioritydesc IN ('UNSAFE','IMMINENTLY DANGEROUS','UNFIT','HAZARDOUS','UNLAWFUL')",
   'certified frozen seed predicate changed'
 );
 
 console.log(
-  'PASS: exact frozen HIGH-distress seed domain declared.'
+  'PASS: uncapped durable HIGH-distress source domain declared.'
 );
 
 const equalsRules =
@@ -214,6 +214,8 @@ function record(
       dateMs,
     objectid:
       objectId,
+    violationnumber:
+      'VI-' + String(objectId),
     caseprioritydesc:
       'UNSAFE',
     violationstatus:
@@ -314,7 +316,7 @@ assert.equal(
   adapterCalls[0]
     .options
     .orderByFields,
-  'violationdate ASC, objectid ASC',
+  'violationdate ASC, violationnumber ASC',
   'initial ordering changed'
 );
 
@@ -329,13 +331,13 @@ assert.equal(
 
 const expectedFirstCursor =
   [
-    'AK1',
+    'AK2',
     DOMAIN_ID,
     String(
       baseDate +
       49 * 1000
     ),
-    '1049'
+    'VI-1049'
   ].join('|');
 
 assert.equal(
@@ -345,7 +347,7 @@ assert.equal(
 );
 
 console.log(
-  'PASS: empty cursor produces exact AK1 composite cursor.'
+  'PASS: empty cursor produces exact AK2 durable cursor.'
 );
 
 adapterCalls = [];
@@ -439,7 +441,7 @@ assert.match(
   adapterCalls[0]
     .options
     .where,
-  /objectid > 1049/
+  /violationnumber > 'VI-1049'/
 );
 
 assert.match(
@@ -478,7 +480,7 @@ assert.equal(
 
 assert.ok(
   second.nextCursor.startsWith(
-    'AK1|' +
+    'AK2|' +
     DOMAIN_ID +
     '|'
   ),
@@ -524,7 +526,7 @@ assert.equal(
 );
 
 console.log(
-  'PASS: partial page terminates keyset seed domain.'
+  'PASS: partial page terminates durable keyset domain.'
 );
 
 adapterCalls = [];
@@ -561,9 +563,34 @@ assert.throws(
   () =>
     registered.fetch(
       fetchContext(
-        'AK1|WRONG-DOMAIN|' +
+        'AK1|PHL-CODE-HIGH-SEED-20250901-OID636638-V1|' +
         String(baseDate) +
-        '|1'
+        '|1049'
+      )
+    ),
+  /cursor domain mismatch/,
+  'historical production AK1 checkpoint must fail closed'
+);
+
+assert.equal(
+  adapterCalls.length,
+  0,
+  'historical AK1 checkpoint reached adapter/network'
+);
+
+console.log(
+  'PASS: historical production AK1 checkpoint fails before adapter/network.'
+);
+
+adapterCalls = [];
+
+assert.throws(
+  () =>
+    registered.fetch(
+      fetchContext(
+        'AK2|WRONG-DOMAIN|' +
+        String(baseDate) +
+        '|VI-1'
       )
     ),
   /cursor domain mismatch/,
@@ -725,5 +752,5 @@ console.log(
 
 console.log('');
 console.log(
-  'PASS: PHILADELPHIA CODE-VIOLATION KEYSET SEED V1 CONTRACT CERTIFIED.'
+  'PASS: PHILADELPHIA CODE-VIOLATION DURABLE KEYSET V1 CONTRACT CERTIFIED.'
 );

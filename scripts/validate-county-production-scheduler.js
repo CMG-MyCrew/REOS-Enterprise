@@ -124,25 +124,32 @@ assert(
 
 assert(
   codeViolationsBlock.includes(
-    'orderByFields: "violationdate ASC, objectid ASC"'
+    'orderByFields: "violationdate ASC, violationnumber ASC"'
   ),
   'scheduled code_violations uses deterministic composite keyset ordering'
 );
 
 assert(
   codeViolationsBlock.includes(
-    'type: "arcgis-date-objectid-v1"'
+    'type: "arcgis-date-string-v1"'
   ) &&
     codeViolationsBlock.includes(
-      'id: "PHL-CODE-HIGH-SEED-20250901-OID636638-V1"'
+      'id: "PHL-CODE-HIGH-DURABLE-20250901-VIOLATIONNUMBER-V1"'
     ) &&
     codeViolationsBlock.includes(
       'dateField: "violationdate"'
     ) &&
     codeViolationsBlock.includes(
-      'objectIdField: "objectid"'
+      'valueField: "violationnumber"'
     ),
   'scheduled code_violations preserves certified composite cursor domain'
+);
+
+assert(
+  !codeViolationsBlock.includes(
+    'objectid <= 636638'
+  ),
+  'scheduled code_violations must not derive source membership from unstable ObjectID'
 );
 
 assert(
