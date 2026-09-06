@@ -138,6 +138,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-identity-historical-audit.js',
   'validate-county-code-violation-durable-identity-audit.js',
   'validate-county-code-violation-durable-source-reconciliation.js',
+  'validate-code-violations-gate1-recovery-authority.js',
   'validate-county-identity-source-reconciliation.js',
   'validate-county-identity-repair-evidence-export.js',
   'validate-county-identity-reference-audit.js',
@@ -545,7 +546,8 @@ const expectedCountyPage86RepairFiles = new Set([
  * an arbitrary additional production build file.
  */
 const expectedCodeViolationCompletionFiles = new Set([
-  'build/apps-script-brand/CountyCodeViolationGate1Reconciliation.js'
+  'build/apps-script-brand/CountyCodeViolationGate1Reconciliation.js',
+  'build/apps-script-brand/CountyCodeViolationGate1RecoveryAuthority.js'
 ]);
 
 const expectedProductionFiles = new Set([
@@ -617,8 +619,8 @@ assert.ok(
 
 assert.equal(
   expectedCodeViolationCompletionFiles.size,
-  1,
-  'expected Code Violations Production Completion inventory must contain exactly 1 file'
+  2,
+  'expected Code Violations Production Completion inventory must contain exactly 2 files'
 );
 
 assert.ok(
@@ -628,10 +630,17 @@ assert.ok(
   'CountyCodeViolationGate1Reconciliation.js must be the explicit read-only Gate 1 production-completion addition'
 );
 
+assert.ok(
+  expectedCodeViolationCompletionFiles.has(
+    'build/apps-script-brand/CountyCodeViolationGate1RecoveryAuthority.js'
+  ),
+  'CountyCodeViolationGate1RecoveryAuthority.js must be the explicit read-only durable recovery-authority addition'
+);
+
 assert.equal(
   expectedProductionFiles.size,
-  117,
-  'expected reconciled production inventory must contain 117 files'
+  118,
+  'expected reconciled production inventory must contain 118 files'
 );
 
 assert.equal(
@@ -702,7 +711,7 @@ expectedCodeViolationCompletionFiles.forEach(file => {
 });
 
 pass(
-  'Code Violations Production Completion Gate 1 surface is exactly one explicitly allowlisted read-only additive file'
+  'Code Violations Production Completion Gate 1 surface is exactly two explicitly allowlisted read-only additive files'
 );
 
 expectedPreservationFiles.forEach(file => {
