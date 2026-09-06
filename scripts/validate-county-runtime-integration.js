@@ -537,12 +537,24 @@ const expectedCountyPage86RepairFiles = new Set([
   'build/apps-script-brand/CountyPage89SourceObservation622060Repair.js'
 ]);
 
+/*
+ * Code Violations Production Completion Gate 1 adds exactly one
+ * admin-only, read-only population reconciliation module.
+ *
+ * Keep this explicit so an inventory-count increase cannot authorize
+ * an arbitrary additional production build file.
+ */
+const expectedCodeViolationCompletionFiles = new Set([
+  'build/apps-script-brand/CountyCodeViolationGate1Reconciliation.js'
+]);
+
 const expectedProductionFiles = new Set([
   ...expectedCountyProductionFiles,
   ...expectedPreservationFiles,
   ...expectedCountySchedulerFiles,
   ...expectedCountyDiagnosticFiles,
-  ...expectedCountyPage86RepairFiles
+  ...expectedCountyPage86RepairFiles,
+  ...expectedCodeViolationCompletionFiles
 ]);
 
 assert.equal(
@@ -604,9 +616,22 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCodeViolationCompletionFiles.size,
+  1,
+  'expected Code Violations Production Completion inventory must contain exactly 1 file'
+);
+
+assert.ok(
+  expectedCodeViolationCompletionFiles.has(
+    'build/apps-script-brand/CountyCodeViolationGate1Reconciliation.js'
+  ),
+  'CountyCodeViolationGate1Reconciliation.js must be the explicit read-only Gate 1 production-completion addition'
+);
+
+assert.equal(
   expectedProductionFiles.size,
-  116,
-  'expected reconciled production inventory must contain 116 files'
+  117,
+  'expected reconciled production inventory must contain 117 files'
 );
 
 assert.equal(
@@ -666,6 +691,20 @@ pass(
   'Page-86/Page-89 repair production surface is exactly three explicitly allowlisted additive files'
 );
 
+expectedCodeViolationCompletionFiles.forEach(file => {
+  assert.ok(
+    diffEntries.some(entry =>
+      entry.file === file &&
+      entry.status === 'A'
+    ),
+    `expected Code Violations Production Completion file missing from baseline diff: ${file}`
+  );
+});
+
+pass(
+  'Code Violations Production Completion Gate 1 surface is exactly one explicitly allowlisted read-only additive file'
+);
+
 expectedPreservationFiles.forEach(file => {
   assert.ok(
     diffEntries.some(entry =>
@@ -685,7 +724,7 @@ pass(
 );
 
 pass(
-  'reconciled production integration is exactly 115 additive files plus ' +
+  'reconciled production integration is exactly 116 additive files plus ' +
     (
       CONTROLLED_MODIFIED_BUILD_FILES.length +
       POST_COUNTY_MODIFIED_PRODUCTION_FILES.length
