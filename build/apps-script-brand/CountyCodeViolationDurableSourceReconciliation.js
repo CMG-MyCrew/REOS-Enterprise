@@ -68,6 +68,89 @@ REOS.CountyCodeViolationDurableSourceReconciliation = (function () {
     return result;
   }
 
+  function normalizeObservationKeyText_(value) {
+    var parts = text_(value).split('|');
+
+    if (parts.length !== 3) {
+      return '';
+    }
+
+    return [
+      keyPart_(parts[0]),
+      keyPart_(parts[1]),
+      keyPart_(parts[2])
+    ].join('|');
+  }
+
+  function normalizeLegacyObservationKey_(value) {
+    var raw = text_(value);
+
+    if (!raw) {
+      return '';
+    }
+
+    var normalized =
+      normalizeObservationKeyText_(raw);
+
+    var parts = normalized.split('|');
+
+    if (
+      parts.length !== 3 ||
+      parts[0] !== keyPart_(CONNECTOR_ID) ||
+      parts[1] !== keyPart_(DATASET) ||
+      !/^[0-9]+$/.test(parts[2])
+    ) {
+      throw new Error(
+        'Durable source reconciliation requires one valid legacy observation key.'
+      );
+    }
+
+    return normalized;
+  }
+
+  function rowLegacyObservationKey_(row) {
+    var stored =
+      text_(row['Source Observation Key']) ||
+      text_(row['Source Record Key']);
+
+    var normalizedStored =
+      normalizeObservationKeyText_(stored);
+
+    if (normalizedStored) {
+      return normalizedStored;
+    }
+
+    try {
+      var resolved =
+        REOS.CanonicalPropertyIdentity.resolve(row);
+
+      var resolvedKey =
+        normalizeObservationKeyText_(
+          resolved &&
+          resolved.sourceObservationKey
+        );
+
+      if (resolvedKey) {
+        return resolvedKey;
+      }
+    } catch (error) {
+      /* Read-only reconciliation falls through to legacy reconstruction. */
+    }
+
+    var sourceRecordId =
+      text_(row['Source Record ID']);
+
+    if (!sourceRecordId) {
+      return '';
+    }
+
+    return [
+      keyPart_(row.Source),
+      keyPart_(row['Source Dataset']),
+      keyPart_(sourceRecordId)
+    ].join('|');
+  }
+
   function sqlString_(value) {
     return "'" +
       text_(value).replace(/'/g, "''") +
@@ -129,7 +212,9 @@ REOS.CountyCodeViolationDurableSourceReconciliation = (function () {
     if (
       !REOS.CanonicalPropertyIdentity ||
       typeof REOS.CanonicalPropertyIdentity
-        .tryCanonicalPropertyIdentity !== 'function'
+        .tryCanonicalPropertyIdentity !== 'function' ||
+      typeof REOS.CanonicalPropertyIdentity
+        .resolve !== 'function'
     ) {
       throw new Error('Canonical property identity is required.');
     }
@@ -237,12 +322,20 @@ REOS.CountyCodeViolationDurableSourceReconciliation = (function () {
     };
   }
 
-  function run(violationNumber) {
+  function run(
+    violationNumber,
+    legacyObservationKey
+  ) {
     requireDependencies_();
     REOS.Security.requireAdmin();
 
     var target =
       normalizeViolationNumber_(violationNumber);
+
+    var legacyTarget =
+      normalizeLegacyObservationKey_(
+        legacyObservationKey
+      );
 
     if (managedTriggerCount_() !== 0) {
       throw new Error(
@@ -313,10 +406,23 @@ REOS.CountyCodeViolationDurableSourceReconciliation = (function () {
       REOS.Database
         .getAll(TABLE)
         .filter(function (row) {
+          if (
+            text_(row.Source) !== CONNECTOR_ID ||
+            text_(row['Source Dataset']) !== DATASET
+          ) {
+            return false;
+          }
+
+          if (legacyTarget) {
+            return (
+              rowLegacyObservationKey_(row) ===
+              legacyTarget
+            );
+          }
+
           return (
-            text_(row.Source) === CONNECTOR_ID &&
-            text_(row['Source Dataset']) === DATASET &&
-            text_(row['Violation Number']).toUpperCase() === target
+            text_(row['Violation Number'])
+              .toUpperCase() === target
           );
         })
         .map(persistedSummary_);
@@ -374,6 +480,14 @@ REOS.CountyCodeViolationDurableSourceReconciliation = (function () {
       dataset: DATASET,
       violationNumber: target,
 
+      legacyObservationKey:
+        legacyTarget,
+
+      persistedSelectionMode:
+        legacyTarget
+          ? 'LEGACY_OBSERVATION_KEY'
+          : 'DURABLE_VIOLATION_NUMBER',
+
       proposedDurableKey: [
         keyPart_(CONNECTOR_ID),
         keyPart_(DATASET),
@@ -419,9 +533,13 @@ REOS.CountyCodeViolationDurableSourceReconciliation = (function () {
 
 
 function reosCountyCodeViolationDurableSourceReconciliation(
-  violationNumber
+  violationNumber,
+  legacyObservationKey
 ) {
   return REOS
     .CountyCodeViolationDurableSourceReconciliation
-    .run(violationNumber);
+    .run(
+      violationNumber,
+      legacyObservationKey
+    );
 }

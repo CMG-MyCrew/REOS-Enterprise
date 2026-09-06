@@ -85,6 +85,24 @@ requireText(
 
 requireText(
   source,
+  'legacyObservationKey',
+  'Expected optional legacy observation binding.'
+);
+
+requireText(
+  source,
+  'persistedSelectionMode',
+  'Expected explicit persisted selection mode.'
+);
+
+requireText(
+  source,
+  'LEGACY_OBSERVATION_KEY',
+  'Expected exact legacy-observation selection authority.'
+);
+
+requireText(
+  source,
   'readOnly: true',
   'Expected explicit read-only result contract.'
 );
@@ -390,7 +408,49 @@ function harness(options) {
 
       CanonicalPropertyIdentity: {
         tryCanonicalPropertyIdentity:
-          canonical
+          canonical,
+
+        resolve(row) {
+          const stored =
+            String(
+              row['Source Observation Key'] ||
+              row['Source Record Key'] ||
+              ''
+            ).trim();
+
+          const sourceRecordId =
+            String(
+              row['Source Record ID'] || ''
+            ).trim();
+
+          const observationKey =
+            stored ||
+            [
+              String(row.Source || '')
+                .trim()
+                .toLowerCase(),
+              String(row['Source Dataset'] || '')
+                .trim()
+                .toLowerCase(),
+              sourceRecordId.toLowerCase()
+            ].join('|');
+
+          const property =
+            canonical(row);
+
+          if (!observationKey || !property.ok) {
+            throw new Error(
+              'Synthetic identity unavailable.'
+            );
+          }
+
+          return {
+            sourceObservationKey:
+              observationKey,
+            canonicalPropertyKey:
+              property.key
+          };
+        }
       }
     }
   };
@@ -418,12 +478,16 @@ function expectClassification(
   name,
   options,
   violationNumber,
-  expected
+  expected,
+  legacyObservationKey
 ) {
   const test = harness(options);
 
   const result =
-    test.run(violationNumber);
+    test.run(
+      violationNumber,
+      legacyObservationKey
+    );
 
   assert(
     result.classification === expected,
@@ -437,6 +501,22 @@ function expectClassification(
   assert(
     result.readOnly === true,
     name + ': readOnly must be true.'
+  );
+
+  assert(
+    result.persistedSelectionMode ===
+      (
+        legacyObservationKey
+          ? 'LEGACY_OBSERVATION_KEY'
+          : 'DURABLE_VIOLATION_NUMBER'
+      ),
+    name + ': persisted selection mode mismatch.'
+  );
+
+  assert(
+    result.legacyObservationKey ===
+      (legacyObservationKey || ''),
+    name + ': legacy observation binding mismatch.'
   );
 
   [
@@ -634,6 +714,80 @@ expectClassification(
   'VI-TEST-007',
   'SOURCE_NOT_PERSISTED'
 );
+
+(function testLegacyObservationBinding() {
+  const legacy =
+    persistedRow(
+      'VI-STALE-HISTORICAL',
+      '518651',
+      5422
+    );
+
+  legacy['Distress Lead ID'] =
+    'DL-20260903195030-8061';
+
+  legacy['Source Record ID'] =
+    '622060';
+
+  legacy['Source Observation Key'] =
+    'pa-philadelphia|code_violations|622060';
+
+  expectClassification(
+    'legacy observation binding survives stale persisted violation number',
+    {
+      sourceRows: [
+        sourceRow(
+          'VI-2026-049113',
+          622402,
+          '479933'
+        )
+      ],
+      persistedRows: [
+        legacy
+      ]
+    },
+    'VI-2026-049113',
+    'SOURCE_PERSISTED_PROPERTY_MISMATCH',
+    'pa-philadelphia|code_violations|622060'
+  );
+
+  console.log(
+    'PASS: durable source query remains independent of legacy ObjectID'
+  );
+})();
+
+(function testLegacyObservationValidation() {
+  const test = harness({});
+
+  let blocked = false;
+
+  try {
+    test.run(
+      'VI-TEST-LEGACY',
+      'pa-philadelphia|code_violations|not-an-objectid'
+    );
+  } catch (error) {
+    blocked =
+      String(error.message || error)
+        .includes(
+          'requires one valid legacy observation key'
+        );
+  }
+
+  assert(
+    blocked,
+    'invalid legacy observation key must fail closed.'
+  );
+
+  assert(
+    test.fetchCalls.length === 0,
+    'invalid legacy binding must block before source read.'
+  );
+
+  console.log(
+    'PASS: legacy observation-key validation fail-closed'
+  );
+})();
 
 (function testSchedulerGate() {
   const test =
