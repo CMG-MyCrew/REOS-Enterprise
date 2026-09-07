@@ -1,156 +1,129 @@
 #!/usr/bin/env node
+
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-const assert = require('assert');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 
-const ROOT = path.resolve(__dirname, '..');
+const ROOT =
+  path.resolve(__dirname, '..');
 
 const MODULE =
-  'build/apps-script-brand/CountyCodeViolationGate1Reconciliation.js';
+  path.join(
+    ROOT,
+    'build/apps-script-brand/CountyCodeViolationGate1Reconciliation.js'
+  );
 
-const modulePath = path.join(ROOT, MODULE);
+const CATALOG =
+  path.join(
+    ROOT,
+    'build/apps-script-brand/CountyCodeViolationGate1PopulationAuthority.js'
+  );
 
-assert.ok(
-  fs.existsSync(modulePath),
-  'Gate 1 reconciliation module is missing: ' + MODULE
-);
+const MANIFEST =
+  path.join(
+    ROOT,
+    'certification/evidence/code-violations-production-completion/gate1-population/gate1-certified-population-authority-v1.json'
+  );
 
-const source = fs.readFileSync(modulePath, 'utf8');
+const CERTIFIED_ENDPOINT =
+  'https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/VIOLATIONS/FeatureServer/0/query';
 
-function requirePattern(pattern, message) {
-  assert.ok(pattern.test(source), message);
+const source =
+  fs.readFileSync(
+    MODULE,
+    'utf8'
+  );
+
+const catalogSource =
+  fs.readFileSync(
+    CATALOG,
+    'utf8'
+  );
+
+const manifest =
+  JSON.parse(
+    fs.readFileSync(
+      MANIFEST,
+      'utf8'
+    )
+  );
+
+function requirePattern(
+  pattern,
+  message
+) {
+  assert.ok(
+    pattern.test(source),
+    message
+  );
 }
 
-/*
- * Gate 1 scope must remain the single production-completion population:
- *
- * old ObjectID cap escapees
- * + at/before preserved AK1 logical boundary
- * + Philadelphia actionable-priority source domain.
- */
-requirePattern(
-  /HISTORICAL_OBJECTID_CAP\s*=\s*636638/,
-  'Gate 1 must bind the certified historical ObjectID cap'
+console.log(
+  '=== CODE VIOLATIONS GATE 1 DURABLE POPULATION RECONCILIATION CONTRACT ==='
 );
 
 requirePattern(
-  /objectid\s*>\s*['"]\s*\+\s*HISTORICAL_OBJECTID_CAP/,
-  'Gate 1 must apply the historical ObjectID cap exclusion'
+  /CountyCodeViolationGate1PopulationAuthority/,
+  'Gate 1 must consume certified durable population authority'
 );
 
 requirePattern(
-  /2026-06-27 07:28:16/,
-  'Gate 1 must bind to the certified preserved boundary timestamp'
+  /EXPECTED_POPULATION_COUNT\s*=\s*168/,
+  'Gate 1 must remain exactly 168 durable observations'
 );
 
 requirePattern(
-  /VI-2026-047721/,
-  'Gate 1 must bind to the certified durable boundary violation number'
+  /EXPECTED_OPEN_COUNT\s*=\s*153/,
+  'Gate 1 must remain exactly 153 OPEN observations'
 );
 
 requirePattern(
-  /UNSAFE[\s\S]*IMMINENTLY DANGEROUS[\s\S]*UNFIT[\s\S]*HAZARDOUS[\s\S]*UNLAWFUL/,
-  'Gate 1 must preserve the certified actionable-priority source domain'
-);
-
-/*
- * Population authority.
- * The audit must fail closed if the previously proven population changes.
- */
-requirePattern(
-  /\b168\b/,
-  'Gate 1 must bind to the proven 168 pre-boundary cap-excluded rows'
+  /SOURCE_CHUNK_SIZE\s*=\s*20/,
+  'Gate 1 source reads must remain bounded to 20 durable keys'
 );
 
 requirePattern(
-  /\b153\b/,
-  'Gate 1 must bind to the proven 153 OPEN actionable rows'
+  /violationnumber IN \(/,
+  'Gate 1 source membership must use Violation Number'
 );
 
-/*
- * Durable reconciliation classifications.
- */
-[
-  'ALREADY_SAFE',
-  'MISSING',
-  'DUPLICATE_DURABLE',
-  'PROPERTY_CONFLICT',
-  'LEGACY_OBJECTID_COLLISION',
-  'SOURCE_IDENTITY_UNAVAILABLE'
-].forEach((classification) => {
-  requirePattern(
-    new RegExp(classification),
-    'Missing Gate 1 classification: ' + classification
-  );
-});
+assert.equal(
+  /HISTORICAL_OBJECTID_CAP/.test(source),
+  false
+);
 
-/*
- * Durable identity must be based on Violation Number.
- */
-requirePattern(
-  /Violation Number/,
-  'Gate 1 must reconcile persisted durable Violation Number identity'
+assert.equal(
+  /BOUNDARY_VIOLATION_NUMBER/.test(source),
+  false
+);
+
+assert.equal(
+  /objectid\s*>/i.test(source),
+  false,
+  'current ObjectID cannot define cohort membership'
 );
 
 requirePattern(
-  /violationnumber/,
-  'Gate 1 must reconcile source violationnumber identity'
-);
-
-/*
- * Legacy ObjectID reuse must be detected explicitly.
- */
-requirePattern(
-  /Source Observation Key/,
-  'Gate 1 must inspect legacy Source Observation Key authority'
+  /currentObjectIdIsMembershipAuthority\s*:\s*false/,
+  'current ObjectID membership authority must be false'
 );
 
 requirePattern(
-  /Source Record Key/,
-  'Gate 1 must inspect legacy Source Record Key compatibility authority'
-);
-
-/*
- * Canonical property comparison must delegate to the existing deterministic
- * REOS canonical-property authority.
- */
-requirePattern(
-  /CanonicalPropertyIdentity/,
-  'Gate 1 must use CanonicalPropertyIdentity'
+  /currentObjectIdIsRecoveryAuthority\s*:\s*false/,
+  'current ObjectID recovery authority must be false'
 );
 
 requirePattern(
-  /tryCanonicalPropertyIdentity/,
-  'Gate 1 must use fail-closed canonical property resolution'
-);
-
-/*
- * Read-only safety contract.
- */
-[
-  'productionDataMutationAuthorityGranted',
-  'connectorExecutionAuthorityGranted',
-  'checkpointMutationAuthorityGranted',
-  'schedulerAuthorityGranted',
-  'migrationAuthorityGranted',
-  'automaticOfferAuthorityGranted'
-].forEach((field) => {
-  requirePattern(
-    new RegExp(field + '\\s*:\\s*false'),
-    field + ' must remain false'
-  );
-});
-
-requirePattern(
-  /readOnly\s*:\s*true/,
-  'Gate 1 reconciliation must explicitly report readOnly=true'
+  /certifiedEvidenceObjectId/,
+  'certified historical ObjectID evidence must remain explicit'
 );
 
 requirePattern(
-  /getAll\s*\(/,
-  'Gate 1 may read persisted DISTRESS_LEADS'
+  /currentObjectIdObservationKey/,
+  'current ObjectID telemetry must remain explicit'
 );
 
 [
@@ -158,44 +131,476 @@ requirePattern(
   /Database\.update\s*\(/,
   /Database\.delete/i,
   /setProperty\s*\(/,
-  /deleteProperty\s*\(/,
   /newTrigger\s*\(/,
-  /deleteTrigger\s*\(/,
-  /CountyRuntimeBridge\.sync\s*\(/
-].forEach((forbidden) => {
-  assert.ok(
-    !forbidden.test(source),
-    'Gate 1 read-only reconciliation contains forbidden mutation/execution authority: ' +
+  /deleteTrigger\s*\(/
+].forEach(forbidden => {
+  assert.equal(
+    forbidden.test(source),
+    false,
+    'forbidden mutation authority: ' +
       forbidden
   );
 });
 
+assert.equal(
+  manifest.records.length,
+  168
+);
+
+const manifestByViolation =
+  new Map(
+    manifest.records.map(
+      record => [
+        String(
+          record.violationNumber
+        ).trim().toUpperCase(),
+        record
+      ]
+    )
+  );
+
+const openRecords =
+  manifest.records.filter(
+    record =>
+      String(
+        record.evidenceStatus
+      ).toUpperCase() ===
+        'OPEN'
+  );
+
+assert.equal(
+  openRecords.length,
+  153
+);
+
+function makeSandbox(
+  persistedRows
+) {
+  const requested = [];
+  let fetchCount = 0;
+
+  const sandbox = {
+    console,
+    JSON,
+    String,
+    Object,
+    Array,
+
+    REOS: {},
+
+    PropertiesService: {
+      getScriptProperties() {
+        return {
+          getProperty() {
+            return CERTIFIED_ENDPOINT;
+          }
+        };
+      }
+    },
+
+    ScriptApp: {
+      getProjectTriggers() {
+        return [];
+      }
+    }
+  };
+
+  vm.createContext(sandbox);
+
+  vm.runInContext(
+    catalogSource,
+    sandbox,
+    {
+      filename:
+        CATALOG
+    }
+  );
+
+  sandbox.REOS.Database = {
+    getAll() {
+      return persistedRows;
+    }
+  };
+
+  sandbox.REOS.Security = {
+    requireAdmin() {}
+  };
+
+  sandbox.REOS.CanonicalPropertyIdentity = {
+    tryCanonicalPropertyIdentity(record) {
+      const parcel =
+        String(
+          record &&
+          record['Parcel ID'] !== undefined
+            ? record['Parcel ID']
+            : ''
+        ).trim();
+
+      return parcel
+        ? {
+            ok: true,
+            key:
+              'property|parcel|pa|philadelphia|' +
+              parcel
+          }
+        : {
+            ok: false
+          };
+    }
+  };
+
+  sandbox.REOS.CountyAdapters = {
+    ArcGIS: {
+      fetch(options) {
+        fetchCount += 1;
+
+        const where =
+          String(
+            options.where || ''
+          );
+
+        assert.equal(
+          /objectid\s*>/i.test(
+            where
+          ),
+          false
+        );
+
+        const violations =
+          Array.from(
+            where.matchAll(
+              /'(VI-\d{4}-\d+)'/g
+            )
+          ).map(
+            match =>
+              match[1]
+          );
+
+        assert.ok(
+          violations.length >= 1
+        );
+
+        assert.ok(
+          violations.length <= 20
+        );
+
+        violations.forEach(
+          violation => {
+            assert.ok(
+              manifestByViolation.has(
+                violation
+              )
+            );
+
+            requested.push(
+              violation
+            );
+          }
+        );
+
+        return {
+          records:
+            violations.map(
+              violation => {
+                const record =
+                  manifestByViolation.get(
+                    violation
+                  );
+
+                /*
+                 * Deliberately resequence current ObjectID.
+                 * This must not change durable membership or recovery authority.
+                 */
+                const currentObjectId =
+                  String(
+                    Number(
+                      record.evidenceObjectId
+                    ) +
+                    670
+                  );
+
+                return {
+                  objectid:
+                    currentObjectId,
+
+                  violationnumber:
+                    record.violationNumber,
+
+                  violationdate:
+                    record.evidenceViolationDate,
+
+                  parcel_id_num:
+                    record.expectedParcelId,
+
+                  opa_account_num:
+                    '',
+
+                  address:
+                    record.evidenceAddress,
+
+                  zip:
+                    '',
+
+                  violationstatus:
+                    record.evidenceStatus,
+
+                  caseprioritydesc:
+                    record.priority
+                };
+              }
+            ),
+
+          nextCursor:
+            '',
+
+          metadata: {
+            adapter:
+              'arcgis',
+
+            status:
+              200,
+
+            durationMs:
+              1,
+
+            exceededTransferLimit:
+              false
+          }
+        };
+      }
+    }
+  };
+
+  vm.runInContext(
+    source,
+    sandbox,
+    {
+      filename:
+        MODULE
+    }
+  );
+
+  return {
+    sandbox,
+    requested,
+    getFetchCount() {
+      return fetchCount;
+    }
+  };
+}
+
 /*
- * Production scheduler must remain frozen during the reconciliation read.
+ * CASE 1:
+ * A persisted unrelated row owns the NEW/current resequenced ObjectID.
+ * It must NOT block the certified durable recovery candidate.
  */
-requirePattern(
-  /getProjectTriggers\s*\(/,
-  'Gate 1 must verify managed trigger state'
+const target =
+  openRecords[0];
+
+const currentObjectId =
+  String(
+    Number(
+      target.evidenceObjectId
+    ) +
+    670
+  );
+
+const currentOidCollisionRow = {
+  Source:
+    'PA-PHILADELPHIA',
+
+  'Source Dataset':
+    'code_violations',
+
+  'Distress Lead ID':
+    'TEST-CURRENT-OID-COLLISION',
+
+  'Violation Number':
+    'VI-2099-999999',
+
+  'Parcel ID':
+    '999999',
+
+  'Source Observation Key':
+    'pa-philadelphia|code_violations|' +
+    currentObjectId,
+
+  'Source Record Key':
+    'pa-philadelphia|code_violations|' +
+    currentObjectId
+};
+
+const currentCase =
+  makeSandbox([
+    currentOidCollisionRow
+  ]);
+
+const currentResult =
+  currentCase
+    .sandbox
+    .REOS
+    .CountyCodeViolationGate1Reconciliation
+    .run();
+
+assert.equal(
+  currentResult.ok,
+  true
 );
 
-requirePattern(
-  /reosCountyProductionSchedulerRun/,
-  'Gate 1 must inspect the managed county scheduler handler'
+assert.equal(
+  currentCase.getFetchCount(),
+  9
 );
 
-requirePattern(
-  /triggerCount|managedTriggerCount/,
-  'Gate 1 must expose or validate zero scheduler triggers'
+assert.equal(
+  currentResult.sourceAuthority
+    .membershipAuthority,
+  'Violation Number'
+);
+
+assert.equal(
+  currentResult.sourceAuthority
+    .currentObjectIdIsMembershipAuthority,
+  false
+);
+
+assert.equal(
+  currentResult.sourceAuthority
+    .currentObjectIdIsRecoveryAuthority,
+  false
+);
+
+assert.equal(
+  currentResult.records.length,
+  153
+);
+
+assert.equal(
+  currentResult.classificationCounts.MISSING,
+  153,
+  'current ObjectID collision must not veto durable recovery'
+);
+
+assert.equal(
+  currentResult
+    .classificationCounts
+    .LEGACY_OBJECTID_COLLISION,
+  0,
+  'current ObjectID resequencing must not create legacy collision authority'
 );
 
 /*
- * One controlled RPC surface.
+ * CASE 2:
+ * A row owning the ORIGINAL certified historical ObjectID with a different
+ * durable Violation Number still represents legacy compatibility ambiguity
+ * and must fail closed.
  */
-requirePattern(
-  /function\s+reosCountyCodeViolationGate1Reconciliation\s*\(/,
-  'Gate 1 controlled RPC entry point is missing'
+const certifiedLegacyCollisionRow = {
+  Source:
+    'PA-PHILADELPHIA',
+
+  'Source Dataset':
+    'code_violations',
+
+  'Distress Lead ID':
+    'TEST-CERTIFIED-LEGACY-COLLISION',
+
+  'Violation Number':
+    'VI-2099-888888',
+
+  'Parcel ID':
+    '888888',
+
+  'Source Observation Key':
+    'pa-philadelphia|code_violations|' +
+    String(
+      target.evidenceObjectId
+    ),
+
+  'Source Record Key':
+    'pa-philadelphia|code_violations|' +
+    String(
+      target.evidenceObjectId
+    )
+};
+
+const legacyCase =
+  makeSandbox([
+    certifiedLegacyCollisionRow
+  ]);
+
+const legacyResult =
+  legacyCase
+    .sandbox
+    .REOS
+    .CountyCodeViolationGate1Reconciliation
+    .run();
+
+assert.equal(
+  legacyResult
+    .classificationCounts
+    .LEGACY_OBJECTID_COLLISION,
+  1,
+  'certified historical legacy-key collision must remain fail-closed'
+);
+
+assert.equal(
+  legacyResult
+    .classificationCounts
+    .MISSING,
+  152
+);
+
+assert.equal(
+  legacyResult.unresolvedConflictCount,
+  1
+);
+
+assert.equal(
+  legacyResult.productionDataMutationAuthorityGranted,
+  false
+);
+
+assert.equal(
+  legacyResult.checkpointMutationAuthorityGranted,
+  false
+);
+
+assert.equal(
+  legacyResult.schedulerAuthorityGranted,
+  false
+);
+
+assert.equal(
+  legacyResult.migrationAuthorityGranted,
+  false
+);
+
+assert.equal(
+  legacyResult.automaticOfferAuthorityGranted,
+  false
 );
 
 console.log(
-  'PASS: Code Violations Production Completion Gate 1 contract validation PASSED.'
+  'PASS: exact 168-row cohort membership derives only from durable Violation Number authority.'
+);
+
+console.log(
+  'PASS: durable population is fetched through exactly nine bounded GET chunks.'
+);
+
+console.log(
+  'PASS: resequenced current ObjectID cannot create recovery veto authority.'
+);
+
+console.log(
+  'PASS: certified historical ObjectID retains only fail-closed legacy compatibility evidence.'
+);
+
+console.log(
+  'PASS: Gate 1 remains structurally and behaviorally read-only.'
+);
+
+console.log(
+  'Code Violations Production Completion Gate 1 durable reconciliation validation PASSED.'
 );

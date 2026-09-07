@@ -138,6 +138,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-identity-historical-audit.js',
   'validate-county-code-violation-durable-identity-audit.js',
   'validate-county-code-violation-durable-source-reconciliation.js',
+  'validate-code-violations-production-completion-gate1.js',
   'validate-code-violations-gate1-population-authority.js',
   'validate-code-violations-gate1-recovery-authority.js',
   'validate-code-violations-gate1-recovery-preflight.js',
@@ -638,6 +639,44 @@ assert.ok(
     'build/apps-script-brand/CountyCodeViolationGate1Reconciliation.js'
   ),
   'CountyCodeViolationGate1Reconciliation.js must be the explicit read-only Gate 1 production-completion addition'
+);
+
+const gate1ReconciliationSource =
+  readBuild(
+    'CountyCodeViolationGate1Reconciliation.js'
+  );
+
+assert.ok(
+  gate1ReconciliationSource.includes(
+    'CountyCodeViolationGate1PopulationAuthority'
+  ),
+  'Gate 1 reconciliation must consume durable population authority'
+);
+
+assert.ok(
+  gate1ReconciliationSource.includes(
+    'violationnumber IN ('
+  ),
+  'Gate 1 source membership must use durable Violation Number'
+);
+
+assert.ok(
+  gate1ReconciliationSource.includes(
+    'certifiedEvidenceObjectId'
+  ),
+  'Gate 1 must explicitly separate certified historical ObjectID evidence'
+);
+
+assert.equal(
+  /HISTORICAL_OBJECTID_CAP|objectid\s*>/i.test(
+    gate1ReconciliationSource
+  ),
+  false,
+  'Gate 1 must not derive cohort membership from current ArcGIS ObjectID'
+);
+
+pass(
+  'Gate 1 reconciliation uses durable population membership with current ObjectID telemetry only'
 );
 
 assert.ok(
