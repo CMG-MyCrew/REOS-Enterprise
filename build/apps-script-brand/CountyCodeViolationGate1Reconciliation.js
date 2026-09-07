@@ -2,12 +2,16 @@
  * REOS Enterprise
  * Code Violations Production Completion - Gate 1 Reconciliation
  *
- * Read-only population reconciliation for the 168 Philadelphia
- * code-violation observations excluded by the historical ObjectID cap
- * at/before the certified AK1 logical boundary.
+ * Read-only population reconciliation for the original certified
+ * 168 Philadelphia code-violation observations.
+ *
+ * Cohort membership is fixed by durable Violation Number authority.
+ * Current ArcGIS ObjectID is diagnostic telemetry only.
+ * Certified historical ObjectID is retained solely for legacy-key
+ * compatibility reconciliation.
  *
  * Proven population:
- * - 168 total pre-boundary ObjectID-cap exclusions
+ * - 168 certified durable Violation Numbers
  * - 153 currently OPEN/actionable
  * - 15 currently filtered non-OPEN
  *
@@ -34,16 +38,22 @@ REOS.CountyCodeViolationGate1Reconciliation = (function () {
   var CERTIFIED_ENDPOINT =
     'https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/VIOLATIONS/FeatureServer/0/query';
 
-  var EXPECTED_PREBOUNDARY_COUNT = 168;
+  var EXPECTED_POPULATION_COUNT = 168;
   var EXPECTED_OPEN_COUNT = 153;
 
-  var HISTORICAL_OBJECTID_CAP = 636638;
+  var SOURCE_CHUNK_SIZE = 20;
 
-  var BOUNDARY_TIMESTAMP =
+  var EARLIEST_TIMESTAMP =
+    '2025-09-01 00:00:00';
+
+  var LATEST_TIMESTAMP =
     '2026-06-27 07:28:16';
 
-  var BOUNDARY_VIOLATION_NUMBER =
-    'VI-2026-047721';
+  var EXPECTED_POPULATION_MANIFEST_SHA256 =
+    'ebc0936a9fc3b4a5643e8a834ab7c068d2b1d2f15335b2fe9f365fe1e24a6b13';
+
+  var EXPECTED_POPULATION_SOURCE_EVIDENCE_SHA256 =
+    '5958a94f9fa2b571b32cb4dd9dc43476b8877a59f37ebdd4c697faf033b445b3';
 
   var PRIORITY_SQL =
     "'UNSAFE','IMMINENTLY DANGEROUS','UNFIT','HAZARDOUS','UNLAWFUL'";
@@ -70,6 +80,131 @@ REOS.CountyCodeViolationGate1Reconciliation = (function () {
   function upper_(value) {
     return text_(value).toUpperCase();
   }
+
+  function sqlString_(value) {
+    return (
+      "'" +
+      text_(value)
+        .replace(/'/g, "''") +
+      "'"
+    );
+  }
+
+
+  function requirePopulationAuthority_() {
+    var authority =
+      REOS
+        .CountyCodeViolationGate1PopulationAuthority;
+
+    if (
+      !authority ||
+      typeof authority.metadata !== 'function' ||
+      typeof authority.resolve !== 'function' ||
+      typeof authority.contains !== 'function' ||
+      typeof authority.violationNumbers !== 'function'
+    ) {
+      throw new Error(
+        'Gate 1 certified durable population authority is unavailable.'
+      );
+    }
+
+    var metadata =
+      authority.metadata();
+
+    if (
+      !metadata ||
+      metadata.mode !==
+        'READ_ONLY_GATE1_CERTIFIED_POPULATION_AUTHORITY' ||
+      metadata.connectorId !==
+        CONNECTOR_ID ||
+      metadata.dataset !==
+        DATASET ||
+      Number(metadata.populationCount) !==
+        EXPECTED_POPULATION_COUNT ||
+      Number(metadata.recordCount) !==
+        EXPECTED_POPULATION_COUNT ||
+      Number(metadata.openActionableCount) !==
+        EXPECTED_OPEN_COUNT ||
+      Number(metadata.nonOpenCount) !==
+        EXPECTED_POPULATION_COUNT -
+        EXPECTED_OPEN_COUNT ||
+      metadata.durableIdentityField !==
+        'Violation Number' ||
+      metadata.currentObjectIdIsMembershipAuthority !==
+        false ||
+      metadata.currentObjectIdIsRecoveryAuthority !==
+        false ||
+      metadata.certifiedEvidenceObjectIdIsLegacyCompatibilityEvidence !==
+        true ||
+      metadata.manifestSha256 !==
+        EXPECTED_POPULATION_MANIFEST_SHA256 ||
+      metadata.sourceEvidenceSha256 !==
+        EXPECTED_POPULATION_SOURCE_EVIDENCE_SHA256
+    ) {
+      throw new Error(
+        'Gate 1 certified durable population authority metadata mismatch.'
+      );
+    }
+
+    var violationNumbers =
+      authority
+        .violationNumbers()
+        .map(upper_);
+
+    if (
+      violationNumbers.length !==
+      EXPECTED_POPULATION_COUNT
+    ) {
+      throw new Error(
+        'Gate 1 certified durable population authority count mismatch.'
+      );
+    }
+
+    var seen = {};
+
+    violationNumbers.forEach(
+      function (violationNumber) {
+        var resolved =
+          authority.resolve(
+            violationNumber
+          );
+
+        if (
+          !violationNumber ||
+          seen[violationNumber] ||
+          !resolved ||
+          upper_(
+            resolved.violationNumber
+          ) !==
+            violationNumber ||
+          !/^[0-9]+$/.test(
+            text_(
+              resolved.evidenceObjectId
+            )
+          )
+        ) {
+          throw new Error(
+            'Gate 1 certified durable population record is invalid: ' +
+            violationNumber
+          );
+        }
+
+        seen[violationNumber] = true;
+      }
+    );
+
+    return {
+      authority:
+        authority,
+
+      metadata:
+        metadata,
+
+      violationNumbers:
+        violationNumbers
+    };
+  }
+
 
   function keyPart_(value) {
     return text_(value)
@@ -231,32 +366,77 @@ REOS.CountyCodeViolationGate1Reconciliation = (function () {
     };
   }
 
-  function sourceSummary_(raw) {
-    var candidate = sourceCandidate_(raw);
+  function sourceSummary_(
+    raw,
+    certifiedRecord
+  ) {
+    var candidate =
+      sourceCandidate_(raw);
+
+    var currentObjectId =
+      text_(
+        raw.objectid ||
+        raw.OBJECTID
+      );
+
+    var certifiedEvidenceObjectId =
+      text_(
+        certifiedRecord &&
+        certifiedRecord
+          .evidenceObjectId
+      );
 
     return {
+      /*
+       * Current ObjectID is telemetry only.
+       */
       objectId:
-        text_(raw.objectid || raw.OBJECTID),
+        currentObjectId,
+
+      currentObjectId:
+        currentObjectId,
+
+      currentObjectIdObservationKey:
+        legacyObjectIdKey_(
+          currentObjectId
+        ),
+
+      /*
+       * Historical certified ObjectID is used only to inspect whether
+       * the original legacy observation key is already bound to a
+       * different durable Violation Number.
+       */
+      certifiedEvidenceObjectId:
+        certifiedEvidenceObjectId,
+
       violationNumber:
         candidate['Violation Number'],
+
       violationDate:
         raw.violationdate,
+
       parcelId:
         candidate['Parcel ID'],
+
       address:
         candidate.Address,
+
       violationStatus:
         upper_(raw.violationstatus),
+
       priority:
         upper_(raw.caseprioritydesc),
+
       durableObservationKey:
         durableKey_(
           candidate['Violation Number']
         ),
+
       legacyObjectIdObservationKey:
         legacyObjectIdKey_(
-          candidate['Source Record ID']
+          certifiedEvidenceObjectId
         ),
+
       canonicalPropertyKey:
         canonicalKey_(candidate)
     };
@@ -458,28 +638,166 @@ REOS.CountyCodeViolationGate1Reconciliation = (function () {
     };
   }
 
-  function sourceWhere_() {
+  function sourceWhereForChunk_(
+    violationNumbers
+  ) {
+    if (
+      !Array.isArray(
+        violationNumbers
+      ) ||
+      !violationNumbers.length ||
+      violationNumbers.length >
+        SOURCE_CHUNK_SIZE
+    ) {
+      throw new Error(
+        'Gate 1 durable source chunk authority is invalid.'
+      );
+    }
+
     return (
-      "violationdate >= TIMESTAMP '2025-09-01 00:00:00'" +
+      'violationnumber IN (' +
+      violationNumbers
+        .map(sqlString_)
+        .join(',') +
+      ')' +
+      " AND violationdate >= TIMESTAMP '" +
+      EARLIEST_TIMESTAMP +
+      "'" +
+      " AND violationdate <= TIMESTAMP '" +
+      LATEST_TIMESTAMP +
+      "'" +
       ' AND caseprioritydesc IN (' +
       PRIORITY_SQL +
-      ')' +
-      ' AND objectid > ' +
-      HISTORICAL_OBJECTID_CAP +
-      ' AND (' +
-      "violationdate < TIMESTAMP '" +
-      BOUNDARY_TIMESTAMP +
-      "'" +
-      ' OR (' +
-      "violationdate = TIMESTAMP '" +
-      BOUNDARY_TIMESTAMP +
-      "'" +
-      ' AND violationnumber <= ' +
-      "'" +
-      BOUNDARY_VIOLATION_NUMBER +
-      "'" +
-      '))'
+      ')'
     );
+  }
+
+
+  function fetchCertifiedPopulation_(
+    endpoint,
+    violationNumbers
+  ) {
+    var records = [];
+    var chunks = [];
+
+    for (
+      var start = 0;
+      start < violationNumbers.length;
+      start += SOURCE_CHUNK_SIZE
+    ) {
+      if (
+        managedTriggerCount_() !==
+        0
+      ) {
+        throw new Error(
+          'Gate 1 scheduler authority changed before durable source chunk read.'
+        );
+      }
+
+      var chunk =
+        violationNumbers.slice(
+          start,
+          start +
+            SOURCE_CHUNK_SIZE
+        );
+
+      var response =
+        REOS.CountyAdapters.ArcGIS.fetch({
+          endpoint:
+            endpoint,
+
+          context: {
+            cursor:
+              '',
+            limit:
+              100
+          },
+
+          maxLimit:
+            100,
+
+          where:
+            sourceWhereForChunk_(
+              chunk
+            ),
+
+          outFields:
+            'objectid,violationnumber,violationdate,' +
+            'parcel_id_num,opa_account_num,address,zip,' +
+            'violationstatus,caseprioritydesc',
+
+          returnGeometry:
+            false,
+
+          orderByFields:
+            'violationnumber ASC, objectid ASC'
+        }) || {};
+
+      var chunkRecords =
+        Array.isArray(
+          response.records
+        )
+          ? response.records
+          : [];
+
+      if (
+        response.nextCursor ||
+        (
+          response.metadata &&
+          response.metadata
+            .exceededTransferLimit ===
+            true
+        )
+      ) {
+        throw new Error(
+          'Gate 1 durable source chunk exceeded bounded read authority.'
+        );
+      }
+
+      records =
+        records.concat(
+          chunkRecords
+        );
+
+      chunks.push({
+        chunkIndex:
+          chunks.length,
+
+        requestedViolationCount:
+          chunk.length,
+
+        observedRecordCount:
+          chunkRecords.length,
+
+        metadata:
+          response.metadata || {}
+      });
+    }
+
+    return {
+      records:
+        records,
+
+      metadata: {
+        adapter:
+          'arcgis',
+
+        membershipAuthority:
+          'Violation Number',
+
+        currentObjectIdIsMembershipAuthority:
+          false,
+
+        chunkSize:
+          SOURCE_CHUNK_SIZE,
+
+        chunkCount:
+          chunks.length,
+
+        chunks:
+          chunks
+      }
+    };
   }
 
   function run() {
@@ -495,44 +813,94 @@ REOS.CountyCodeViolationGate1Reconciliation = (function () {
       );
     }
 
+    var populationAuthority =
+      requirePopulationAuthority_();
+
     var endpoint =
       requireCertifiedEndpoint_();
 
-    var response =
-      REOS.CountyAdapters.ArcGIS.fetch({
-        endpoint: endpoint,
-        context: {
-          cursor: '',
-          limit: 500
-        },
-        maxLimit: 500,
-        where: sourceWhere_(),
-        outFields:
-          'objectid,violationnumber,violationdate,' +
-          'parcel_id_num,opa_account_num,address,zip,' +
-          'violationstatus,caseprioritydesc',
-        returnGeometry: false,
-        orderByFields:
-          'violationdate ASC, violationnumber ASC'
-      }) || {};
+    var sourceRead =
+      fetchCertifiedPopulation_(
+        endpoint,
+        populationAuthority
+          .violationNumbers
+      );
 
     var rawRecords =
-      Array.isArray(response.records)
-        ? response.records
-        : [];
+      sourceRead.records;
 
     if (
       rawRecords.length !==
-      EXPECTED_PREBOUNDARY_COUNT
+      EXPECTED_POPULATION_COUNT
     ) {
       throw new Error(
-        'Gate 1 source population drift: expected ' +
-        EXPECTED_PREBOUNDARY_COUNT +
+        'Gate 1 certified durable source population drift: expected ' +
+        EXPECTED_POPULATION_COUNT +
         ', found ' +
         rawRecords.length +
         '.'
       );
     }
+
+    var seenPopulation = {};
+
+    rawRecords.forEach(
+      function (raw) {
+        var violationNumber =
+          upper_(
+            raw.violationnumber ||
+            raw.VIOLATIONNUMBER
+          );
+
+        if (
+          !violationNumber ||
+          populationAuthority
+            .authority
+            .contains(
+              violationNumber
+            ) !== true
+        ) {
+          throw new Error(
+            'Gate 1 source returned observation outside certified durable population: ' +
+            violationNumber
+          );
+        }
+
+        if (
+          seenPopulation[
+            violationNumber
+          ]
+        ) {
+          throw new Error(
+            'Gate 1 source durable identity duplicate: ' +
+            violationNumber
+          );
+        }
+
+        seenPopulation[
+          violationNumber
+        ] = true;
+      }
+    );
+
+    populationAuthority
+      .violationNumbers
+      .forEach(
+        function (
+          violationNumber
+        ) {
+          if (
+            !seenPopulation[
+              violationNumber
+            ]
+          ) {
+            throw new Error(
+              'Gate 1 certified durable source observation missing: ' +
+              violationNumber
+            );
+          }
+        }
+      );
 
     var openSourceRows =
       rawRecords
@@ -542,7 +910,32 @@ REOS.CountyCodeViolationGate1Reconciliation = (function () {
             'OPEN'
           );
         })
-        .map(sourceSummary_);
+        .map(function (raw) {
+          var violationNumber =
+            upper_(
+              raw.violationnumber ||
+              raw.VIOLATIONNUMBER
+            );
+
+          var certifiedRecord =
+            populationAuthority
+              .authority
+              .resolve(
+                violationNumber
+              );
+
+          if (!certifiedRecord) {
+            throw new Error(
+              'Gate 1 durable population evidence missing: ' +
+              violationNumber
+            );
+          }
+
+          return sourceSummary_(
+            raw,
+            certifiedRecord
+          );
+        });
 
     if (
       openSourceRows.length !==
@@ -688,23 +1081,66 @@ REOS.CountyCodeViolationGate1Reconciliation = (function () {
         DATASET,
 
       sourceAuthority: {
-        historicalObjectIdCap:
-          HISTORICAL_OBJECTID_CAP,
-        boundaryTimestamp:
-          BOUNDARY_TIMESTAMP,
-        boundaryViolationNumber:
-          BOUNDARY_VIOLATION_NUMBER,
+        membershipAuthority:
+          'Violation Number',
+
+        currentObjectIdIsMembershipAuthority:
+          false,
+
+        currentObjectIdIsRecoveryAuthority:
+          false,
+
+        certifiedEvidenceObjectIdUse:
+          'LEGACY_COMPATIBILITY_EVIDENCE_ONLY',
+
+        populationManifestSha256:
+          populationAuthority
+            .metadata
+            .manifestSha256,
+
+        sourceEvidenceSha256:
+          populationAuthority
+            .metadata
+            .sourceEvidenceSha256,
+
+        earliestTimestamp:
+          EARLIEST_TIMESTAMP,
+
+        latestTimestamp:
+          LATEST_TIMESTAMP,
+
+        expectedCertifiedPopulation:
+          EXPECTED_POPULATION_COUNT,
+
+        observedCertifiedPopulation:
+          rawRecords.length,
+
+        /*
+         * Compatibility names retained for downstream preflight.
+         */
         expectedPreboundaryExcluded:
-          EXPECTED_PREBOUNDARY_COUNT,
+          EXPECTED_POPULATION_COUNT,
+
         observedPreboundaryExcluded:
           rawRecords.length,
+
         expectedOpenActionable:
           EXPECTED_OPEN_COUNT,
+
         observedOpenActionable:
           openSourceRows.length,
+
         filteredNonOpen:
           rawRecords.length -
-          openSourceRows.length
+          openSourceRows.length,
+
+        sourceChunkSize:
+          SOURCE_CHUNK_SIZE,
+
+        sourceChunkCount:
+          sourceRead
+            .metadata
+            .chunkCount
       },
 
       classificationCounts:
@@ -735,7 +1171,7 @@ REOS.CountyCodeViolationGate1Reconciliation = (function () {
         results,
 
       arcGisMetadata:
-        response.metadata || {},
+        sourceRead.metadata,
 
       countySchedulerTriggerCount: 0,
 
