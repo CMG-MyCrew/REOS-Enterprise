@@ -475,6 +475,55 @@ assert.equal(
   153
 );
 
+for (
+  let index = 1;
+  index < currentResult.records.length;
+  index += 1
+) {
+  const previous =
+    currentResult.records[
+      index - 1
+    ].source;
+
+  const current =
+    currentResult.records[
+      index
+    ].source;
+
+  const previousDate =
+    Number(
+      previous.violationDate
+    );
+
+  const currentDate =
+    Number(
+      current.violationDate
+    );
+
+  const previousViolation =
+    String(
+      previous.violationNumber
+    ).toUpperCase();
+
+  const currentViolation =
+    String(
+      current.violationNumber
+    ).toUpperCase();
+
+  assert.ok(
+    currentDate >
+      previousDate ||
+    (
+      currentDate ===
+        previousDate &&
+      currentViolation >
+        previousViolation
+    ),
+    'Gate 1 returned OPEN population must be strictly ordered by violationDate + Violation Number'
+  );
+}
+
+
 assert.equal(
   currentResult.classificationCounts.MISSING,
   153,
