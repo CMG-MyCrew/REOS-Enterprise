@@ -937,6 +937,62 @@ REOS.CountyCodeViolationGate1Reconciliation = (function () {
           );
         });
 
+    /*
+     * Source reads are chunked by durable Violation Number authority.
+     * Canonicalize the merged OPEN population into the executor's
+     * durable cursor order before classification/output.
+     */
+    openSourceRows.sort(function (
+      left,
+      right
+    ) {
+      var leftDate =
+        Number(
+          left.violationDate
+        );
+
+      var rightDate =
+        Number(
+          right.violationDate
+        );
+
+      if (
+        leftDate !==
+        rightDate
+      ) {
+        return (
+          leftDate -
+          rightDate
+        );
+      }
+
+      var leftViolation =
+        upper_(
+          left.violationNumber
+        );
+
+      var rightViolation =
+        upper_(
+          right.violationNumber
+        );
+
+      if (
+        leftViolation <
+        rightViolation
+      ) {
+        return -1;
+      }
+
+      if (
+        leftViolation >
+        rightViolation
+      ) {
+        return 1;
+      }
+
+      return 0;
+    });
+
     if (
       openSourceRows.length !==
       EXPECTED_OPEN_COUNT
