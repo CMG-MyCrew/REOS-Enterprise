@@ -255,6 +255,20 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   echo
 fi
 
+# Philadelphia code-violation durable identity Batch-1 migration executor certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  COUNTY_CODE_VIOLATION_DURABLE_IDENTITY_BATCH1_EXECUTOR_CERTIFIER="scripts/validate-county-code-violation-durable-identity-migration-batch1-executor.js"
+
+  if [[ ! -f "$COUNTY_CODE_VIOLATION_DURABLE_IDENTITY_BATCH1_EXECUTOR_CERTIFIER" ]]; then
+    echo "ERROR: County code-violation durable identity Batch-1 executor validator missing: $COUNTY_CODE_VIOLATION_DURABLE_IDENTITY_BATCH1_EXECUTOR_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county code-violation durable identity Batch-1 executor certification..."
+  node "$COUNTY_CODE_VIOLATION_DURABLE_IDENTITY_BATCH1_EXECUTOR_CERTIFIER"
+  echo
+fi
+
 # County identity source reconciliation certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_IDENTITY_SOURCE_RECONCILIATION_CERTIFIER="scripts/validate-county-identity-source-reconciliation.js"

@@ -102,6 +102,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/CountyCodeViolationDurableIdentityAudit.js',
   'build/apps-script-brand/CountyCodeViolationDurableSourceReconciliation.js',
   'build/apps-script-brand/CountyCodeViolationDurableIdentityMigrationPlan.js',
+  'build/apps-script-brand/CountyCodeViolationDurableIdentityMigrationBatch1Executor.js',
   'build/apps-script-brand/CountyPage85SourceObservation214Repair.js'
 ];
 
@@ -140,6 +141,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-code-violation-durable-identity-audit.js',
   'validate-county-code-violation-durable-source-reconciliation.js',
   'validate-county-code-violation-durable-identity-migration-plan.js',
+  'validate-county-code-violation-durable-identity-migration-batch1-executor.js',
   'validate-code-violations-production-completion-gate1.js',
   'validate-code-violations-gate1-population-authority.js',
   'validate-code-violations-gate1-recovery-authority.js',
