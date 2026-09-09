@@ -241,6 +241,20 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   echo
 fi
 
+# Philadelphia code-violation durable identity migration-plan certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  COUNTY_CODE_VIOLATION_DURABLE_IDENTITY_MIGRATION_PLAN_CERTIFIER="scripts/validate-county-code-violation-durable-identity-migration-plan.js"
+
+  if [[ ! -f "$COUNTY_CODE_VIOLATION_DURABLE_IDENTITY_MIGRATION_PLAN_CERTIFIER" ]]; then
+    echo "ERROR: County code-violation durable identity migration-plan validator missing: $COUNTY_CODE_VIOLATION_DURABLE_IDENTITY_MIGRATION_PLAN_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running county code-violation durable identity migration-plan certification..."
+  node "$COUNTY_CODE_VIOLATION_DURABLE_IDENTITY_MIGRATION_PLAN_CERTIFIER"
+  echo
+fi
+
 # County identity source reconciliation certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_IDENTITY_SOURCE_RECONCILIATION_CERTIFIER="scripts/validate-county-identity-source-reconciliation.js"
