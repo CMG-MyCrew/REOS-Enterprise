@@ -423,7 +423,11 @@ function observation(
     observation(
       'VIOL-200',
       '881234501',
-      'code_violations'
+      'code_violations',
+      {
+        'Violation Number':
+          'V-200'
+      }
     );
 
   const harness =
@@ -516,13 +520,13 @@ function observation(
   assert.strictEqual(
     result.stats.inserted,
     2,
-    'different source record IDs at same property must insert two observations'
+    'different durable Violation Numbers at same property must insert two observations'
   );
 
   assert.strictEqual(
     result.stats.updated,
     0,
-    'different source observations must not overwrite one another'
+    'different durable violation observations must not overwrite one another'
   );
 
   assert.strictEqual(
@@ -589,7 +593,11 @@ function observation(
         observation(
           'VIOL-CROSS-SOURCE',
           '881234502',
-          'code_violations'
+          'code_violations',
+          {
+            'Violation Number':
+              'V-CROSS-SOURCE'
+          }
         )
       ]
     )
@@ -899,8 +907,8 @@ function observation(
  * An immutable source observation must never silently move from one
  * canonical property to another.
  *
- * Same Source + Dataset + Source Record ID means the observation is
- * being replayed. If its newly resolved canonical property conflicts
+ * For Philadelphia code violations, Source + Dataset + Violation Number identifies the durable observation
+ * even when ArcGIS ObjectID drifts. If its newly resolved canonical property conflicts
  * with the canonical property already stored for that observation,
  * persistence must reject/quarantine the conflicting replay instead
  * of overwriting Canonical Property Key.
@@ -917,22 +925,28 @@ function observation(
       'code_violations',
       [
         observation(
-          'IMMUTABLE-900',
+          'IMMUTABLE-900-A',
           '881234900',
           'code_violations',
           {
             Address:
-              '900 Market Street'
+              '900 Market Street',
+
+            'Violation Number':
+              'V-IMMUTABLE-900'
           }
         ),
 
         observation(
-          'IMMUTABLE-900',
+          'IMMUTABLE-900-B',
           '881234999',
           'code_violations',
           {
             Address:
-              '900 Market Street'
+              '900 Market Street',
+
+            'Violation Number':
+              'V-IMMUTABLE-900'
           }
         )
       ]
@@ -942,12 +956,15 @@ function observation(
   const expectedIdentity =
     harness.identity.resolve(
       observation(
-        'IMMUTABLE-900',
+        'IMMUTABLE-900-A',
         '881234900',
         'code_violations',
         {
           Address:
-            '900 Market Street'
+            '900 Market Street',
+
+          'Violation Number':
+            'V-IMMUTABLE-900'
         }
       )
     );
