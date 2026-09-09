@@ -9,6 +9,351 @@ REOS.CountyConnectorSDK = (function () {
   var AUDIT_SHEET = 'COUNTY_CONNECTOR_RUNS';
   var TARGET_SHEET = 'DISTRESS_LEADS';
 
+
+  /*
+   * Gate 2A - Philadelphia code-violation durable observation
+   * identity compatibility.
+   *
+   * ArcGIS ObjectID remains source metadata.
+   * Violation Number is durable observation authority.
+   *
+   * Scope is deliberately restricted to:
+   *   PA-PHILADELPHIA / code_violations
+   *
+   * No generic CanonicalPropertyIdentity behavior is changed.
+   */
+  var DURABLE_CODE_VIOLATION_CONNECTOR =
+    'PA-PHILADELPHIA';
+
+  var DURABLE_CODE_VIOLATION_DATASET =
+    'code_violations';
+
+  function durableIdentityKeyPart_(value) {
+    return String(
+      value === undefined || value === null
+        ? ''
+        : value
+    )
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/\|/g, '%7c');
+  }
+
+  function isDurableCodeViolationScope_(record) {
+    record = record || {};
+
+    return (
+      String(record.Source || '').trim() ===
+        DURABLE_CODE_VIOLATION_CONNECTOR &&
+      String(
+        record['Source Dataset'] || ''
+      ).trim() ===
+        DURABLE_CODE_VIOLATION_DATASET
+    );
+  }
+
+  function normalizeDurableViolationNumber_(
+    value,
+    required
+  ) {
+    var normalized =
+      String(
+        value === undefined || value === null
+          ? ''
+          : value
+      )
+        .trim()
+        .toUpperCase();
+
+    if (!normalized) {
+      if (required) {
+        throw new Error(
+          'Philadelphia code-violation durable observation identity requires Violation Number.'
+        );
+      }
+
+      return '';
+    }
+
+    if (
+      normalized.length > 64 ||
+      !/^[A-Z0-9._-]+$/.test(normalized)
+    ) {
+      if (required) {
+        throw new Error(
+          'Philadelphia code-violation Violation Number is invalid for durable observation identity.'
+        );
+      }
+
+      return '';
+    }
+
+    return normalized;
+  }
+
+  function durableCodeViolationObservationKey_(
+    record
+  ) {
+    var violationNumber =
+      normalizeDurableViolationNumber_(
+        record &&
+        record['Violation Number'],
+        true
+      );
+
+    return [
+      durableIdentityKeyPart_(record.Source),
+      durableIdentityKeyPart_(
+        record['Source Dataset']
+      ),
+      durableIdentityKeyPart_(
+        violationNumber
+      )
+    ].join('|');
+  }
+
+  function persistedObservationKeys_(row) {
+    var candidates = [
+      String(
+        row &&
+        row['Source Observation Key'] || ''
+      ).trim(),
+
+      String(
+        row &&
+        row['Source Record Key'] || ''
+      ).trim()
+    ];
+
+    var seen = {};
+
+    return candidates.filter(function (value) {
+      if (!value || seen[value]) {
+        return false;
+      }
+
+      seen[value] = true;
+      return true;
+    });
+  }
+
+  function rowHasObservationKey_(
+    row,
+    key
+  ) {
+    return (
+      persistedObservationKeys_(row)
+        .indexOf(key) !== -1
+    );
+  }
+
+  /*
+   * Ordinary ingest is compatibility authority, not migration
+   * authority.
+   *
+   * A historical ObjectID-keyed row may be found by Violation
+   * Number, but its stored identity columns remain unchanged until
+   * the separately bounded migration/collapse executor is certified.
+   */
+  function observationKeysForUpdate_(
+    record,
+    existing,
+    naturalKey
+  ) {
+    if (
+      isDurableCodeViolationScope_(record) &&
+      !rowHasObservationKey_(
+        existing,
+        naturalKey
+      )
+    ) {
+      return {
+        sourceObservationKey:
+          String(
+            existing[
+              'Source Observation Key'
+            ] || ''
+          ).trim(),
+
+        sourceRecordKey:
+          String(
+            existing[
+              'Source Record Key'
+            ] || ''
+          ).trim()
+      };
+    }
+
+    return {
+      sourceObservationKey:
+        naturalKey,
+      sourceRecordKey:
+        naturalKey
+    };
+  }
+
+  /*
+   * Fail-closed review/collapse guard for historical compatibility
+   * matches.
+   */
+  function assertDurableCompatibilitySafe_(
+    existing,
+    record,
+    identity,
+    rows,
+    naturalKey
+  ) {
+    if (
+      !isDurableCodeViolationScope_(record)
+    ) {
+      return;
+    }
+
+    var incomingViolationNumber =
+      normalizeDurableViolationNumber_(
+        record['Violation Number'],
+        true
+      );
+
+    var persistedViolationNumber =
+      normalizeDurableViolationNumber_(
+        existing['Violation Number'],
+        false
+      );
+
+    if (
+      !persistedViolationNumber ||
+      persistedViolationNumber !==
+        incomingViolationNumber
+    ) {
+      throw new Error(
+        'Philadelphia code-violation persisted durable identity is review-required.'
+      );
+    }
+
+    var existingCanonical =
+      String(
+        existing[
+          'Canonical Property Key'
+        ] || ''
+      ).trim();
+
+    var incomingCanonical =
+      String(
+        identity &&
+        identity.canonicalPropertyKey || ''
+      ).trim();
+
+    /*
+     * Gate 2 ordinary ingest does not obtain authority to repair a
+     * missing historical canonical identity.
+     */
+    if (!existingCanonical) {
+      throw new Error(
+        'Philadelphia code-violation persisted canonical identity is review-required; ordinary ingestion cannot backfill it.'
+      );
+    }
+
+    if (
+      !incomingCanonical ||
+      existingCanonical !== incomingCanonical
+    ) {
+      throw new Error(
+        'Canonical property identity conflict for durable code-violation observation ' +
+        naturalKey +
+        ': existing=' +
+        existingCanonical +
+        ', incoming=' +
+        incomingCanonical
+      );
+    }
+
+    var observationKey =
+      String(
+        existing[
+          'Source Observation Key'
+        ] || ''
+      ).trim();
+
+    var recordKey =
+      String(
+        existing[
+          'Source Record Key'
+        ] || ''
+      ).trim();
+
+    if (
+      observationKey &&
+      recordKey &&
+      observationKey !== recordKey
+    ) {
+      throw new Error(
+        'Philadelphia code-violation historical observation keys disagree; review is required.'
+      );
+    }
+
+    var legacyKeys =
+      persistedObservationKeys_(existing);
+
+    if (
+      !rowHasObservationKey_(
+        existing,
+        naturalKey
+      ) &&
+      legacyKeys.length === 0
+    ) {
+      throw new Error(
+        'Philadelphia code-violation historical observation identity is missing; review is required.'
+      );
+    }
+
+    /*
+     * A legacy ObjectID identity reused for multiple durable
+     * Violation Numbers is explicit review-required evidence.
+     */
+    legacyKeys.forEach(function (legacyKey) {
+      if (legacyKey === naturalKey) {
+        return;
+      }
+
+      (rows || []).forEach(function (other) {
+        if (other === existing) {
+          return;
+        }
+
+        if (
+          !isDurableCodeViolationScope_(other)
+        ) {
+          return;
+        }
+
+        if (
+          persistedObservationKeys_(other)
+            .indexOf(legacyKey) === -1
+        ) {
+          return;
+        }
+
+        var otherViolationNumber =
+          normalizeDurableViolationNumber_(
+            other['Violation Number'],
+            false
+          );
+
+        if (
+          !otherViolationNumber ||
+          otherViolationNumber !==
+            persistedViolationNumber
+        ) {
+          throw new Error(
+            'Philadelphia code-violation legacy observation identity maps to multiple durable Violation Numbers; review is required.'
+          );
+        }
+      });
+    });
+  }
+
   var RUN_HEADERS = [
     'Run ID', 'Connector ID', 'County', 'State', 'Dataset', 'Mode', 'Status',
     'Records Fetched', 'Records Valid', 'Records Inserted', 'Records Updated',
@@ -304,6 +649,7 @@ REOS.CountyConnectorSDK = (function () {
     }
 
     var identity = resolveIdentity_(record);
+
     var naturalKey = buildNaturalKey_(
       record,
       identity
@@ -311,13 +657,27 @@ REOS.CountyConnectorSDK = (function () {
 
     var existing = findExisting_(
       naturalKey,
-      pagePersistence
+      pagePersistence,
+      record
     );
 
     if (existing) {
+      assertDurableCompatibilitySafe_(
+        existing,
+        record,
+        identity,
+        pagePersistence &&
+        pagePersistence.rows
+          ? pagePersistence.rows
+          : [],
+        naturalKey
+      );
+
       var existingCanonicalPropertyKey =
         String(
-          existing['Canonical Property Key'] || ''
+          existing[
+            'Canonical Property Key'
+          ] || ''
         ).trim();
 
       var incomingCanonicalPropertyKey =
@@ -328,12 +688,14 @@ REOS.CountyConnectorSDK = (function () {
       /*
        * Immutable observation identity guard.
        *
-       * An exact source observation may be replayed and refreshed, but
-       * it may not silently migrate from one canonical property to
-       * another.
+       * An exact source observation may be replayed and refreshed,
+       * but it may not silently migrate between canonical
+       * properties.
        *
-       * Legacy rows with no Canonical Property Key are allowed to be
-       * backfilled on their first post-migration observation replay.
+       * Generic legacy county rows may still use the historical
+       * canonical-key backfill behavior. Gate 2 Philadelphia
+       * code-violation compatibility is guarded above and cannot
+       * use that path.
        */
       if (
         existingCanonicalPropertyKey &&
@@ -351,26 +713,47 @@ REOS.CountyConnectorSDK = (function () {
         );
       }
 
+      var updateObservationKeys =
+        observationKeysForUpdate_(
+          record,
+          existing,
+          naturalKey
+        );
+
       var updated = REOS.Database.update(
         TARGET_SHEET,
         'Distress Lead ID',
         existing['Distress Lead ID'],
         Object.assign({}, record, {
-          'Source Record Key': naturalKey,
-          'Source Observation Key': naturalKey,
+          'Source Record Key':
+            updateObservationKeys
+              .sourceRecordKey,
+
+          'Source Observation Key':
+            updateObservationKeys
+              .sourceObservationKey,
+
           'Canonical Property Key':
             identity.canonicalPropertyKey,
-          'Last Seen At': new Date(),
-          'Updated At': new Date()
+
+          'Last Seen At':
+            new Date(),
+
+          'Updated At':
+            new Date()
         })
       );
 
       if (pagePersistence) {
         var existingIndex =
-          pagePersistence.rows.indexOf(existing);
+          pagePersistence.rows.indexOf(
+            existing
+          );
 
         if (existingIndex !== -1) {
-          pagePersistence.rows[existingIndex] = updated;
+          pagePersistence.rows[
+            existingIndex
+          ] = updated;
         }
       }
 
@@ -383,11 +766,17 @@ REOS.CountyConnectorSDK = (function () {
     var inserted = REOS.Database.insert(
       TARGET_SHEET,
       Object.assign({}, record, {
-        'Source Record Key': naturalKey,
-        'Source Observation Key': naturalKey,
+        'Source Record Key':
+          naturalKey,
+
+        'Source Observation Key':
+          naturalKey,
+
         'Canonical Property Key':
           identity.canonicalPropertyKey,
-        'Last Seen At': new Date()
+
+        'Last Seen At':
+          new Date()
       }),
       {
         idField: 'Distress Lead ID',
@@ -396,7 +785,9 @@ REOS.CountyConnectorSDK = (function () {
     );
 
     if (pagePersistence) {
-      pagePersistence.rows.push(inserted);
+      pagePersistence.rows.push(
+        inserted
+      );
     }
 
     return {
@@ -413,10 +804,12 @@ REOS.CountyConnectorSDK = (function () {
 
   function findExisting_(
     naturalKey,
-    pagePersistence
+    pagePersistence,
+    record
   ) {
     var rows =
-      pagePersistence && pagePersistence.rows
+      pagePersistence &&
+      pagePersistence.rows
         ? pagePersistence.rows
         : [];
 
@@ -424,39 +817,80 @@ REOS.CountyConnectorSDK = (function () {
       return null;
     }
 
+    var durableScope =
+      isDurableCodeViolationScope_(
+        record
+      );
+
+    var incomingViolationNumber =
+      durableScope
+        ? normalizeDurableViolationNumber_(
+            record &&
+            record['Violation Number'],
+            true
+          )
+        : '';
+
     var matches =
       rows.filter(function (row) {
         var observationKey =
           String(
-            row['Source Observation Key'] || ''
+            row[
+              'Source Observation Key'
+            ] || ''
           );
 
         var legacyKey =
           String(
-            row['Source Record Key'] || ''
+            row[
+              'Source Record Key'
+            ] || ''
           );
 
         /*
-         * Exact source-observation identity only.
-         *
-         * Source Record Key remains a migration-compatible alias for
-         * county observations created before CanonicalPropertyIdentity.
-         *
-         * Address equality is intentionally NOT an upsert authority.
+         * Existing exact-key authority remains valid.
          */
-        return (
+        if (
           observationKey === naturalKey ||
           legacyKey === naturalKey
+        ) {
+          return true;
+        }
+
+        /*
+         * Gate 2 compatibility bridge:
+         *
+         * Historical Philadelphia code violations may still carry
+         * ObjectID-based keys. Violation Number is permitted only as
+         * a lookup alias here.
+         *
+         * Mutation safety is independently checked in persist_().
+         */
+        if (
+          !durableScope ||
+          !isDurableCodeViolationScope_(row)
+        ) {
+          return false;
+        }
+
+        var persistedViolationNumber =
+          normalizeDurableViolationNumber_(
+            row['Violation Number'],
+            false
+          );
+
+        return (
+          persistedViolationNumber &&
+          persistedViolationNumber ===
+            incomingViolationNumber
         );
       });
 
     /*
-     * One immutable source observation may resolve to at most one
-     * persisted row.
+     * Multiple persisted rows for one durable observation are
+     * collapse-required evidence.
      *
-     * Multiple exact matches are corruption evidence. Never silently
-     * choose Array.find()'s first row because doing so would manufacture
-     * mutation authority over an ambiguous persisted observation.
+     * Ordinary ingestion receives no winner-selection authority.
      */
     if (matches.length > 1) {
       throw new Error(
@@ -577,6 +1011,63 @@ REOS.CountyConnectorSDK = (function () {
       throw new Error(
         'CanonicalPropertyIdentity is not loaded.'
       );
+    }
+
+    /*
+     * Gate 2 observation authority exception.
+     *
+     * Canonical property identity remains delegated to the existing
+     * canonical resolver.
+     *
+     * Only Philadelphia code-violation source-observation authority
+     * changes from ArcGIS ObjectID to Violation Number.
+     */
+    if (
+      isDurableCodeViolationScope_(record)
+    ) {
+      if (
+        typeof REOS.CanonicalPropertyIdentity
+          .tryCanonicalPropertyIdentity !==
+          'function'
+      ) {
+        throw new Error(
+          'Canonical property read authority is required for durable code-violation identity.'
+        );
+      }
+
+      var canonical =
+        REOS.CanonicalPropertyIdentity
+          .tryCanonicalPropertyIdentity(
+            record
+          );
+
+      if (
+        !canonical ||
+        !canonical.ok ||
+        !canonical.key
+      ) {
+        throw new Error(
+          'Philadelphia code-violation durable identity requires unambiguous canonical property identity.'
+        );
+      }
+
+      return {
+        ok: true,
+
+        sourceObservationKey:
+          durableCodeViolationObservationKey_(
+            record
+          ),
+
+        canonicalPropertyKey:
+          canonical.key,
+
+        authority:
+          canonical.authority,
+
+        observationAuthority:
+          'violation_number'
+      };
     }
 
     var identity =
