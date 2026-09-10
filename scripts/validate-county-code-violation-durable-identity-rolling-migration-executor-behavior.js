@@ -378,7 +378,7 @@ function makeHarness(options) {
 
       Database: {
         getSheet(name) {
-          assert.strictEqual(name, 'code_violations');
+          assert.strictEqual(name, 'DISTRESS_LEADS');
           return sheet;
         },
 
