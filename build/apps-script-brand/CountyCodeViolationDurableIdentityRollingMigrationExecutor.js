@@ -182,7 +182,7 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
 
       assert_(
         plan &&
-          plan.source === SOURCE &&
+          plan.connectorId === SOURCE &&
           plan.dataset === DATASET,
         'Migration plan scope mismatch.'
       );

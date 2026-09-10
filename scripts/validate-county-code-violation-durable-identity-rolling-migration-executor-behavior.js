@@ -94,7 +94,7 @@ function makePlan(overrides) {
     {
       ok: true,
       readOnly: true,
-      source: 'PA-PHILADELPHIA',
+      connectorId: 'PA-PHILADELPHIA',
       dataset: 'code_violations',
       countySchedulerTriggerCount: 0,
       migrationReadyOnlyPlanComplete: false,
@@ -458,7 +458,7 @@ function makeHarness(options) {
           return {
             ok: false,
             readOnly: true,
-            source: 'PA-PHILADELPHIA',
+            connectorId: 'PA-PHILADELPHIA',
             dataset: 'code_violations',
             countySchedulerTriggerCount: 0,
             migrationReadyOnlyPlanComplete: false
