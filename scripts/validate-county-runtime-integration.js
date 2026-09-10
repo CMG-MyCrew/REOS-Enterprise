@@ -565,13 +565,26 @@ const expectedCodeViolationCompletionFiles = new Set([
   'build/apps-script-brand/CountyCodeViolationGate1RecoveryExecutor.js'
 ]);
 
+/*
+ * Gate 2B Durable Identity Rolling Migration contains exactly one
+ * explicitly allowlisted bounded migration executor.
+ *
+ * Keep this separate from Gate 1 production-completion authority so
+ * the rolling durable-identity mutation surface cannot inherit or
+ * expand Gate 1 recovery authority.
+ */
+const expectedCodeViolationRollingMigrationFiles = new Set([
+  'build/apps-script-brand/CountyCodeViolationDurableIdentityRollingMigrationExecutor.js'
+]);
+
 const expectedProductionFiles = new Set([
   ...expectedCountyProductionFiles,
   ...expectedPreservationFiles,
   ...expectedCountySchedulerFiles,
   ...expectedCountyDiagnosticFiles,
   ...expectedCountyPage86RepairFiles,
-  ...expectedCodeViolationCompletionFiles
+  ...expectedCodeViolationCompletionFiles,
+  ...expectedCodeViolationRollingMigrationFiles
 ]);
 
 assert.equal(
@@ -719,9 +732,22 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCodeViolationRollingMigrationFiles.size,
+  1,
+  'expected Gate 2B rolling durable identity migration inventory must contain exactly 1 file'
+);
+
+assert.ok(
+  expectedCodeViolationRollingMigrationFiles.has(
+    'build/apps-script-brand/CountyCodeViolationDurableIdentityRollingMigrationExecutor.js'
+  ),
+  'CountyCodeViolationDurableIdentityRollingMigrationExecutor.js must be the explicit bounded Gate 2B rolling migration mutation surface'
+);
+
+assert.equal(
   expectedProductionFiles.size,
-  122,
-  'expected reconciled production inventory must contain 122 files'
+  123,
+  'expected reconciled production inventory must contain 123 files'
 );
 
 assert.equal(
@@ -793,6 +819,20 @@ expectedCodeViolationCompletionFiles.forEach(file => {
 
 pass(
   'Code Violations Production Completion Gate 1 surface is exactly six explicitly allowlisted additive files'
+);
+
+expectedCodeViolationRollingMigrationFiles.forEach(file => {
+  assert.ok(
+    diffEntries.some(entry =>
+      entry.file === file &&
+      entry.status === 'A'
+    ),
+    `expected Gate 2B rolling migration production file missing from baseline diff: ${file}`
+  );
+});
+
+pass(
+  'Gate 2B rolling durable identity migration surface is exactly one explicitly allowlisted additive file'
 );
 
 expectedPreservationFiles.forEach(file => {
