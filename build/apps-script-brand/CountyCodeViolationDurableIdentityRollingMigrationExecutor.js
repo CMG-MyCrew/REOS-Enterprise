@@ -33,6 +33,17 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
     var SOURCE = 'PA-PHILADELPHIA';
     var DATASET = 'code_violations';
 
+    /*
+     * Physical storage authority.
+     *
+     * code_violations is a logical Source Dataset value inside the
+     * shared DISTRESS_LEADS table. It is not a physical sheet name.
+     *
+     * This must remain aligned with
+     * CountyCodeViolationDurableIdentityMigrationPlan.
+     */
+    var TABLE = 'DISTRESS_LEADS';
+
     var SOURCE_RECORD_KEY_COLUMN = 25;
     var SOURCE_OBSERVATION_KEY_COLUMN = 51;
 
@@ -661,7 +672,7 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
       var triggersBefore = assertQuiescence_();
 
       var sheet =
-        REOS.Database.getSheet(DATASET);
+        REOS.Database.getSheet(TABLE);
 
       assert_(sheet, 'Code violations sheet unavailable.');
 
