@@ -549,6 +549,63 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
       };
     }
 
+    function preview(options) {
+      options = options || {};
+
+      var requestedBatchSize =
+        batchSize_(options.batchSize || HARD_BATCH_MAX);
+
+      var plan =
+        plan_({});
+
+      var selected =
+        selectBatch_(plan, requestedBatchSize);
+
+      selected.forEach(validateRecord_);
+
+      assertContiguousSelection_(selected);
+
+      return {
+        mode:
+          'READ_ONLY_GENERIC_ROLLING_DURABLE_IDENTITY_CANDIDATE_PREVIEW',
+        source: SOURCE,
+        dataset: DATASET,
+        requestedBatchSize: requestedBatchSize,
+        returnedCandidateCount: selected.length,
+        migrationPlanSha256:
+          text_(plan.migrationPlanSha256),
+        completePlanSha256:
+          text_(plan.completePlanSha256),
+        migrationRequiredRows:
+          Number(plan.migrationRequiredRows),
+        alreadyDurableRows:
+          Number(plan.alreadyDurableRows),
+        planBlockedRows:
+          Number(plan.planBlockedRows),
+        collapseRequiredRows:
+          Number(plan.collapseRequiredRows),
+        reviewRequiredRows:
+          Number(plan.reviewRequiredRows),
+        candidates:
+          selected.map(function (record) {
+            return {
+              rowNumber:
+                Number(record.rowNumber),
+              distressLeadId:
+                text_(record.distressLeadId),
+              proposedDurableKey:
+                text_(record.proposedDurableKey),
+              prestateFingerprintSha256:
+                text_(record.prestateFingerprintSha256)
+            };
+          }),
+        mutationAuthorityGranted: false,
+        schedulerMutationAuthorityGranted: false,
+        checkpointMutationAuthorityGranted: false,
+        offerAuthorityGranted: false
+      };
+    }
+
     function status() {
       var plan = plan_({});
 
@@ -814,6 +871,7 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
 
     return {
       status: status,
+      preview: preview,
       execute: execute
     };
   })();
@@ -821,6 +879,14 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
 function reosCountyCodeViolationDurableIdentityRollingMigrationStatus() {
   return REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor.status();
 }
+
+function reosCountyCodeViolationDurableIdentityRollingMigrationPreview(options) {
+  return REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor.preview(
+    options ||
+    {}
+  );
+}
+
 
 function reosCountyCodeViolationDurableIdentityRollingMigrationExecute(options) {
   return REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor.execute(
