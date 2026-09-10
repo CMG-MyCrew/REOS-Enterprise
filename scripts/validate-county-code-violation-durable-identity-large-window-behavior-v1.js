@@ -87,7 +87,7 @@ function makeRecord(index) {
 }
 
 const targets =
-  Array.from({ length: 10 }, (_, index) => makeRecord(index));
+  Array.from({ length: 100 }, (_, index) => makeRecord(index));
 
 function makePlan(overrides) {
   return Object.assign(
@@ -118,8 +118,8 @@ function makePlan(overrides) {
 const initialPlan = makePlan();
 
 const expectedPost = makePlan({
-  migrationRequiredRows: 3867,
-  alreadyDurableRows: 159,
+  migrationRequiredRows: 3777,
+  alreadyDurableRows: 249,
   migrationPlanSha256: POST_MIGRATION_SHA,
   completePlanSha256: POST_COMPLETE_SHA,
   migrationRequiredRecords: [],
@@ -145,7 +145,7 @@ function postPlanForCount(count) {
     return clone(initialPlan);
   }
 
-  if (count === 10) {
+  if (count === 100) {
     return clone(expectedPost);
   }
 
@@ -202,7 +202,7 @@ const validInvocation = {
   confirmMigrationReadyOnly: true,
   migrationPlanSha256: PRE_MIGRATION_SHA,
   completePlanSha256: PRE_COMPLETE_SHA,
-  batchSize: 10
+  batchSize: 100
 };
 
 const baseCheckpoint = {
@@ -769,7 +769,7 @@ test(
 );
 
 test(
-  'successful N=10 performs exactly two writes and rolling transition',
+  'successful N=100 performs exactly two writes and rolling transition',
   () => {
     const harness = makeHarness();
 
@@ -781,9 +781,9 @@ test(
       'CERTIFIED_GENERIC_ROLLING_DURABLE_IDENTITY_MIGRATION_EXECUTED'
     );
 
-    assert.strictEqual(result.batchSize, 10);
+    assert.strictEqual(result.batchSize, 100);
     assert.strictEqual(result.physicalStartRow, 3588);
-    assert.strictEqual(result.physicalEndRow, 3597);
+    assert.strictEqual(result.physicalEndRow, 3687);
     assert.strictEqual(result.physicalWriteRangeCount, 2);
 
     assert.strictEqual(harness.state.writeCalls, 2);
@@ -795,7 +795,7 @@ test(
 
     assert.strictEqual(
       result.migrationRequiredRowsAfter,
-      3867
+      3777
     );
 
     assert.strictEqual(
@@ -805,7 +805,7 @@ test(
 
     assert.strictEqual(
       result.alreadyDurableRowsAfter,
-      159
+      249
     );
 
     assert.strictEqual(
@@ -982,7 +982,7 @@ test(
 );
 
 
-for (let n = 1; n <= 10; n += 1) {
+for (const n of [1, 10, 11, 100]) {
   test(
     'successful bounded batchSize=' + n +
       ' performs exactly two physical writes',
@@ -1361,5 +1361,5 @@ if (failures) {
 
 console.log();
 console.log(
-  'Generic rolling executor core behavioral validation PASSED.'
+  'Gate 2B large-window 100-row behavioral validation PASSED.'
 );

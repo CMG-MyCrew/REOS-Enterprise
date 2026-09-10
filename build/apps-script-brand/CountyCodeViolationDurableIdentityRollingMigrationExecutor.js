@@ -47,8 +47,8 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
     var SOURCE_RECORD_KEY_COLUMN = 25;
     var SOURCE_OBSERVATION_KEY_COLUMN = 51;
 
-    var DEFAULT_BATCH_MAX = 10;
-    var HARD_BATCH_MAX = 10;
+    var DEFAULT_BATCH_MAX = 100;
+    var HARD_BATCH_MAX = 100;
 
     var EXPECTED_CYCLE = 'COUNTY-20260902222607805';
     var EXPECTED_FEED_INDEX = 0;
