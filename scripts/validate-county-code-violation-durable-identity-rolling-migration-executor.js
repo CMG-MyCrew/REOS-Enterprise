@@ -81,8 +81,8 @@ requireText(
 
 requireText(
   source,
-  /HARD_BATCH_MAX\s*=\s*10/,
-  'hard batch maximum is 10.'
+  /HARD_BATCH_MAX\s*=\s*100/,
+  'hard batch maximum is 100.'
 );
 
 requireText(
