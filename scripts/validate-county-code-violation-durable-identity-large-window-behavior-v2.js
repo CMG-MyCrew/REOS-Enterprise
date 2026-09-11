@@ -87,7 +87,7 @@ function makeRecord(index) {
 }
 
 const targets =
-  Array.from({ length: 10 }, (_, index) => makeRecord(index));
+  Array.from({ length: 250 }, (_, index) => makeRecord(index));
 
 function makePlan(overrides) {
   return Object.assign(
@@ -118,13 +118,14 @@ function makePlan(overrides) {
 const initialPlan = makePlan();
 
 const expectedPost = makePlan({
-  migrationRequiredRows: 3867,
-  alreadyDurableRows: 159,
+  migrationRequiredRows: 3777,
+  alreadyDurableRows: 249,
   migrationPlanSha256: POST_MIGRATION_SHA,
   completePlanSha256: POST_COMPLETE_SHA,
-  migrationRequiredRecords: [],
+  migrationRequiredRecords:
+    targets.slice(100).map(clone),
   alreadyDurableRecords:
-    targets.map(record =>
+    targets.slice(0, 100).map(record =>
       Object.assign({}, clone(record), {
         sourceRecordKey: record.proposedDurableKey,
         sourceObservationKey: record.proposedDurableKey,
@@ -145,7 +146,7 @@ function postPlanForCount(count) {
     return clone(initialPlan);
   }
 
-  if (count === 10) {
+  if (count === 100) {
     return clone(expectedPost);
   }
 
@@ -202,7 +203,7 @@ const validInvocation = {
   confirmMigrationReadyOnly: true,
   migrationPlanSha256: PRE_MIGRATION_SHA,
   completePlanSha256: PRE_COMPLETE_SHA,
-  batchSize: 10
+  batchSize: 100
 };
 
 const baseCheckpoint = {
@@ -769,7 +770,7 @@ test(
 );
 
 test(
-  'successful N=10 performs exactly two writes and rolling transition',
+  'successful N=100 performs exactly two writes and rolling transition',
   () => {
     const harness = makeHarness();
 
@@ -781,9 +782,9 @@ test(
       'CERTIFIED_GENERIC_ROLLING_DURABLE_IDENTITY_MIGRATION_EXECUTED'
     );
 
-    assert.strictEqual(result.batchSize, 10);
+    assert.strictEqual(result.batchSize, 100);
     assert.strictEqual(result.physicalStartRow, 3588);
-    assert.strictEqual(result.physicalEndRow, 3597);
+    assert.strictEqual(result.physicalEndRow, 3687);
     assert.strictEqual(result.physicalWriteRangeCount, 2);
 
     assert.strictEqual(harness.state.writeCalls, 2);
@@ -795,7 +796,7 @@ test(
 
     assert.strictEqual(
       result.migrationRequiredRowsAfter,
-      3867
+      3777
     );
 
     assert.strictEqual(
@@ -805,7 +806,7 @@ test(
 
     assert.strictEqual(
       result.alreadyDurableRowsAfter,
-      159
+      249
     );
 
     assert.strictEqual(
@@ -839,7 +840,7 @@ test(
 
     assert.strictEqual(result.retryPermitted, false);
 
-    assertDurable(harness);
+    assertDurablePrefix(harness, 100);
   }
 );
 
@@ -941,13 +942,52 @@ test(
       'verified mutation must not be rolled back after outer lock finalization failure'
     );
 
-    assertDurable(harness);
+    assertDurablePrefix(harness, 100);
   }
 );
 
 
+for (const n of [101, 250]) {
+  test(
+    'batchSize=' + n +
+      ' requires explicit large-window authority before plan reads or writes',
+    () => {
+      const harness =
+        makeHarness();
+
+      expectError(
+        () =>
+          harness.execute(
+            Object.assign(
+              {},
+              validInvocation,
+              { batchSize: n }
+            )
+          ),
+        /confirmLargeWindowMigration=true is required above the previously certified 100-row boundary/
+      );
+
+      assert.strictEqual(
+        harness.state.planBuildCalls,
+        1
+      );
+
+      assert.strictEqual(
+        harness.state.lockCalls,
+        0
+      );
+
+      assert.strictEqual(
+        harness.state.writeCalls,
+        0
+      );
+    }
+  );
+}
+
+
 test(
-  'batchSize=101 requires explicit large-window authority before mutation',
+  'batchSize=251 fails at the hard ceiling before authority reads or writes',
   () => {
     const harness =
       makeHarness();
@@ -958,15 +998,18 @@ test(
           Object.assign(
             {},
             validInvocation,
-            { batchSize: 101 }
+            {
+              batchSize: 251,
+              confirmLargeWindowMigration: true
+            }
           )
         ),
-      /confirmLargeWindowMigration=true is required above the previously certified 100-row boundary/
+      /batchSize exceeds certified maximum of 250/
     );
 
     assert.strictEqual(
       harness.state.planBuildCalls,
-      1
+      0
     );
 
     assert.strictEqual(
@@ -982,7 +1025,7 @@ test(
 );
 
 
-for (let n = 1; n <= 10; n += 1) {
+for (const n of [1, 10, 11, 100, 101, 250]) {
   test(
     'successful bounded batchSize=' + n +
       ' performs exactly two physical writes',
@@ -995,7 +1038,12 @@ for (let n = 1; n <= 10; n += 1) {
           Object.assign(
             {},
             validInvocation,
-            { batchSize: n }
+            Object.assign(
+              { batchSize: n },
+              n > 100
+                ? { confirmLargeWindowMigration: true }
+                : {}
+            )
           )
         );
 
@@ -1308,7 +1356,7 @@ test(
       2
     );
 
-    assertDurable(harness);
+    assertDurablePrefix(harness, 100);
   }
 );
 
@@ -1361,5 +1409,5 @@ if (failures) {
 
 console.log();
 console.log(
-  'Generic rolling executor core behavioral validation PASSED.'
+  'Gate 2B 250-window v2 behavioral validation PASSED.'
 );
