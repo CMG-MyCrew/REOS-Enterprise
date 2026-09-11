@@ -48,7 +48,8 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
     var SOURCE_OBSERVATION_KEY_COLUMN = 51;
 
     var DEFAULT_BATCH_MAX = 100;
-    var HARD_BATCH_MAX = 100;
+    var HARD_BATCH_MAX = 250;
+    var PREVIOUS_CERTIFIED_BATCH_MAX = 100;
 
     var EXPECTED_CYCLE = 'COUNTY-20260902222607805';
     var EXPECTED_FEED_INDEX = 0;
@@ -212,7 +213,11 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
       return plan;
     }
 
-    function requireRollingAuthority_(options, currentPlan) {
+    function requireRollingAuthority_(
+      options,
+      currentPlan,
+      requestedBatchSize
+    ) {
       assert_(
         options &&
           options.confirmRollingMigration === true &&
@@ -222,6 +227,16 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
           options.confirmMigrationReadyOnly === true,
         'All five rolling migration confirmations are required.'
       );
+
+      if (
+        Number(requestedBatchSize) >
+          PREVIOUS_CERTIFIED_BATCH_MAX
+      ) {
+        assert_(
+          options.confirmLargeWindowMigration === true,
+          'confirmLargeWindowMigration=true is required above the previously certified 100-row boundary.'
+        );
+      }
 
       assert_(
         text_(options.migrationPlanSha256) ===
@@ -564,7 +579,7 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
       options = options || {};
 
       var requestedBatchSize =
-        batchSize_(options.batchSize || HARD_BATCH_MAX);
+        batchSize_(options.batchSize);
 
       var plan =
         plan_({});
@@ -661,7 +676,11 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
 
       var prePlan = plan_(options);
 
-      requireRollingAuthority_(options, prePlan);
+      requireRollingAuthority_(
+        options,
+        prePlan,
+        requestedBatchSize
+      );
 
       var selected =
         selectBatch_(prePlan, requestedBatchSize);

@@ -81,8 +81,38 @@ requireText(
 
 requireText(
   source,
-  /HARD_BATCH_MAX\s*=\s*100/,
-  'hard batch maximum is 100.'
+  /DEFAULT_BATCH_MAX\s*=\s*100/,
+  'default batch maximum remains 100.'
+);
+
+requireText(
+  source,
+  /HARD_BATCH_MAX\s*=\s*250/,
+  'hard batch maximum is 250.'
+);
+
+requireText(
+  source,
+  /PREVIOUS_CERTIFIED_BATCH_MAX\s*=\s*100/,
+  'previous certified 100-row boundary is explicit.'
+);
+
+requireText(
+  source,
+  /batchSize_\(options\.batchSize\);/,
+  'omitted preview batch size uses DEFAULT_BATCH_MAX.'
+);
+
+if (/batchSize_\(options\.batchSize\s*\|\|\s*HARD_BATCH_MAX\)/.test(source)) {
+  fail('preview must not default omitted batchSize to HARD_BATCH_MAX.');
+}
+
+pass('preview default does not escalate to the hard maximum.');
+
+requireText(
+  source,
+  /confirmLargeWindowMigration/,
+  'large-window confirmation is represented.'
 );
 
 requireText(
