@@ -62,7 +62,7 @@ function persistedRows() {
     'Canonical Property Key':
       record.canonicalPropertyKey,
     'Source Observation Key':
-      record.proposedDurableKey,
+      record.legacyObservationKey,
     Notes:
       'full-row-' + record.rowNumber
   }));
@@ -390,7 +390,7 @@ console.log(
   'PASS: canonical-property drift fails closed'
 );
 console.log(
-  'PASS: durable observation-key drift fails closed'
+  'PASS: certified legacy observation-key drift fails closed'
 );
 console.log(
   'PASS: missing certified row fails closed'

@@ -234,7 +234,7 @@ REOS.CountyCodeViolationCollapseFullRowEvidence = (function () {
 
       assertEqual_(
         row['Source Observation Key'],
-        expected.proposedDurableKey,
+        expected.legacyObservationKey,
         'Source Observation Key',
         id
       );
