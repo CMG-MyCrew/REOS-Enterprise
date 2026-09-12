@@ -100,6 +100,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/CountyArcGisKeysetBoundaryDiagnostic.js',
   'build/apps-script-brand/CountyCodeViolationSourceRecordDiagnostic.js',
   'build/apps-script-brand/CountyCodeViolationDurableIdentityAudit.js',
+  'build/apps-script-brand/CountyCodeViolationCollapseFullRowEvidence.js',
   'build/apps-script-brand/CountyCodeViolationDurableSourceReconciliation.js',
   'build/apps-script-brand/CountyCodeViolationDurableIdentityMigrationPlan.js',
   'build/apps-script-brand/CountyCodeViolationDurableIdentityMigrationBatch1Executor.js',
