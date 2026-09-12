@@ -227,6 +227,34 @@ if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   echo
 fi
 
+# Certified code-violation collapse-only evidence authority certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  COUNTY_CODE_VIOLATION_COLLAPSE_ONLY_AUTHORITY_CERTIFIER="scripts/validate-county-code-violation-collapse-only-evidence-authority-v2.js"
+
+  if [[ ! -f "$COUNTY_CODE_VIOLATION_COLLAPSE_ONLY_AUTHORITY_CERTIFIER" ]]; then
+    echo "ERROR: Collapse-only evidence authority validator missing: $COUNTY_CODE_VIOLATION_COLLAPSE_ONLY_AUTHORITY_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running collapse-only evidence authority certification..."
+  node "$COUNTY_CODE_VIOLATION_COLLAPSE_ONLY_AUTHORITY_CERTIFIER"
+  echo
+fi
+
+# Certified code-violation collapse full-row evidence certification.
+if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
+  COUNTY_CODE_VIOLATION_COLLAPSE_FULLROW_CERTIFIER="scripts/validate-county-code-violation-collapse-fullrow-evidence-v2.js"
+
+  if [[ ! -f "$COUNTY_CODE_VIOLATION_COLLAPSE_FULLROW_CERTIFIER" ]]; then
+    echo "ERROR: Collapse full-row evidence validator missing: $COUNTY_CODE_VIOLATION_COLLAPSE_FULLROW_CERTIFIER"
+    exit 1
+  fi
+
+  echo "Running collapse full-row evidence certification..."
+  node "$COUNTY_CODE_VIOLATION_COLLAPSE_FULLROW_CERTIFIER"
+  echo
+fi
+
 # Philadelphia code-violation durable source reconciliation certification.
 if [[ "$IS_AUTHORITATIVE_ROOT" == "true" ]]; then
   COUNTY_CODE_VIOLATION_DURABLE_SOURCE_RECONCILIATION_CERTIFIER="scripts/validate-county-code-violation-durable-source-reconciliation.js"
