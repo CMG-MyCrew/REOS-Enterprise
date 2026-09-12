@@ -6,8 +6,8 @@ This contract authorizes development and certification of a bounded executor for
 
 The cohort authority is:
 
-- `blockedBackfillAuthoritySha256=ad4b109d3e4a8980b0d228b3ed5c7d8a346a06a3ba08dfcfeb183eebf77aa814`
-- `windowPlanSha256=e5065fe442d072b3bf05376d44b209cb592b01c0f30aba871d7bd578da40b470`
+- `blockedBackfillAuthoritySha256=6d064158ced3d2eaede191c2b5e8195fd3701713c271cbbc6b257671be1767f0`
+- `windowPlanSha256=742ba533413e6447d9e121f326455381d1e689888647e2d86ad0b6e3bbd50684`
 - every row is blocked only by `stored_canonical_identity_missing` and `stored_observation_key_incomplete`;
 - every row already has a valid legacy ObjectID `Source Record Key`;
 - `Source Record Key is never written` by this backfill;
@@ -17,14 +17,37 @@ The cohort authority is:
 
 The 814-row certified blocked cohort is partitioned into four bounded windows in deterministic `proposedDurableKey`, then `rowNumber`, order.
 
-| Window | Rows | Spans | Ranges | Blocked transition | Migration-required transition |
-|---|---:|---:|---:|---:|---:|
-| 1 | 250 | 60 | 120 | 814 -> 564 | 0 -> 250 |
-| 2 | 250 | 27 | 54 | 564 -> 314 | 250 -> 500 |
-| 3 | 215 | 70 | 140 | 314 -> 99 | 500 -> 715 |
-| 4 | 99 | 38 | 76 | 99 -> 0 | 715 -> 814 |
+| Window | Rows | Spans | Ranges | Blocked transition | Migration-required transition | Durable rows held constant during backfill |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 250 | 60 | 120 | 814 -> 564 | 0 -> 250 | 4026 |
+| 2 | 250 | 27 | 54 | 564 -> 314 | 0 -> 250 | 4276 |
+| 3 | 215 | 70 | 140 | 314 -> 99 | 0 -> 215 | 4526 |
+| 4 | 99 | 38 | 76 | 99 -> 0 | 0 -> 99 | 4741 |
 
 No window may exceed 250 candidates, 70 physical spans, or 140 forward write ranges.
+
+### Interleaved durable-drain requirement
+
+This v2 authority supersedes the earlier cumulative migration-required sequencing.
+
+After each blocked-storage backfill window, the newly migration-ready cohort must
+be fully migrated to durable Violation Number identity before the next
+blocked-storage window may become current.
+
+The certified boundaries are therefore:
+
+- Window 1 prestate: `814 blocked / 0 migration-required / 4026 durable`
+- Window 1 post-backfill: `564 / 250 / 4026`
+- Window 2 prestate after durable drain: `564 / 0 / 4276`
+- Window 2 post-backfill: `314 / 250 / 4276`
+- Window 3 prestate after durable drain: `314 / 0 / 4526`
+- Window 3 post-backfill: `99 / 215 / 4526`
+- Window 4 prestate after durable drain: `99 / 0 / 4741`
+- Window 4 post-backfill: `0 / 99 / 4741`
+- Final state after the last durable drain: `0 blocked / 0 migration-required / 4840 durable`
+
+A blocked-storage window must fail closed when the prior migration-ready cohort
+has not been drained or when its durable-row boundary does not match exactly.
 
 ## Authorized cell effects
 

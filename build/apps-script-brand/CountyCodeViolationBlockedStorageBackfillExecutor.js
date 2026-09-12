@@ -41,10 +41,10 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
       'READ_ONLY_CODE_VIOLATION_DURABLE_IDENTITY_MIGRATION_PLAN';
 
     var BLOCKED_BACKFILL_AUTHORITY_SHA256 =
-      'ad4b109d3e4a8980b0d228b3ed5c7d8a346a06a3ba08dfcfeb183eebf77aa814';
+      '6d064158ced3d2eaede191c2b5e8195fd3701713c271cbbc6b257671be1767f0';
 
     var WINDOW_PLAN_SHA256 =
-      'e5065fe442d072b3bf05376d44b209cb592b01c0f30aba871d7bd578da40b470';
+      '742ba533413e6447d9e121f326455381d1e689888647e2d86ad0b6e3bbd50684';
 
     var ROLLBACK_AMBIGUOUS =
       'GATE_2B_BLOCKED_BACKFILL_RESULT_AMBIGUOUS_READ_ONLY_RECONCILIATION_REQUIRED_NO_RETRY';
@@ -58,7 +58,9 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
         planBlockedRowsAfter: 564,
         migrationRequiredRowsBefore: 0,
         migrationRequiredRowsAfter: 250,
-        candidateAuthoritySha256:
+        alreadyDurableRowsBefore: 4026,
+        alreadyDurableRowsAfter: 4026,
+                candidateAuthoritySha256:
           'abda6858ff296f2ddce454c2c02e3b05862c8452576a6e2b1a0e127cdb1e8fee',
         spanGeometrySha256:
           '20685d9cc162624d099494f030e465a688d223c9c5985bff589f828a3a3cef23'
@@ -69,9 +71,11 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
         physicalWriteRangeCount: 54,
         planBlockedRowsBefore: 564,
         planBlockedRowsAfter: 314,
-        migrationRequiredRowsBefore: 250,
-        migrationRequiredRowsAfter: 500,
-        candidateAuthoritySha256:
+        migrationRequiredRowsBefore: 0,
+        migrationRequiredRowsAfter: 250,
+        alreadyDurableRowsBefore: 4276,
+        alreadyDurableRowsAfter: 4276,
+                candidateAuthoritySha256:
           '63ca3a9db81a3b0ab7596cbc2c95dc95294679ac8af970868fc8ea3bf7f710be',
         spanGeometrySha256:
           '45b0f7f8a8e71762f76f89b2540823d6735552656702baf969b7d56d6b5d251a'
@@ -82,9 +86,11 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
         physicalWriteRangeCount: 140,
         planBlockedRowsBefore: 314,
         planBlockedRowsAfter: 99,
-        migrationRequiredRowsBefore: 500,
-        migrationRequiredRowsAfter: 715,
-        candidateAuthoritySha256:
+        migrationRequiredRowsBefore: 0,
+        migrationRequiredRowsAfter: 215,
+        alreadyDurableRowsBefore: 4526,
+        alreadyDurableRowsAfter: 4526,
+                candidateAuthoritySha256:
           'a89dfc349741a7b42a14955c312166833f1a9f7b700d99cd5a9bcedcf649ad49',
         spanGeometrySha256:
           '8c511f38a1889f3099d7aaad8fca393125db677a2024c80539e03dd11aba515f'
@@ -95,9 +101,11 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
         physicalWriteRangeCount: 76,
         planBlockedRowsBefore: 99,
         planBlockedRowsAfter: 0,
-        migrationRequiredRowsBefore: 715,
-        migrationRequiredRowsAfter: 814,
-        candidateAuthoritySha256:
+        migrationRequiredRowsBefore: 0,
+        migrationRequiredRowsAfter: 99,
+        alreadyDurableRowsBefore: 4741,
+        alreadyDurableRowsAfter: 4741,
+                candidateAuthoritySha256:
           '66d44834e0f01fa1d0f4f84f8c1f0f1212ea1d754f6a8be88f339df5c61d594b',
         spanGeometrySha256:
           'ee24c752004c874e97416876aa1cd0c9898c5e81136c381c512e5ffcee642543'
@@ -303,8 +311,10 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
       );
 
       assert_(
-        Number(plan.alreadyDurableRows) === 4026,
-        'Already-durable population changed during blocked backfill.'
+        [4026, 4276, 4526, 4741, 4840].indexOf(
+          Number(plan.alreadyDurableRows)
+        ) !== -1,
+        'Already-durable population is outside certified interleaved boundaries.'
       );
 
       assert_(
@@ -331,7 +341,9 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
 
         if (
           blocked === Number(authority.planBlockedRowsBefore) &&
-          migration === Number(authority.migrationRequiredRowsBefore)
+          migration === Number(authority.migrationRequiredRowsBefore) &&
+          Number(plan.alreadyDurableRows) ===
+            Number(authority.alreadyDurableRowsBefore)
         ) {
           assert_(found === 0, 'Ambiguous blocked-backfill window state.');
           found = number;
@@ -340,7 +352,11 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
 
       if (found) return found;
 
-      if (blocked === 0 && migration === 814) return 0;
+      if (
+        blocked === 0 &&
+        migration === 0 &&
+        Number(plan.alreadyDurableRows) === 4840
+      ) return 0;
 
       throw new Error(
         'Blocked-backfill plan state does not match any certified window boundary.'
@@ -380,6 +396,12 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
         Number(plan.migrationRequiredRows) ===
           Number(authority.migrationRequiredRowsBefore),
         'migrationRequiredRows does not match certified window prestate.'
+      );
+
+      assert_(
+        Number(plan.alreadyDurableRows) ===
+          Number(authority.alreadyDurableRowsBefore),
+        'alreadyDurableRows does not match certified window prestate.'
       );
 
       var records = orderedBlocked_(plan);
@@ -894,7 +916,8 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
       );
 
       assert_(
-        Number(postPlan.alreadyDurableRows) === 4026,
+        Number(postPlan.alreadyDurableRows) ===
+          Number(authority.alreadyDurableRowsAfter),
         'Already-durable population changed unexpectedly.'
       );
 
@@ -1018,7 +1041,8 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
           Number(requested.authority.migrationRequiredRowsBefore),
         migrationRequiredRowsAfter:
           Number(requested.authority.migrationRequiredRowsAfter),
-        alreadyDurableRows: 4026,
+        alreadyDurableRows:
+          Number(plan.alreadyDurableRows),
         collapseRequiredRows: 141,
         reviewRequiredRows: 95,
         candidates: selected.map(function (record) {
@@ -1248,6 +1272,8 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
             Number(requested.authority.migrationRequiredRowsBefore),
           migrationRequiredRowsAfter:
             Number(result.postPlan.migrationRequiredRows),
+          alreadyDurableRowsBefore:
+            Number(requested.authority.alreadyDurableRowsBefore),
           alreadyDurableRowsAfter:
             Number(result.postPlan.alreadyDurableRows),
           collapseRequiredRows:

@@ -221,6 +221,44 @@ try {
 assert(wrongWindowFailed, 'preview must fail closed for a non-current window.');
 pass('non-current window preview fails closed.');
 
+// Interleaved-drain Window 2 status/preview boundary.
+// Window 1 has been backfilled and its 250 migration-ready rows have
+// subsequently been drained to durable identity.
+const window2Plan = JSON.parse(JSON.stringify(plan));
+window2Plan.alreadyDurableRows = 4276;
+window2Plan.migrationRequiredRows = 0;
+window2Plan.planBlockedRows = 564;
+window2Plan.planBlockedRecords = blocked.slice(250);
+
+const originalBuild = context.REOS
+  .CountyCodeViolationDurableIdentityMigrationPlan
+  .build;
+
+context.REOS.CountyCodeViolationDurableIdentityMigrationPlan.build =
+  function () {
+    return JSON.parse(JSON.stringify(window2Plan));
+  };
+
+const window2Status =
+  context.reosCountyCodeViolationBlockedStorageBackfillStatus();
+
+assert(
+  window2Status.currentWindowNumber === 2,
+  'interleaved-drain status must identify window 2.'
+);
+
+assert(
+  window2Status.planBlockedRows === 564 &&
+    window2Status.migrationRequiredRows === 0 &&
+    window2Status.alreadyDurableRows === 4276,
+  'window 2 status must bind 564 / 0 / 4276.'
+);
+
+pass('interleaved-drain Window 2 boundary is recognized.');
+
+context.REOS.CountyCodeViolationDurableIdentityMigrationPlan.build =
+  originalBuild;
+
 let executeFailed = false;
 try {
   context.reosCountyCodeViolationBlockedStorageBackfillExecute({
@@ -247,9 +285,9 @@ console.log(
 const txCrypto = require('crypto');
 
 const TX_WINDOW_PLAN_SHA =
-  'e5065fe442d072b3bf05376d44b209cb592b01c0f30aba871d7bd578da40b470';
+  '742ba533413e6447d9e121f326455381d1e689888647e2d86ad0b6e3bbd50684';
 const TX_BACKFILL_AUTHORITY_SHA =
-  'ad4b109d3e4a8980b0d228b3ed5c7d8a346a06a3ba08dfcfeb183eebf77aa814';
+  '6d064158ced3d2eaede191c2b5e8195fd3701713c271cbbc6b257671be1767f0';
 
 function txSha(value) {
   return txCrypto
@@ -876,7 +914,7 @@ try {
     );
 } catch (error) {
   repeatedWindowRejected =
-    /not the current certified window/.test(
+    /does not match any certified window boundary/.test(
       String(
         error.message ||
         error
