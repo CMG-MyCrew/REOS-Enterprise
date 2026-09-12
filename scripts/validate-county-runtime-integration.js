@@ -577,6 +577,22 @@ const expectedCodeViolationRollingMigrationFiles = new Set([
   'build/apps-script-brand/CountyCodeViolationDurableIdentityRollingMigrationExecutor.js'
 ]);
 
+/*
+ * Post-rolling Gate 2B additions contain exactly two separately
+ * certified bounded production mutation surfaces:
+ *
+ * - the v3 multi-span durable-identity migration executor;
+ * - the blocked-storage backfill executor.
+ *
+ * Keep these explicit and separate from the original rolling executor
+ * so later inventory growth cannot silently inherit migration or
+ * backfill authority.
+ */
+const expectedCodeViolationPostRollingFiles = new Set([
+  'build/apps-script-brand/CountyCodeViolationDurableIdentityMultiSpanMigrationExecutor.js',
+  'build/apps-script-brand/CountyCodeViolationBlockedStorageBackfillExecutor.js'
+]);
+
 const expectedProductionFiles = new Set([
   ...expectedCountyProductionFiles,
   ...expectedPreservationFiles,
@@ -584,7 +600,8 @@ const expectedProductionFiles = new Set([
   ...expectedCountyDiagnosticFiles,
   ...expectedCountyPage86RepairFiles,
   ...expectedCodeViolationCompletionFiles,
-  ...expectedCodeViolationRollingMigrationFiles
+  ...expectedCodeViolationRollingMigrationFiles,
+  ...expectedCodeViolationPostRollingFiles
 ]);
 
 assert.equal(
@@ -745,9 +762,29 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCodeViolationPostRollingFiles.size,
+  2,
+  'expected post-rolling Gate 2B production inventory must contain exactly 2 files'
+);
+
+assert.ok(
+  expectedCodeViolationPostRollingFiles.has(
+    'build/apps-script-brand/CountyCodeViolationDurableIdentityMultiSpanMigrationExecutor.js'
+  ),
+  'CountyCodeViolationDurableIdentityMultiSpanMigrationExecutor.js must be the explicit bounded Gate 2B v3 multi-span migration surface'
+);
+
+assert.ok(
+  expectedCodeViolationPostRollingFiles.has(
+    'build/apps-script-brand/CountyCodeViolationBlockedStorageBackfillExecutor.js'
+  ),
+  'CountyCodeViolationBlockedStorageBackfillExecutor.js must be the explicit bounded Gate 2B blocked-storage backfill surface'
+);
+
+assert.equal(
   expectedProductionFiles.size,
-  123,
-  'expected reconciled production inventory must contain 123 files'
+  125,
+  'expected reconciled production inventory must contain 125 files'
 );
 
 assert.equal(
@@ -833,6 +870,20 @@ expectedCodeViolationRollingMigrationFiles.forEach(file => {
 
 pass(
   'Gate 2B rolling durable identity migration surface is exactly one explicitly allowlisted additive file'
+);
+
+expectedCodeViolationPostRollingFiles.forEach(file => {
+  assert.ok(
+    diffEntries.some(entry =>
+      entry.file === file &&
+      entry.status === 'A'
+    ),
+    `expected post-rolling Gate 2B production file missing from baseline diff: ${file}`
+  );
+});
+
+pass(
+  'post-rolling Gate 2B production surface is exactly two explicitly allowlisted additive files'
 );
 
 expectedPreservationFiles.forEach(file => {
