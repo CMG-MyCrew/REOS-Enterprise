@@ -239,3 +239,777 @@ pass('execute authority gate fails before any mutation boundary.');
 console.log(
   '=== GATE 2B BLOCKED STORAGE BACKFILL V1 BEHAVIOR VALIDATION PASSED ==='
 );
+
+// TRANSACTION_PATH_BEHAVIOR_V1
+//
+// Synthetic success + rollback coverage for the actual mutation boundary.
+// This harness never touches Apps Script or production data.
+const txCrypto = require('crypto');
+
+const TX_WINDOW_PLAN_SHA =
+  'e5065fe442d072b3bf05376d44b209cb592b01c0f30aba871d7bd578da40b470';
+const TX_BACKFILL_AUTHORITY_SHA =
+  'ad4b109d3e4a8980b0d228b3ed5c7d8a346a06a3ba08dfcfeb183eebf77aa814';
+
+function txSha(value) {
+  return txCrypto
+    .createHash('sha256')
+    .update(String(value), 'utf8')
+    .digest('hex');
+}
+
+function txDigestBytes(value) {
+  return Array.from(
+    Buffer.from(
+      txSha(value),
+      'hex'
+    )
+  );
+}
+
+function buildTxHarness(injectBadPost) {
+  const txHeaders = Array(51).fill('');
+  txHeaders[24] = 'Source Record Key';
+  txHeaders[30] = 'Canonical Property Key';
+  txHeaders[50] = 'Source Observation Key';
+
+  const txCells = new Map();
+  const txWrites = [];
+  let txFlushes = 0;
+  let txLocks = 0;
+
+  function cellKey(row, column) {
+    return String(row) + ':' + String(column);
+  }
+
+  function getCell(row, column) {
+    const key = cellKey(row, column);
+    return txCells.has(key)
+      ? txCells.get(key)
+      : '';
+  }
+
+  function setCell(row, column, value) {
+    txCells.set(
+      cellKey(row, column),
+      value
+    );
+  }
+
+  const txRecords = blocked.map(function (record) {
+    const clone = JSON.parse(
+      JSON.stringify(record)
+    );
+
+    setCell(
+      Number(clone.rowNumber),
+      25,
+      clone.legacyObservationKey
+    );
+
+    setCell(
+      Number(clone.rowNumber),
+      31,
+      ''
+    );
+
+    setCell(
+      Number(clone.rowNumber),
+      51,
+      ''
+    );
+
+    clone.prestateFingerprintSha256 =
+      txSha(
+        JSON.stringify({
+          rowNumber:
+            Number(clone.rowNumber),
+          distressLeadId:
+            String(clone.distressLeadId || ''),
+          sourceRecordId:
+            String(clone.sourceRecordId || ''),
+          violationNumber:
+            String(clone.violationNumber || ''),
+          parcelId:
+            String(clone.parcelId || ''),
+          canonicalPropertyKey:
+            String(clone.canonicalPropertyKey || ''),
+          storedCanonicalPropertyKey:
+            '',
+          sourceObservationKey:
+            '',
+          sourceRecordKey:
+            String(clone.legacyObservationKey || ''),
+          legacyObservationKey:
+            String(clone.legacyObservationKey || ''),
+          proposedDurableKey:
+            String(clone.proposedDurableKey || '')
+        })
+      );
+
+    return clone;
+  });
+
+  function dynamicPlan() {
+    const blockedRecords = [];
+    const migrationRecords = [];
+
+    txRecords.forEach(function (original) {
+      const record = JSON.parse(
+        JSON.stringify(original)
+      );
+
+      record.storedCanonicalPropertyKey =
+        String(
+          getCell(
+            Number(record.rowNumber),
+            31
+          ) || ''
+        );
+
+      record.sourceRecordKey =
+        String(
+          getCell(
+            Number(record.rowNumber),
+            25
+          ) || ''
+        );
+
+      record.sourceObservationKey =
+        String(
+          getCell(
+            Number(record.rowNumber),
+            51
+          ) || ''
+        );
+
+      const stillBlocked =
+        !record.storedCanonicalPropertyKey ||
+        !record.sourceObservationKey;
+
+      if (stillBlocked) {
+        record.planBlockReasons = [
+          'stored_canonical_identity_missing',
+          'stored_observation_key_incomplete'
+        ];
+        blockedRecords.push(record);
+      } else {
+        record.planBlockReasons = [];
+        migrationRecords.push(record);
+      }
+    });
+
+    const post =
+      migrationRecords.length > 0;
+
+    return {
+      connectorId:
+        'PA-PHILADELPHIA',
+      dataset:
+        'code_violations',
+      countySchedulerTriggerCount:
+        0,
+      alreadyDurableRows:
+        4026,
+      collapseRequiredRows:
+        141,
+      reviewRequiredRows:
+        95,
+      migrationRequiredRows:
+        migrationRecords.length,
+      planBlockedRows:
+        (
+          injectBadPost &&
+          post
+        )
+          ? blockedRecords.length - 1
+          : blockedRecords.length,
+      planBlockedRecords:
+        blockedRecords,
+      migrationRequiredRecords:
+        migrationRecords,
+      alreadyDurableRecords:
+        [],
+      migrationPlanSha256:
+        post
+          ? 'tx-post-migration-sha'
+          : 'tx-pre-migration-sha',
+      completePlanSha256:
+        post
+          ? 'tx-post-complete-sha'
+          : 'tx-pre-complete-sha'
+    };
+  }
+
+  const txSheet = {
+    getRange(
+      firstRow,
+      firstColumn,
+      rowCount,
+      columnCount
+    ) {
+      return {
+        getValues() {
+          const values = [];
+
+          for (
+            let rowOffset = 0;
+            rowOffset < rowCount;
+            rowOffset += 1
+          ) {
+            const row = [];
+
+            for (
+              let columnOffset = 0;
+              columnOffset < columnCount;
+              columnOffset += 1
+            ) {
+              row.push(
+                getCell(
+                  firstRow + rowOffset,
+                  firstColumn + columnOffset
+                )
+              );
+            }
+
+            values.push(row);
+          }
+
+          return values;
+        },
+
+        setValues(values) {
+          assert(
+            Array.isArray(values) &&
+              values.length === rowCount,
+            'transaction harness row write count must match range.'
+          );
+
+          values.forEach(function (row, rowOffset) {
+            assert(
+              Array.isArray(row) &&
+                row.length === columnCount,
+              'transaction harness column write count must match range.'
+            );
+
+            row.forEach(function (value, columnOffset) {
+              setCell(
+                firstRow + rowOffset,
+                firstColumn + columnOffset,
+                value
+              );
+            });
+          });
+
+          txWrites.push({
+            firstRow,
+            firstColumn,
+            rowCount,
+            columnCount
+          });
+
+          return this;
+        }
+      };
+    }
+  };
+
+  const txContext = {
+    console,
+
+    REOS: {
+      Database: {
+        getHeaders() {
+          return txHeaders.slice();
+        },
+
+        getSheet() {
+          return txSheet;
+        },
+
+        withScriptLockContext(callback) {
+          txLocks += 1;
+          return callback();
+        }
+      },
+
+      CountyProductionScheduler: {
+        getCheckpoint() {
+          return {
+            id:
+              'COUNTY-20260902222607805',
+            nextFeedIndex:
+              0,
+            currentFeedCursor:
+              'AK1|PHL-CODE-HIGH-SEED-20250901-OID636638-V1|1782545296000|2281',
+            completedFeeds:
+              0,
+            totalFeeds:
+              4,
+            results:
+              []
+          };
+        }
+      },
+
+      CountyCodeViolationDurableIdentityMigrationPlan: {
+        build() {
+          return dynamicPlan();
+        }
+      }
+    },
+
+    Utilities: {
+      DigestAlgorithm: {
+        SHA_256: 'SHA_256'
+      },
+
+      Charset: {
+        UTF_8: 'UTF_8'
+      },
+
+      computeDigest(
+        _algorithm,
+        value
+      ) {
+        const text = String(value);
+
+        if (
+          text.startsWith(
+            '[{"count":'
+          )
+        ) {
+          return bytes(
+            WINDOW1_SPAN_SHA
+          );
+        }
+
+        if (
+          text.startsWith(
+            '100|TEST-0001|'
+          )
+        ) {
+          return bytes(
+            WINDOW1_CANDIDATE_SHA
+          );
+        }
+
+        return txDigestBytes(text);
+      }
+    },
+
+    ScriptApp: {
+      getProjectTriggers() {
+        return [
+          {
+            getHandlerFunction() {
+              return 'reosProductionOperationsHeartbeat';
+            },
+
+            getEventType() {
+              return 'CLOCK';
+            },
+
+            getTriggerSource() {
+              return 'CLOCK';
+            },
+
+            getUniqueId() {
+              return 'synthetic-heartbeat';
+            }
+          }
+        ];
+      }
+    },
+
+    SpreadsheetApp: {
+      flush() {
+        txFlushes += 1;
+      }
+    }
+  };
+
+  vm.createContext(txContext);
+
+  vm.runInContext(
+    source,
+    txContext,
+    {
+      filename: SRC
+    }
+  );
+
+  const options = {
+    windowNumber:
+      1,
+
+    confirmBlockedStorageBackfill:
+      true,
+
+    confirmCanonicalPropertyBackfill:
+      true,
+
+    confirmLegacyObservationPreservation:
+      true,
+
+    confirmNoDurableObservationWrite:
+      true,
+
+    confirmNoSourceRecordKeyWrite:
+      true,
+
+    confirmNoInsertDelete:
+      true,
+
+    windowPlanSha256:
+      TX_WINDOW_PLAN_SHA,
+
+    blockedBackfillAuthoritySha256:
+      TX_BACKFILL_AUTHORITY_SHA,
+
+    candidateAuthoritySha256:
+      WINDOW1_CANDIDATE_SHA,
+
+    spanGeometrySha256:
+      WINDOW1_SPAN_SHA,
+
+    migrationPlanSha256:
+      'tx-pre-migration-sha',
+
+    completePlanSha256:
+      'tx-pre-complete-sha'
+  };
+
+  return {
+    context:
+      txContext,
+
+    records:
+      txRecords,
+
+    options,
+
+    writes:
+      txWrites,
+
+    getCell,
+
+    get flushes() {
+      return txFlushes;
+    },
+
+    get locks() {
+      return txLocks;
+    },
+
+    plan:
+      dynamicPlan
+  };
+}
+
+
+// --------------------------------------------------
+// Successful forward mutation path
+// --------------------------------------------------
+
+const txSuccess =
+  buildTxHarness(false);
+
+const txResult =
+  txSuccess
+    .context
+    .reosCountyCodeViolationBlockedStorageBackfillExecute(
+      txSuccess.options
+    );
+
+assert(
+  txResult.mode ===
+    'CERTIFIED_BLOCKED_STORAGE_BACKFILL_EXECUTED',
+  'success path must return certified execution mode.'
+);
+
+assert(
+  txResult.windowNumber === 1,
+  'success path must execute window 1.'
+);
+
+assert(
+  txResult.candidateCount === 250,
+  'success path must mutate exactly 250 candidates.'
+);
+
+assert(
+  txResult.physicalSpanCount === 60 &&
+    txResult.physicalWriteRangeCount === 120,
+  'success path must preserve exact 60-span / 120-range geometry.'
+);
+
+assert(
+  txResult.planBlockedRowsBefore === 814 &&
+    txResult.planBlockedRowsAfter === 564,
+  'success path must transition blocked rows 814 -> 564.'
+);
+
+assert(
+  txResult.migrationRequiredRowsBefore === 0 &&
+    txResult.migrationRequiredRowsAfter === 250,
+  'success path must transition migration-required rows 0 -> 250.'
+);
+
+assert(
+  txResult.nextMigrationPlanSha256 ===
+    'tx-post-migration-sha' &&
+    txResult.nextCompletePlanSha256 ===
+      'tx-post-complete-sha',
+  'success path must return verified post-plan hashes.'
+);
+
+assert(
+  txResult.productionDataMutationExecuted === true &&
+    txResult.backfillExecuted === true &&
+    txResult.backfillAuthorityConsumed === true,
+  'success path must report completed production-data mutation semantics.'
+);
+
+assert(
+  txResult.sourceRecordKeyMutationExecuted === false &&
+    txResult.durableObservationKeyMutationExecuted === false &&
+    txResult.retryPermitted === false,
+  'success path must keep forbidden mutations false and retry prohibited.'
+);
+
+assert(
+  txSuccess.locks === 1,
+  'success path must execute inside exactly one ScriptLock context.'
+);
+
+assert(
+  txSuccess.flushes === 1,
+  'success path must flush exactly once after forward writes.'
+);
+
+assert(
+  txSuccess.writes.length === 120,
+  'success path must perform exactly 120 narrow forward write ranges.'
+);
+
+assert(
+  txSuccess.writes.every(function (write) {
+    return (
+      write.columnCount === 1 &&
+      (
+        write.firstColumn === 31 ||
+        write.firstColumn === 51
+      )
+    );
+  }),
+  'success path may write only Canonical Property Key and Source Observation Key.'
+);
+
+assert(
+  txSuccess.writes.every(function (write) {
+    return write.firstColumn !== 25;
+  }),
+  'success path must never write Source Record Key.'
+);
+
+txSuccess.records
+  .slice(0, 250)
+  .forEach(function (record) {
+    const row =
+      Number(record.rowNumber);
+
+    assert(
+      txSuccess.getCell(
+        row,
+        31
+      ) ===
+        record.canonicalPropertyKey,
+      'success path must restore canonical identity at row ' + row
+    );
+
+    assert(
+      txSuccess.getCell(
+        row,
+        51
+      ) ===
+        record.legacyObservationKey,
+      'success path must restore legacy observation identity at row ' + row
+    );
+
+    assert(
+      txSuccess.getCell(
+        row,
+        25
+      ) ===
+        record.legacyObservationKey,
+      'success path must preserve Source Record Key at row ' + row
+    );
+  });
+
+const txFirstUnselected =
+  txSuccess.records[250];
+
+assert(
+  txSuccess.getCell(
+    Number(txFirstUnselected.rowNumber),
+    31
+  ) === '' &&
+    txSuccess.getCell(
+      Number(txFirstUnselected.rowNumber),
+      51
+    ) === '',
+  'success path must not mutate the next-window candidate.'
+);
+
+const writesAfterSuccess =
+  txSuccess.writes.length;
+
+let repeatedWindowRejected =
+  false;
+
+try {
+  txSuccess
+    .context
+    .reosCountyCodeViolationBlockedStorageBackfillExecute(
+      txSuccess.options
+    );
+} catch (error) {
+  repeatedWindowRejected =
+    /not the current certified window/.test(
+      String(
+        error.message ||
+        error
+      )
+    );
+}
+
+assert(
+  repeatedWindowRejected,
+  'completed window must not be executable a second time.'
+);
+
+assert(
+  txSuccess.writes.length ===
+    writesAfterSuccess,
+  'repeated-window rejection must perform zero additional writes.'
+);
+
+pass(
+  'synthetic forward path writes exactly the certified columns, verifies 814->564 / 0->250, and prevents window replay.'
+);
+
+
+// --------------------------------------------------
+// Verified rollback path
+// --------------------------------------------------
+
+const txRollback =
+  buildTxHarness(true);
+
+let rollbackFailureCertified =
+  false;
+
+try {
+  txRollback
+    .context
+    .reosCountyCodeViolationBlockedStorageBackfillExecute(
+      txRollback.options
+    );
+} catch (error) {
+  rollbackFailureCertified =
+    /failed and certified prestate was restored/.test(
+      String(
+        error.message ||
+        error
+      )
+    );
+}
+
+assert(
+  rollbackFailureCertified,
+  'post-plan validation failure must restore certified prestate.'
+);
+
+assert(
+  txRollback.locks === 1,
+  'rollback scenario must remain inside one ScriptLock context.'
+);
+
+assert(
+  txRollback.flushes === 2,
+  'rollback scenario must flush once forward and once after restore.'
+);
+
+assert(
+  txRollback.writes.length === 240,
+  'rollback scenario must perform 120 forward + 120 rollback ranges.'
+);
+
+assert(
+  txRollback.writes.every(function (write) {
+    return write.firstColumn !== 25;
+  }),
+  'rollback scenario must never write Source Record Key.'
+);
+
+txRollback.records
+  .slice(0, 250)
+  .forEach(function (record) {
+    const row =
+      Number(record.rowNumber);
+
+    assert(
+      txRollback.getCell(
+        row,
+        31
+      ) === '',
+      'rollback must restore empty canonical prestate at row ' + row
+    );
+
+    assert(
+      txRollback.getCell(
+        row,
+        51
+      ) === '',
+      'rollback must restore empty observation prestate at row ' + row
+    );
+
+    assert(
+      txRollback.getCell(
+        row,
+        25
+      ) ===
+        record.legacyObservationKey,
+      'rollback must preserve Source Record Key at row ' + row
+    );
+  });
+
+const rollbackPlan =
+  txRollback.plan();
+
+assert(
+  rollbackPlan.planBlockedRows === 814 &&
+    rollbackPlan.migrationRequiredRows === 0,
+  'rollback must return the synthetic plan exactly to 814 blocked / 0 migration-required.'
+);
+
+const rollbackStatus =
+  txRollback
+    .context
+    .reosCountyCodeViolationBlockedStorageBackfillStatus();
+
+assert(
+  rollbackStatus.currentWindowNumber === 1 &&
+    rollbackStatus.planBlockedRows === 814 &&
+    rollbackStatus.migrationRequiredRows === 0,
+  'rollback must return status to certified window-1 prestate.'
+);
+
+pass(
+  'synthetic rollback path restores physical prestate and certified plan boundary.'
+);
+
+console.log(
+  '=== GATE 2B BLOCKED STORAGE BACKFILL V1 TRANSACTION PATH VALIDATION PASSED ==='
+);
