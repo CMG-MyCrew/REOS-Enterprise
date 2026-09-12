@@ -662,6 +662,16 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
 
       var requestedBatchSize = batchSize_(options.batchSize);
 
+      if (
+        Number(requestedBatchSize) >
+          PREVIOUS_CERTIFIED_BATCH_MAX
+      ) {
+        assert_(
+          options.confirmLargeWindowMigration === true,
+          'confirmLargeWindowMigration=true is required above the previously certified 100-row boundary.'
+        );
+      }
+
       assert_(
         REOS.Database &&
           typeof REOS.Database.withScriptLockContext === 'function',

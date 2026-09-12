@@ -969,7 +969,8 @@ for (const n of [101, 250]) {
 
       assert.strictEqual(
         harness.state.planBuildCalls,
-        1
+        0,
+        'large-window authority must fail before any plan construction'
       );
 
       assert.strictEqual(
