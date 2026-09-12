@@ -34,23 +34,23 @@ function count(text, pattern) {
   /HARD_BATCH_MAX\s*=\s*250/,
   /MAX_PHYSICAL_SPANS\s*=\s*70/,
   /MAX_FORWARD_WRITE_RANGES\s*=\s*140/,
-  /BLOCKED_BACKFILL_AUTHORITY_SHA256\s*=\s*\n\s*'ad4b109d3e4a8980b0d228b3ed5c7d8a346a06a3ba08dfcfeb183eebf77aa814'/,
-  /WINDOW_PLAN_SHA256\s*=\s*\n\s*'e5065fe442d072b3bf05376d44b209cb592b01c0f30aba871d7bd578da40b470'/
+  /BLOCKED_BACKFILL_AUTHORITY_SHA256\s*=\s*\n\s*'6d064158ced3d2eaede191c2b5e8195fd3701713c271cbbc6b257671be1767f0'/,
+  /WINDOW_PLAN_SHA256\s*=\s*\n\s*'742ba533413e6447d9e121f326455381d1e689888647e2d86ad0b6e3bbd50684'/
 ].forEach(pattern => {
   requireText(source, pattern, 'certified backfill boundary is represented: ' + pattern);
 });
 
 const windowExpectations = [
-  [1, 250, 60, 120, 814, 564, 0, 250,
+  [1, 250, 60, 120, 814, 564, 0, 250, 4026, 4026,
    'abda6858ff296f2ddce454c2c02e3b05862c8452576a6e2b1a0e127cdb1e8fee',
    '20685d9cc162624d099494f030e465a688d223c9c5985bff589f828a3a3cef23'],
-  [2, 250, 27, 54, 564, 314, 250, 500,
+  [2, 250, 27, 54, 564, 314, 0, 250, 4276, 4276,
    '63ca3a9db81a3b0ab7596cbc2c95dc95294679ac8af970868fc8ea3bf7f710be',
    '45b0f7f8a8e71762f76f89b2540823d6735552656702baf969b7d56d6b5d251a'],
-  [3, 215, 70, 140, 314, 99, 500, 715,
+  [3, 215, 70, 140, 314, 99, 0, 215, 4526, 4526,
    'a89dfc349741a7b42a14955c312166833f1a9f7b700d99cd5a9bcedcf649ad49',
    '8c511f38a1889f3099d7aaad8fca393125db677a2024c80539e03dd11aba515f'],
-  [4, 99, 38, 76, 99, 0, 715, 814,
+  [4, 99, 38, 76, 99, 0, 0, 99, 4741, 4741,
    '66d44834e0f01fa1d0f4f84f8c1f0f1212ea1d754f6a8be88f339df5c61d594b',
    'ee24c752004c874e97416876aa1cd0c9898c5e81136c381c512e5ffcee642543']
 ];
@@ -64,6 +64,8 @@ windowExpectations.forEach(([
   blockedAfter,
   migrationBefore,
   migrationAfter,
+  durableBefore,
+  durableAfter,
   candidateSha,
   spanSha
 ]) => {
@@ -76,6 +78,8 @@ windowExpectations.forEach(([
     'planBlockedRowsAfter:\\s*' + blockedAfter + '[\\s\\S]*?' +
     'migrationRequiredRowsBefore:\\s*' + migrationBefore + '[\\s\\S]*?' +
     'migrationRequiredRowsAfter:\\s*' + migrationAfter + '[\\s\\S]*?' +
+    'alreadyDurableRowsBefore:\\s*' + durableBefore + '[\\s\\S]*?' +
+    'alreadyDurableRowsAfter:\\s*' + durableAfter + '[\\s\\S]*?' +
     candidateSha + '[\\s\\S]*?' + spanSha
   );
 
