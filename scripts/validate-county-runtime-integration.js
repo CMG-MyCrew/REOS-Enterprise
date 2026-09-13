@@ -102,6 +102,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/CountyCodeViolationDurableIdentityAudit.js',
   'build/apps-script-brand/CountyCodeViolationCollapseFullRowEvidence.js',
   'build/apps-script-brand/CountyCodeViolationCollapseWinnerPlan.js',
+  'build/apps-script-brand/CountyCodeViolationCollapseExecutionPreflight.js',
   'build/apps-script-brand/CountyCodeViolationCollapseOnlyEvidenceAuthority.js',
   'build/apps-script-brand/CountyCodeViolationDurableSourceReconciliation.js',
   'build/apps-script-brand/CountyCodeViolationDurableIdentityMigrationPlan.js',
