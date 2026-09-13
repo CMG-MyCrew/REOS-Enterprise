@@ -33,6 +33,12 @@ REOS.CountyCodeViolationCollapseFullRowEvidence = (function () {
 
   function requireDependencies_() {
     if (
+      !REOS.CanonicalPropertyIdentity ||
+      typeof REOS.CanonicalPropertyIdentity.resolve !== 'function'
+    ) {
+      throw new Error('Canonical identity resolver is required.');
+    }
+    if (
       !REOS.Database ||
       typeof REOS.Database.getHeaders !== 'function' ||
       typeof REOS.Database.getAll !== 'function'
@@ -161,6 +167,18 @@ REOS.CountyCodeViolationCollapseFullRowEvidence = (function () {
     var headers =
       REOS.Database.getHeaders(TABLE);
 
+    [
+      'Distress Lead ID', 'Source', 'Source Dataset', 'Source Record ID',
+      'Violation Number', 'Canonical Property Key', 'Source Observation Key',
+      'Source Record Key', 'Parcel ID', 'Address', 'City', 'State', 'Zip', 'County'
+    ].forEach(function (required) {
+      if (headers.filter(function (header) {
+        return text_(header) === required;
+      }).length !== 1) {
+        throw new Error('Required header must occur exactly once: ' + required);
+      }
+    });
+
     var rows =
       REOS.Database.getAll(TABLE);
 
@@ -225,17 +243,31 @@ REOS.CountyCodeViolationCollapseFullRowEvidence = (function () {
         id
       );
 
+      // Stored values are evidence, never filled from the catalog.
+      [
+        ['Canonical Property Key', expected.canonicalPropertyKey],
+        ['Source Observation Key', expected.legacyObservationKey],
+        ['Source Record Key', expected.legacyObservationKey]
+      ].forEach(function (pair) {
+        if (text_(row[pair[0]]) !== '') {
+          assertEqual_(row[pair[0]], pair[1], pair[0], id);
+        }
+      });
+
+      // Derive only from the current row, not from catalog identity.
+      var derived = REOS.CanonicalPropertyIdentity.resolve(
+        Object.assign({}, row)
+      );
       assertEqual_(
-        row['Canonical Property Key'],
+        derived.canonicalPropertyKey,
         expected.canonicalPropertyKey,
-        'Canonical Property Key',
+        'Derived Canonical Property Key',
         id
       );
-
       assertEqual_(
-        row['Source Observation Key'],
+        derived.sourceObservationKey,
         expected.legacyObservationKey,
-        'Source Observation Key',
+        'Derived Source Observation Key',
         id
       );
 
@@ -263,6 +295,11 @@ REOS.CountyCodeViolationCollapseFullRowEvidence = (function () {
 
         canonicalPropertyKey:
           expected.canonicalPropertyKey,
+
+        derivedIdentity: {
+          canonicalPropertyKey: derived.canonicalPropertyKey,
+          sourceObservationKey: derived.sourceObservationKey
+        },
 
         values:
           values
