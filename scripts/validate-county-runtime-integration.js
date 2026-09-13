@@ -143,6 +143,8 @@ const COMPONENT_VALIDATORS = [
   'validate-county-code-violation-durable-identity-audit.js',
   'validate-county-code-violation-collapse-only-evidence-authority-v2.js',
   'validate-county-code-violation-collapse-fullrow-evidence-v2.js',
+  'validate-county-code-violation-single-row-drift-diagnostic.js',
+  'validate-county-code-violation-two-row-raw-evidence.js',
   'validate-county-code-violation-durable-source-reconciliation.js',
   'validate-county-code-violation-durable-identity-migration-plan.js',
   'validate-county-code-violation-durable-identity-migration-batch1-executor.js',
@@ -598,14 +600,15 @@ const expectedCodeViolationPostRollingFiles = new Set([
 ]);
 
 /*
- * Gate 2B collapse investigation contains exactly one explicitly
- * allowlisted read-only single-row drift diagnostic.
+ * Gate 2B collapse investigation contains exactly two explicitly
+ * allowlisted hard-bound read-only diagnostics.
  *
  * This grants no repair, migration, collapse, winner, delete,
  * scheduler, checkpoint, connector, or automatic-offer authority.
  */
 const expectedCodeViolationCollapseDiagnosticFiles = new Set([
-  'build/apps-script-brand/CountyCodeViolationSingleRowDriftDiagnostic.js'
+  'build/apps-script-brand/CountyCodeViolationSingleRowDriftDiagnostic.js',
+  'build/apps-script-brand/CountyCodeViolationTwoRowRawEvidence.js'
 ]);
 
 const expectedProductionFiles = new Set([
@@ -799,8 +802,8 @@ assert.ok(
 
 assert.equal(
   expectedCodeViolationCollapseDiagnosticFiles.size,
-  1,
-  'expected Code Violations collapse diagnostic inventory must contain exactly 1 file'
+  2,
+  'expected Code Violations collapse diagnostic inventory must contain exactly 2 files'
 );
 
 assert.ok(
@@ -812,8 +815,8 @@ assert.ok(
 
 assert.equal(
   expectedProductionFiles.size,
-  126,
-  'expected reconciled production inventory must contain 126 files'
+  127,
+  'expected reconciled production inventory must contain 127 files'
 );
 
 assert.equal(
@@ -926,7 +929,7 @@ expectedCodeViolationCollapseDiagnosticFiles.forEach(file => {
 });
 
 pass(
-  'Code Violations collapse diagnostic surface is exactly one explicitly allowlisted read-only additive file'
+  'Code Violations collapse diagnostic surface is exactly two explicitly allowlisted read-only additive files'
 );
 
 expectedPreservationFiles.forEach(file => {
