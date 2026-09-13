@@ -26,7 +26,8 @@ const headers = [
   'Violation Number',
   'Canonical Property Key',
   'Source Observation Key',
-  'Notes'
+  'Notes',
+  'Source Record Key', 'Parcel ID', 'Address', 'City', 'State', 'Zip', 'County'
 ];
 
 function loadAuthorityRecords() {
@@ -51,8 +52,29 @@ const authorityRecords =
 
 assert.strictEqual(authorityRecords.length, 46);
 
+// Synthetic fixtures reconstructed from catalog keys; not live evidence.
+function identityInputs(record) {
+  const parts = record.canonicalPropertyKey.split('|');
+  assert.strictEqual(parts[0], 'property');
+  if (parts[1] === 'address') {
+    assert.strictEqual(parts.length, 6);
+    return {
+      State: parts[2], City: parts[3], County: parts[3],
+      Zip: parts[4], Address: parts[5], 'Parcel ID': ''
+    };
+  }
+  assert.strictEqual(parts[1], 'parcel');
+  assert.strictEqual(parts.length, 5);
+  return {
+    State: parts[2], County: parts[3], City: '',
+    Zip: '', Address: '', 'Parcel ID': parts[4]
+  };
+}
+
 function persistedRows() {
   return authorityRecords.map(record => ({
+    ...identityInputs(record),
+    'Source Record Key': record.legacyObservationKey,
     _rowNumber: record.rowNumber,
     'Distress Lead ID': record.distressLeadId,
     Source: 'PA-PHILADELPHIA',
@@ -107,6 +129,11 @@ function execute(rows, options) {
 
   vm.runInContext(
     authoritySource,
+    sandbox
+  );
+
+  vm.runInContext(
+    fs.readFileSync('build/apps-script-brand/CanonicalPropertyIdentity.js', 'utf8'),
     sandbox
   );
 
@@ -405,3 +432,83 @@ console.log('');
 console.log(
   'Certified collapse full-row evidence v2 behavior validation PASSED.'
 );
+
+for (const blankFields of [
+  ['Canonical Property Key'],
+  ['Source Observation Key'],
+  ['Canonical Property Key', 'Source Observation Key']
+]) {
+  const rows = persistedRows();
+  rows.forEach(row => blankFields.forEach(field => { row[field] = ''; }));
+  const before = JSON.stringify(rows);
+  const output = execute(rows, {});
+  assert.strictEqual(output.returnedRowCount, 46);
+  assert.strictEqual(JSON.stringify(rows), before);
+  output.rows.forEach(entry => {
+    const expected = authorityRecords.find(record =>
+      record.distressLeadId === entry.distressLeadId);
+    blankFields.forEach(field => assert.strictEqual(entry.values[field], ''));
+    assert.strictEqual(entry.derivedIdentity.canonicalPropertyKey,
+      expected.canonicalPropertyKey);
+    assert.strictEqual(entry.derivedIdentity.sourceObservationKey,
+      expected.legacyObservationKey);
+  });
+}
+
+// Matching stored identity must not hide independently derived drift.
+expectDrift(row => { row.Address = '999 synthetic drift street'; },
+  /Derived Canonical Property Key mismatch/);
+
+// Blank identity does not excuse an invalid address.
+expectDrift(row => {
+  row['Canonical Property Key'] = '';
+  row['Source Observation Key'] = '';
+  row.Address = '';
+}, /Canonical property identity requires/);
+
+expectDrift(row => {
+  row['Source Record Key'] = 'conflicting-legacy-key';
+}, /Source Record Key mismatch/);
+
+{
+  const rows = persistedRows();
+  const parcelRow = rows.find(row => row['Parcel ID']);
+  assert(parcelRow);
+  parcelRow['Parcel ID'] = '999999999';
+  assert.throws(() => execute(rows, {}),
+    /Derived Canonical Property Key mismatch/);
+}
+
+{
+  const rows = persistedRows();
+  rows.forEach((row, index) => {
+    if (index % 2 === 0) {
+      row['Canonical Property Key'] = '';
+      row['Source Observation Key'] = '';
+    }
+  });
+  assert.strictEqual(execute(rows, {}).returnedRowCount, 46);
+}
+
+for (const field of ['Canonical Property Key', 'Source Observation Key']) {
+  const index = headers.indexOf(field);
+  headers.splice(index, 1);
+  try {
+    assert.throws(() => execute(persistedRows(), {}),
+      /Required header must occur exactly once/);
+  } finally {
+    headers.splice(index, 0, field);
+  }
+  headers.push(field);
+  try {
+    assert.throws(() => execute(persistedRows(), {}),
+      /Required header must occur exactly once/);
+  } finally {
+    headers.pop();
+  }
+}
+
+console.log('PASS: blank, populated, and mixed stored identity remains raw');
+console.log('PASS: actual resolver independently verifies every catalog member');
+console.log('PASS: stored conflicts and derived address/parcel drift fail closed');
+console.log('PASS: identity header absence and duplication fail closed');
