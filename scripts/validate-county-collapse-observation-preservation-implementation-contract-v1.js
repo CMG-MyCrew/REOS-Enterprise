@@ -41,6 +41,9 @@ const SELF =
 const WORKFLOW =
   '.github/workflows/county-collapse-offline.yml';
 
+const PATCH_VALIDATOR =
+  'scripts/validate-database-physical-row-patch-exact.js';
+
 const FUTURE_STORE =
   'build/apps-script-brand/CountyCollapseObservationPreservationStore.js';
 
@@ -112,11 +115,21 @@ const storeContract =
 const workflow =
   read(WORKFLOW);
 
-assert.strictEqual(
-  sha(db),
-  DB_SHA,
-  'Database baseline drifted before patch implementation.'
-);
+const patchImplemented =
+  db.includes(
+    'function patchPhysicalRowCellsExact('
+  ) &&
+  db.includes(
+    'patchPhysicalRowCellsExact: patchPhysicalRowCellsExact'
+  );
+
+if (!patchImplemented) {
+  assert.strictEqual(
+    sha(db),
+    DB_SHA,
+    'Database baseline drifted before patch implementation.'
+  );
+}
 
 assert.strictEqual(
   sha(opStore),
@@ -145,10 +158,17 @@ assert.ok(
   'Certified exact physical-delete primitive missing.'
 );
 
-assert.ok(
-  !db.includes('patchPhysicalRowCellsExact'),
-  'Exact row-patch implementation already exists; design gate must be revisited.'
-);
+if (patchImplemented) {
+  assert.ok(
+    fs.existsSync(PATCH_VALIDATOR),
+    'Exact row-patch implementation requires its dedicated validator.'
+  );
+} else {
+  assert.ok(
+    !fs.existsSync(PATCH_VALIDATOR),
+    'Patch validator exists before the patch implementation lifecycle.'
+  );
+}
 
 assert.ok(
   !fs.existsSync(FUTURE_STORE),
@@ -349,6 +369,25 @@ assert.ok(
   );
 });
 
+if (patchImplemented) {
+  [
+    'node --check ' + PATCH_VALIDATOR,
+    'name: Validate database physical-row patch exact',
+    'run: node ' + PATCH_VALIDATOR
+  ].forEach((marker) => {
+    const count =
+      workflow.split(marker).length - 1;
+
+    assert.strictEqual(
+      count,
+      1,
+      'Patch implementation CI registration count for ' +
+        marker +
+        ' must be exactly one.'
+    );
+  });
+}
+
 const trackedChanges =
   git('diff', '--name-only')
     .split('\n')
@@ -356,6 +395,12 @@ const trackedChanges =
     .sort();
 
 const allowedCiRemediationTrackedChanges = [
+  SELF,
+  WORKFLOW
+].sort();
+
+const allowedPatchImplementationTrackedChanges = [
+  DB,
   SELF,
   WORKFLOW
 ].sort();
@@ -369,9 +414,16 @@ const ciRemediationAuthoringLifecycle =
     allowedCiRemediationTrackedChanges
   );
 
+const patchImplementationAuthoringLifecycle =
+  JSON.stringify(trackedChanges) ===
+  JSON.stringify(
+    allowedPatchImplementationTrackedChanges
+  );
+
 assert.ok(
   cleanTrackedLifecycle ||
-  ciRemediationAuthoringLifecycle,
+  ciRemediationAuthoringLifecycle ||
+  patchImplementationAuthoringLifecycle,
   'Unexpected tracked design/CI scope: ' +
     trackedChanges.join(',')
 );
@@ -410,9 +462,16 @@ const authoringLifecycle =
   JSON.stringify(untracked) ===
   JSON.stringify(expectedUntracked);
 
+const patchImplementationUntrackedAuthoringLifecycle =
+  JSON.stringify(untracked) ===
+  JSON.stringify([
+    PATCH_VALIDATOR
+  ]);
+
 assert.ok(
   cleanCommittedLifecycle ||
-  authoringLifecycle,
+  authoringLifecycle ||
+  patchImplementationUntrackedAuthoringLifecycle,
   'Unexpected untracked design-gate scope: ' +
     untracked.join(',')
 );
@@ -424,7 +483,9 @@ console.log(
   'PASS: Database still exposes caller-owned lock context and exact-delete precedent.'
 );
 console.log(
-  'PASS: no exact row-patch implementation exists yet.'
+  patchImplemented
+    ? 'PASS: exact row-patch implementation lifecycle is certified.'
+    : 'PASS: no exact row-patch implementation exists yet.'
 );
 console.log(
   'PASS: existing operation-intent journal remains isolated and unchanged.'
