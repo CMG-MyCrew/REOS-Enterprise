@@ -10,8 +10,13 @@
  * production scheduler/checkpoint remain frozen.
  *
  * IMPORTANT:
- * No certified physical-row delete primitive exists at this authority
- * boundary. Therefore this preflight MUST NOT grant collapse execution,
+ * A certified one-row physical-delete primitive exists at this authority
+ * boundary, but no certified collapse executor exists to bind that
+ * primitive to the winner plan, observation preservation, reference
+ * clearance, row-shift re-resolution, residual verification, and
+ * uncertain-outcome reconciliation requirements.
+ *
+ * Therefore this preflight MUST NOT grant collapse execution,
  * winner-selection, delete, repair, migration, scheduler, checkpoint,
  * connector, production-mutation, or automatic-offer authority.
  */
@@ -78,6 +83,14 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
         typeof REOS.Security.requireAdmin ===
           'function',
         'Collapse execution preflight requires Admin authority.'
+      );
+
+      assert_(
+        REOS.Database &&
+        typeof REOS.Database
+          .deletePhysicalRowExact ===
+          'function',
+        'Certified physical-row delete primitive is required.'
       );
 
       assert_(
@@ -433,12 +446,12 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
       /*
        * Explicit Gate 2 execution blocker.
        *
-       * Database.js exposes no certified physical-row delete primitive
-       * at this authority boundary. Soft-delete is not equivalent to
-       * durable-observation collapse and MUST NOT be substituted.
+       * Database.js now exposes the certified exact physical-row delete
+       * primitive, but the collapse executor itself is not certified.
+       * Primitive availability is not execution authority.
        */
       var blockers = [
-        'CERTIFIED_PHYSICAL_ROW_DELETE_PRIMITIVE_UNAVAILABLE'
+        'CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE'
       ];
 
       return Object.freeze({
@@ -508,7 +521,7 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
           true,
 
         physicalDeletePrimitiveAvailable:
-          false,
+          true,
 
         executionBlockers:
           blockers.slice(),
