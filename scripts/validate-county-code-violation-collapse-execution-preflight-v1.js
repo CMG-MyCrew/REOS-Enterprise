@@ -7,7 +7,7 @@ const path = require('path');
 const source = fs.readFileSync(path.resolve(__dirname,
   '../build/apps-script-brand/CountyCodeViolationCollapseExecutionPreflight.js'), 'utf8');
 assert.strictEqual(crypto.createHash('sha256').update(source).digest('hex'),
-  'ff5147e848bbf031f0625e991f71ffa55ea82ea3e7f41079a8e1373476e6b532');
+  '49cd64a7a32f2734a5d02e467bf751593247435409f8340fe243b9591ceffd3f');
 // Supplemental lexical checks; not a general side-effect proof.
 for (const re of [
   /\.\s*(?:setValues?|setFormulas?|appendRow|deleteRows?|insertRows?\w*|clear\w*)\s*\(/,
@@ -44,6 +44,10 @@ function fixture() {
   const calls = [];
   const context = {REOS: {
     Security: {requireAdmin() { calls.push('admin'); }},
+    Database: {deletePhysicalRowExact() {
+      calls.push('physical-delete');
+      throw Error('PREFLIGHT_MUST_NOT_CALL_PHYSICAL_DELETE');
+    }},
     CountyCodeViolationCollapseWinnerPlan: {buildPlan(o) {
       calls.push('plan'); assert.strictEqual(Object.keys(o).length, 0);
       return copy(plan);
@@ -71,10 +75,15 @@ const r = run(f);
 assert.strictEqual(r.ok, true);
 assert.strictEqual(r.mode, 'READ_ONLY_CODE_VIOLATION_COLLAPSE_EXECUTION_PREFLIGHT');
 for (const k of [...flags, 'executionAuthorityGranted',
-  'physicalDeletePrimitiveAvailable', 'collapseExecutionReady'])
+  'collapseExecutionReady'])
   assert.strictEqual(r[k], false, k);
+assert.strictEqual(
+  r.physicalDeletePrimitiveAvailable,
+  true,
+  'physicalDeletePrimitiveAvailable'
+);
 assert.strictEqual(JSON.stringify(r.executionBlockers),
-  '["CERTIFIED_PHYSICAL_ROW_DELETE_PRIMITIVE_UNAVAILABLE"]');
+  '["CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE"]');
 for (const k of ['schedulerFrozen', 'checkpointFrozen', 'winnerPlanCertified'])
   assert.strictEqual(r[k], true);
 assert.strictEqual(JSON.stringify(r.checkpointBefore), JSON.stringify(r.checkpointAfter));
@@ -91,6 +100,7 @@ rejects(f => { f.context.REOS.Security.requireAdmin = () => {
 }; }, /DENIED/);
 for (const [key, method, pattern] of [
   ['Security', 'requireAdmin', /requires Admin/],
+  ['Database', 'deletePhysicalRowExact', /physical-row delete primitive is required/],
   ['CountyCodeViolationCollapseWinnerPlan', 'buildPlan', /winner plan is required/],
   ['CountyProductionScheduler', 'getCheckpoint', /checkpoint read authority/]
 ]) {
