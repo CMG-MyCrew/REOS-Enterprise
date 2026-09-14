@@ -1,0 +1,39 @@
+name: County collapse offline validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - ci/county-collapse-offline-validation-v1
+
+permissions:
+  contents: read
+
+jobs:
+  offline-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Report Node runtime
+        run: node --version
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check build/apps-script-brand/CountyCodeViolationCollapseExecutionPreflight.js
+          node --check scripts/validate-county-code-violation-collapse-winner-plan-v1.js
+          node --check scripts/validate-county-code-violation-collapse-execution-preflight-v1.js
+
+      - name: Validate winner plan with local fixtures
+        run: node scripts/validate-county-code-violation-collapse-winner-plan-v1.js
+
+      - name: Validate execution preflight with mocked services
+        run: node scripts/validate-county-code-violation-collapse-execution-preflight-v1.js
+
+      - name: Validate database lock-context revocation
+        run: node scripts/validate-database-lock-context-revocation.js
