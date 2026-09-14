@@ -12,6 +12,9 @@ const BASE =
 const CONTRACT_COMMIT =
   'e5aa095d65c55dfbeeeff786ef47cc3d141b23dd';
 
+const INTEGRATION_COMMIT =
+  '107eea2c31c2ca1fb5bc1b37fb72affe591090ff';
+
 const DOC =
   'docs/county-code-violation-collapse-executor-contract-v1.md';
 
@@ -109,99 +112,143 @@ assert.strictEqual(
   'Certified executor contract commit is not an ancestor of current HEAD.'
 );
 
-const committedScope =
-  lines(
-    git([
-      'diff',
-      '--name-only',
-      BASE,
-      'HEAD'
-    ])
-  );
+const integrationStatus =
+  gitStatus([
+    'merge-base',
+    '--is-ancestor',
+    INTEGRATION_COMMIT,
+    'HEAD'
+  ]);
 
-const committedTwoFileScope =
-  JSON.stringify(committedScope) ===
-  JSON.stringify([DOC, SELF].sort());
+const postIntegration =
+  integrationStatus.status === 0;
 
-const committedThreeFileScope =
-  JSON.stringify(committedScope) ===
-  JSON.stringify([DOC, SELF, WORKFLOW].sort());
-
-assert.ok(
-  committedTwoFileScope ||
-  committedThreeFileScope,
-  'Committed executor-design scope must remain contract + validator, optionally with certified CI registration.'
-);
-
-/*
- * During validator remediation the working tree may differ from HEAD only
- * at this validator. Once committed, there should be no working-tree delta.
- */
-
-const workingTracked =
-  lines(
-    git([
-      'diff',
-      '--name-only'
-    ])
-  );
-
-assert.ok(
-  workingTracked.every(function (path) {
-    return (
-      path === SELF ||
-      path === WORKFLOW
+if (!postIntegration) {
+  const committedScope =
+    lines(
+      git([
+        'diff',
+        '--name-only',
+        BASE,
+        'HEAD'
+      ])
     );
-  }) &&
-  workingTracked.length <= 2,
-  'Working-tree changes are limited to validator / CI registration remediation.'
-);
 
-const staged =
-  lines(
-    git([
-      'diff',
-      '--cached',
-      '--name-only'
-    ])
+  const committedTwoFileScope =
+    JSON.stringify(committedScope) ===
+    JSON.stringify([DOC, SELF].sort());
+
+  const committedThreeFileScope =
+    JSON.stringify(committedScope) ===
+    JSON.stringify([DOC, SELF, WORKFLOW].sort());
+
+  assert.ok(
+    committedTwoFileScope ||
+    committedThreeFileScope,
+    'Committed executor-design scope must remain contract + validator, optionally with certified CI registration.'
   );
 
-assert.deepStrictEqual(
-  staged,
-  [],
-  'Validator lifecycle certification expects no staged changes.'
-);
+  const workingTracked =
+    lines(
+      git([
+        'diff',
+        '--name-only'
+      ])
+    );
 
-const untracked =
-  lines(
-    git([
-      'ls-files',
-      '--others',
-      '--exclude-standard'
-    ])
+  assert.ok(
+    workingTracked.every(function (path) {
+      return (
+        path === SELF ||
+        path === WORKFLOW
+      );
+    }) &&
+    workingTracked.length <= 2,
+    'Working-tree changes are limited to validator / CI registration remediation.'
   );
 
-assert.deepStrictEqual(
-  untracked,
-  [],
-  'Validator lifecycle certification expects no untracked files.'
-);
+  const staged =
+    lines(
+      git([
+        'diff',
+        '--cached',
+        '--name-only'
+      ])
+    );
 
-const effectiveScope =
-  lines(
-    git([
-      'diff',
-      '--name-only',
-      BASE,
-      '--'
-    ])
+  assert.deepStrictEqual(
+    staged,
+    [],
+    'Validator lifecycle certification expects no staged changes.'
   );
 
-assert.deepStrictEqual(
-  effectiveScope,
-  [DOC, SELF, WORKFLOW].sort(),
-  'Effective design scope must remain exactly contract + validator + CI registration.'
-);
+  const untracked =
+    lines(
+      git([
+        'ls-files',
+        '--others',
+        '--exclude-standard'
+      ])
+    );
+
+  assert.deepStrictEqual(
+    untracked,
+    [],
+    'Validator lifecycle certification expects no untracked files.'
+  );
+
+  const effectiveScope =
+    lines(
+      git([
+        'diff',
+        '--name-only',
+        BASE,
+        '--'
+      ])
+    );
+
+  assert.deepStrictEqual(
+    effectiveScope,
+    [DOC, SELF, WORKFLOW].sort(),
+    'Effective design scope must remain exactly contract + validator + CI registration.'
+  );
+} else {
+  /*
+   * After the certified executor contract has been integrated into main,
+   * unrelated descendant work is permitted. The validator now protects its
+   * own certified artifacts and invariants instead of treating the entire
+   * future repository diff as executor-design scope.
+   */
+  const staged =
+    lines(
+      git([
+        'diff',
+        '--cached',
+        '--name-only'
+      ])
+    );
+
+  assert.deepStrictEqual(
+    staged,
+    [],
+    'Post-integration validator execution expects no staged changes.'
+  );
+
+  const untracked =
+    lines(
+      git([
+        'ls-files',
+        '--others',
+        '--exclude-standard'
+      ])
+    );
+
+  assert.deepStrictEqual(
+    untracked,
+    [],
+    'Post-integration validator execution expects no untracked files.'
+  );
+}
 
 assert.ok(
   fs.existsSync(DOC),
@@ -451,7 +498,7 @@ console.log(
 );
 
 console.log(
-  'PASS: repository design scope remains limited to contract + validator + CI registration.'
+  'PASS: executor artifacts remain certified across post-integration descendant branches.'
 );
 
 console.log(
