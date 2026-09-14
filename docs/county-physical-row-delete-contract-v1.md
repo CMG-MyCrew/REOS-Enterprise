@@ -2,7 +2,7 @@
 
 Status: DESIGN ONLY. No implementation or production execution authority.
 
-## Source baseline
+## Original discovery baseline
 
 - Base commit: cff10219fe6c681d72589f5730fa7a28f3eff3dd
 - Database.js SHA-256: 6844aa2e8009f2fd01547846206522585bd23093407bc9ee8730806f2974f7a1
@@ -103,7 +103,7 @@ This document does not implement a primitive, executor, or RPC.
 PR 134 remains draft. No merge into main, deployment, production mutation,
 physical deletion, scheduler change, or automatic offer is authorized.
 
-## Stale lock-context replay blocker
+## Stale lock-context replay blocker (historical)
 
 Physical-row deletion remains blocked until Database lock-context authority is
 non-replayable.
@@ -126,3 +126,32 @@ Required prerequisite invariant:
 
 This blocker was established offline only. No production RPC, production I/O,
 or row deletion occurred.
+
+## Lock-context prerequisite resolution (2026-09-14)
+
+Status: RESOLVED OFFLINE ON THE DEVELOPMENT BRANCH.
+
+- Development branch: feat/county-physical-row-delete-contract-v1.
+- Merged PR: https://github.com/CMG-MyCrew/REOS-Enterprise/pull/136
+- Merge commit: 088c1d7a344c2790c5eacef32573c85c4c3965ec.
+- Certified head: 6033e47133da355023275e4b463b19f8bf96993a.
+- Database.js SHA-256: ce32381705aedb6c62a0bd4fac9237a51c79209315f92bfcb8277d23c8cee14a.
+- Regression validator: scripts/validate-database-lock-context-revocation.js.
+- Passing CI run: https://github.com/CMG-MyCrew/REOS-Enterprise/actions/runs/34789632116
+
+The merge tree was verified identical to the certified head. Database now
+accepts only exact active context objects and permanently revokes each
+context before the outer owner's flush/release cleanup.
+
+The independent offline regression verifies valid in-callback inserts,
+rejection of an old context after reacquiring the same ScriptLock, continued
+validity of the fresh context, and rejection after callback completion.
+The regression is registered in the county collapse offline CI workflow.
+
+This resolves the observed replay prerequisite for this development tree.
+Physical-row deletion remains blocked pending a separately specified and
+certified primitive/executor and the preservation and recovery gates above.
+
+The original discovery baseline and evidence remain historical records.
+The DESIGN ONLY status and all release boundaries above remain in force.
+This checkpoint provides no live production certification or execution authority.
