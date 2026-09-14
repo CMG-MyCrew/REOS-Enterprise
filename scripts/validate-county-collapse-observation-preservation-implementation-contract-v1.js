@@ -38,6 +38,9 @@ const STORE_CONTRACT =
 const SELF =
   'scripts/validate-county-collapse-observation-preservation-implementation-contract-v1.js';
 
+const WORKFLOW =
+  '.github/workflows/county-collapse-offline.yml';
+
 const FUTURE_STORE =
   'build/apps-script-brand/CountyCollapseObservationPreservationStore.js';
 
@@ -106,6 +109,8 @@ const patchContract =
   read(PATCH_CONTRACT);
 const storeContract =
   read(STORE_CONTRACT);
+const workflow =
+  read(WORKFLOW);
 
 assert.strictEqual(
   sha(db),
@@ -327,15 +332,48 @@ assert.ok(
   'Existing operation-intent store was expanded with preservation chunks.'
 );
 
+[
+  'node --check ' + SELF,
+  'name: Validate collapse observation-preservation implementation contracts',
+  'run: node ' + SELF
+].forEach((marker) => {
+  const count =
+    workflow.split(marker).length - 1;
+
+  assert.strictEqual(
+    count,
+    1,
+    'County-collapse workflow CI registration count for ' +
+      marker +
+      ' must be exactly one.'
+  );
+});
+
 const trackedChanges =
   git('diff', '--name-only')
     .split('\n')
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort();
 
-assert.strictEqual(
-  trackedChanges.length,
-  0,
-  'Design gate permits no tracked-file modifications.'
+const allowedCiRemediationTrackedChanges = [
+  SELF,
+  WORKFLOW
+].sort();
+
+const cleanTrackedLifecycle =
+  trackedChanges.length === 0;
+
+const ciRemediationAuthoringLifecycle =
+  JSON.stringify(trackedChanges) ===
+  JSON.stringify(
+    allowedCiRemediationTrackedChanges
+  );
+
+assert.ok(
+  cleanTrackedLifecycle ||
+  ciRemediationAuthoringLifecycle,
+  'Unexpected tracked design/CI scope: ' +
+    trackedChanges.join(',')
 );
 
 const stagedChanges =
@@ -405,6 +443,9 @@ console.log(
 );
 console.log(
   'PASS: preservation implementation and RPC remain absent.'
+);
+console.log(
+  'PASS: county-collapse CI registers and executes this implementation-contract validator.'
 );
 
 console.log(

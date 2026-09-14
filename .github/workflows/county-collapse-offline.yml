@@ -32,6 +32,7 @@ jobs:
           node --check scripts/validate-county-code-violation-collapse-executor-contract-v1.js
           node --check scripts/validate-county-collapse-operation-intent-contract-v1.js
           node --check scripts/validate-county-collapse-observation-preservation-contract-v1.js
+          node --check scripts/validate-county-collapse-observation-preservation-implementation-contract-v1.js
           node --check scripts/validate-county-collapse-operation-intent-store-v1.js
           node --check build/apps-script-brand/Database.js
           node --check scripts/validate-county-runtime-integration.js
@@ -50,6 +51,9 @@ jobs:
 
       - name: Validate collapse observation-preservation contract
         run: node scripts/validate-county-collapse-observation-preservation-contract-v1.js
+
+      - name: Validate collapse observation-preservation implementation contracts
+        run: node scripts/validate-county-collapse-observation-preservation-implementation-contract-v1.js
 
       - name: Validate collapse operation-intent store
         run: node scripts/validate-county-collapse-operation-intent-store-v1.js
