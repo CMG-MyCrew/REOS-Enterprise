@@ -9,8 +9,8 @@ const cp = require('child_process');
 const BASE =
   '6ac59ad157cf495e21539ecc832af8bf5def1107';
 
-const BRANCH =
-  'feat/county-code-violation-collapse-executor-v1';
+const CONTRACT_COMMIT =
+  'e5aa095d65c55dfbeeeff786ef47cc3d141b23dd';
 
 const DOC =
   'docs/county-code-violation-collapse-executor-contract-v1.md';
@@ -30,14 +30,38 @@ const DATABASE =
 const PROPOSED_IMPL =
   'build/apps-script-brand/CountyCodeViolationCollapseExecutor.js';
 
-function git(args) {
+const EXPECTED_DOC_SHA =
+  '54f4b5914961cec0a43e5a0a3a71028e4af84954049e0484e35ddef80a515317';
+
+function git(args, options) {
   return cp.execFileSync(
+    'git',
+    args,
+    Object.assign(
+      {
+        encoding: 'utf8'
+      },
+      options || {}
+    )
+  ).trim();
+}
+
+function gitStatus(args) {
+  return cp.spawnSync(
     'git',
     args,
     {
       encoding: 'utf8'
     }
-  ).trim();
+  );
+}
+
+function lines(value) {
+  return String(value || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .sort();
 }
 
 function sha256(text) {
@@ -51,44 +75,121 @@ console.log(
   '=== COUNTY CODE-VIOLATION COLLAPSE EXECUTOR CONTRACT V1 ==='
 );
 
-assert.strictEqual(
-  git(['branch', '--show-current']),
-  BRANCH,
-  'Validator must run on exact executor design branch.'
-);
+/*
+ * Lifecycle invariant:
+ *
+ * The validator must remain valid after its original contract commit and
+ * after a validator-only remediation commit. It must also tolerate detached
+ * HEAD execution in CI.
+ *
+ * Therefore branch-name equality, HEAD === BASE, zero-commit, and untracked
+ * artifact assumptions are intentionally prohibited here.
+ */
 
 assert.strictEqual(
-  git(['rev-parse', 'HEAD']),
+  git(['merge-base', BASE, 'HEAD']),
   BASE,
-  'Executor design branch HEAD must remain exact certified base.'
+  'Certified executor base is no longer the current ancestry root.'
 );
 
-assert.strictEqual(
-  git(['rev-list', '--count', BASE + '..HEAD']),
-  '0',
-  'Design branch must contain zero commits.'
-);
+const contractAncestor =
+  gitStatus([
+    'merge-base',
+    '--is-ancestor',
+    CONTRACT_COMMIT,
+    'HEAD'
+  ]);
 
 assert.strictEqual(
-  git(['diff', '--name-only', BASE, '--']),
-  '',
-  'No tracked file may differ from certified base during design authoring.'
+  contractAncestor.status,
+  0,
+  'Certified executor contract commit is not an ancestor of current HEAD.'
+);
+
+const committedScope =
+  lines(
+    git([
+      'diff',
+      '--name-only',
+      BASE,
+      'HEAD'
+    ])
+  );
+
+assert.deepStrictEqual(
+  committedScope,
+  [DOC, SELF].sort(),
+  'Committed executor-design scope must remain exactly contract + validator.'
+);
+
+/*
+ * During validator remediation the working tree may differ from HEAD only
+ * at this validator. Once committed, there should be no working-tree delta.
+ */
+
+const workingTracked =
+  lines(
+    git([
+      'diff',
+      '--name-only'
+    ])
+  );
+
+assert.ok(
+  (
+    workingTracked.length === 0
+  ) ||
+  (
+    workingTracked.length === 1 &&
+    workingTracked[0] === SELF
+  ),
+  'Working-tree changes are limited to the validator during lifecycle remediation.'
+);
+
+const staged =
+  lines(
+    git([
+      'diff',
+      '--cached',
+      '--name-only'
+    ])
+  );
+
+assert.deepStrictEqual(
+  staged,
+  [],
+  'Validator lifecycle certification expects no staged changes.'
 );
 
 const untracked =
-  git([
-    'ls-files',
-    '--others',
-    '--exclude-standard'
-  ])
-    .split('\n')
-    .filter(Boolean)
-    .sort();
+  lines(
+    git([
+      'ls-files',
+      '--others',
+      '--exclude-standard'
+    ])
+  );
 
 assert.deepStrictEqual(
   untracked,
+  [],
+  'Validator lifecycle certification expects no untracked files.'
+);
+
+const effectiveScope =
+  lines(
+    git([
+      'diff',
+      '--name-only',
+      BASE,
+      '--'
+    ])
+  );
+
+assert.deepStrictEqual(
+  effectiveScope,
   [DOC, SELF].sort(),
-  'Exactly the contract and its validator may be untracked.'
+  'Effective design scope must remain exactly contract + validator.'
 );
 
 assert.ok(
@@ -103,11 +204,14 @@ assert.ok(
 
 assert.ok(
   !fs.existsSync(PROPOSED_IMPL),
-  'Executor implementation must not exist in design gate.'
+  'Executor implementation must not exist during design certification.'
 );
 
 const doc =
   fs.readFileSync(DOC, 'utf8');
+
+const self =
+  fs.readFileSync(SELF, 'utf8');
 
 const preflight =
   fs.readFileSync(PREFLIGHT, 'utf8');
@@ -117,6 +221,12 @@ const winnerPlan =
 
 const database =
   fs.readFileSync(DATABASE, 'utf8');
+
+assert.strictEqual(
+  sha256(doc),
+  EXPECTED_DOC_SHA,
+  'Certified executor contract document hash changed.'
+);
 
 [
   'Status: DESIGN ONLY.',
@@ -227,67 +337,55 @@ assert.ok(
   'Certified physical delete primitive must exist.'
 );
 
-const directDeletePatterns = [
+[
   /\.deleteRow\s*\(/,
   /\.deleteRows\s*\(/,
   /\.deleteCells\s*\(/,
   /\.clearContent\s*\(/
-];
-
-directDeletePatterns.forEach(pattern => {
+].forEach(pattern => {
   assert.ok(
-    !pattern.test(
-      git([
-        'show',
-        'HEAD:' + WINNER_PLAN
-      ])
-    ),
+    !pattern.test(winnerPlan),
     'Winner plan unexpectedly exposes direct physical mutation.'
   );
 });
 
+/*
+ * Inspect the effective working tree, not only HEAD, so a locally introduced
+ * executor implementation or RPC cannot hide behind an uncommitted change.
+ */
+
 const trackedExecutor =
-  cp.spawnSync(
-    'git',
-    [
-      'grep',
-      '-n',
-      'CountyCodeViolationCollapseExecutor',
-      'HEAD',
-      '--',
-      'build/apps-script-brand'
-    ],
-    {
-      encoding: 'utf8'
-    }
-  );
+  gitStatus([
+    'grep',
+    '-n',
+    'CountyCodeViolationCollapseExecutor',
+    '--',
+    'build/apps-script-brand'
+  ]);
 
 assert.ok(
   trackedExecutor.status === 1 ||
-  !String(trackedExecutor.stdout || '').trim(),
-  'Tracked executor implementation already exists.'
+  !String(
+    trackedExecutor.stdout || ''
+  ).trim(),
+  'Executor implementation already exists.'
 );
 
 const trackedRpc =
-  cp.spawnSync(
-    'git',
-    [
-      'grep',
-      '-n',
-      'reosCountyCodeViolationCollapseExecute',
-      'HEAD',
-      '--',
-      'build/apps-script-brand'
-    ],
-    {
-      encoding: 'utf8'
-    }
-  );
+  gitStatus([
+    'grep',
+    '-n',
+    'reosCountyCodeViolationCollapseExecute',
+    '--',
+    'build/apps-script-brand'
+  ]);
 
 assert.ok(
   trackedRpc.status === 1 ||
-  !String(trackedRpc.stdout || '').trim(),
-  'Tracked collapse executor RPC already exists.'
+  !String(
+    trackedRpc.stdout || ''
+  ).trim(),
+  'Collapse executor RPC already exists.'
 );
 
 doc.split('\n').forEach((line, index) => {
@@ -297,16 +395,27 @@ doc.split('\n').forEach((line, index) => {
   );
 });
 
+self.split('\n').forEach((line, index) => {
+  assert.ok(
+    !/[ \t]+$/.test(line),
+    'Trailing whitespace in validator line ' + (index + 1)
+  );
+});
+
 console.log(
-  'PASS: exact certified main baseline retained.'
+  'PASS: certified executor base remains exact ancestry root.'
 );
 
 console.log(
-  'PASS: design branch contains zero commits.'
+  'PASS: certified contract commit remains an ancestor of current HEAD.'
 );
 
 console.log(
-  'PASS: only contract + validator are untracked.'
+  'PASS: repository design scope remains limited to contract + validator.'
+);
+
+console.log(
+  'PASS: validator supports committed and detached-HEAD lifecycle execution.'
 );
 
 console.log(
@@ -346,14 +455,13 @@ console.log(
 );
 
 console.log(
-  'contract_sha256=' + sha256(doc)
+  'contract_sha256=' +
+  sha256(doc)
 );
 
 console.log(
   'validator_sha256=' +
-  sha256(
-    fs.readFileSync(SELF, 'utf8')
-  )
+  sha256(self)
 );
 
 console.log(
