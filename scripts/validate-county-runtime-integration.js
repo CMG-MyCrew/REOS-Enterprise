@@ -625,6 +625,19 @@ const expectedCodeViolationCollapseOperationIntentFiles = new Set([
   'build/apps-script-brand/CountyCollapseOperationIntentStore.js'
 ]);
 
+/*
+ * Observation-preservation durable evidence storage contributes exactly
+ * one additional production Apps Script module.
+ *
+ * This allowlist entry certifies only the append-only preservation
+ * evidence store. It grants no preservation orchestration, county-data
+ * patch, executor, physical-delete, scheduler, checkpoint, connector,
+ * deployment, or automatic-offer authority.
+ */
+const expectedCodeViolationCollapsePreservationStoreFiles = new Set([
+  'build/apps-script-brand/CountyCollapseObservationPreservationStore.js'
+]);
+
 const expectedProductionFiles = new Set([
   ...expectedCountyProductionFiles,
   ...expectedPreservationFiles,
@@ -635,7 +648,8 @@ const expectedProductionFiles = new Set([
   ...expectedCodeViolationRollingMigrationFiles,
   ...expectedCodeViolationPostRollingFiles,
   ...expectedCodeViolationCollapseDiagnosticFiles,
-  ...expectedCodeViolationCollapseOperationIntentFiles
+  ...expectedCodeViolationCollapseOperationIntentFiles,
+  ...expectedCodeViolationCollapsePreservationStoreFiles
 ]);
 
 assert.equal(
@@ -842,9 +856,22 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCodeViolationCollapsePreservationStoreFiles.size,
+  1,
+  'expected collapse observation-preservation store production inventory must contain exactly 1 file'
+);
+
+assert.ok(
+  expectedCodeViolationCollapsePreservationStoreFiles.has(
+    'build/apps-script-brand/CountyCollapseObservationPreservationStore.js'
+  ),
+  'CountyCollapseObservationPreservationStore.js must be the explicit append-only preservation evidence-journal addition'
+);
+
+assert.equal(
   expectedProductionFiles.size,
-  128,
-  'expected reconciled production inventory must contain 128 files'
+  129,
+  'expected reconciled production inventory must contain 129 files'
 );
 
 assert.equal(
