@@ -614,6 +614,17 @@ const expectedCodeViolationCollapseDiagnosticFiles = new Set([
   'build/apps-script-brand/CountyCodeViolationTwoRowRawEvidence.js'
 ]);
 
+/*
+ * Collapse operation-intent durable evidence storage contributes exactly
+ * one production Apps Script module.
+ *
+ * This allowlist entry grants no executor, physical-delete, scheduler,
+ * checkpoint, connector, deployment, or automatic-offer authority.
+ */
+const expectedCodeViolationCollapseOperationIntentFiles = new Set([
+  'build/apps-script-brand/CountyCollapseOperationIntentStore.js'
+]);
+
 const expectedProductionFiles = new Set([
   ...expectedCountyProductionFiles,
   ...expectedPreservationFiles,
@@ -623,7 +634,8 @@ const expectedProductionFiles = new Set([
   ...expectedCodeViolationCompletionFiles,
   ...expectedCodeViolationRollingMigrationFiles,
   ...expectedCodeViolationPostRollingFiles,
-  ...expectedCodeViolationCollapseDiagnosticFiles
+  ...expectedCodeViolationCollapseDiagnosticFiles,
+  ...expectedCodeViolationCollapseOperationIntentFiles
 ]);
 
 assert.equal(
@@ -817,9 +829,22 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCodeViolationCollapseOperationIntentFiles.size,
+  1,
+  'expected collapse operation-intent production inventory must contain exactly 1 file'
+);
+
+assert.ok(
+  expectedCodeViolationCollapseOperationIntentFiles.has(
+    'build/apps-script-brand/CountyCollapseOperationIntentStore.js'
+  ),
+  'CountyCollapseOperationIntentStore.js must be the explicit append-only durable evidence-journal addition'
+);
+
+assert.equal(
   expectedProductionFiles.size,
-  127,
-  'expected reconciled production inventory must contain 127 files'
+  128,
+  'expected reconciled production inventory must contain 128 files'
 );
 
 assert.equal(
