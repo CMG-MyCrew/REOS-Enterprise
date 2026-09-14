@@ -31,6 +31,9 @@ jobs:
           node --check scripts/validate-county-code-violation-collapse-execution-preflight-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-contract-v1.js
           node --check scripts/validate-county-collapse-operation-intent-contract-v1.js
+          node --check scripts/validate-county-collapse-operation-intent-store-v1.js
+          node --check build/apps-script-brand/Database.js
+          node --check scripts/validate-county-runtime-integration.js
 
       - name: Validate winner plan with local fixtures
         run: node scripts/validate-county-code-violation-collapse-winner-plan-v1.js
@@ -44,5 +47,17 @@ jobs:
       - name: Validate collapse operation-intent contract
         run: node scripts/validate-county-collapse-operation-intent-contract-v1.js
 
+      - name: Validate collapse operation-intent store
+        run: node scripts/validate-county-collapse-operation-intent-store-v1.js
+
       - name: Validate database lock-context revocation
         run: node scripts/validate-database-lock-context-revocation.js
+
+      - name: Validate database lock handoff
+        run: node scripts/validate-database-lock-handoff.js
+
+      - name: Validate database physical-row delete exact
+        run: node scripts/validate-database-physical-row-delete-exact.js
+
+      - name: Validate county runtime integration
+        run: node scripts/validate-county-runtime-integration.js

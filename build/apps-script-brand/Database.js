@@ -958,6 +958,24 @@ REOS.Database = (function () {
   }
 
 
+  /*
+   * Read-only capability assertion for certified internal modules.
+   *
+   * This does not acquire, release, replay, or transfer ScriptLock
+   * authority. It only validates the exact currently-active
+   * non-replayable Database lock-context object.
+   */
+  function assertScriptLockContext(
+    lockContext
+  ) {
+    validateLockContext_(
+      lockContext
+    );
+
+    return true;
+  }
+
+
   function deletePhysicalRowExact(
     sheetName,
     request,
@@ -1708,6 +1726,7 @@ REOS.Database = (function () {
     findById: findById,
     findRowById: findRowById,
     withScriptLockContext: withScriptLockContext,
+    assertScriptLockContext: assertScriptLockContext,
     deletePhysicalRowExact: deletePhysicalRowExact,
     insert: insert,
     update: update,

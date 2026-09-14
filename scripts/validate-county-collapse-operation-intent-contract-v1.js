@@ -24,6 +24,12 @@ const WORKFLOW =
 const IMPLEMENTATION =
   'build/apps-script-brand/CountyCollapseOperationIntentStore.js';
 
+const STORE_VALIDATOR =
+  'scripts/validate-county-collapse-operation-intent-store-v1.js';
+
+const DATABASE =
+  'build/apps-script-brand/Database.js';
+
 const EXECUTOR_IMPLEMENTATION =
   'build/apps-script-brand/CountyCodeViolationCollapseExecutor.js';
 
@@ -81,6 +87,11 @@ assert.strictEqual(
   'Certified operation-intent contract commit is not an ancestor of HEAD.'
 );
 
+const implementationExists =
+  fs.existsSync(
+    IMPLEMENTATION
+  );
+
 const staged =
   git([
     'diff',
@@ -94,6 +105,38 @@ assert.strictEqual(
   'Operation-intent validator expects no staged changes.'
 );
 
+const workingTracked =
+  git([
+    'diff',
+    '--name-only'
+  ]);
+
+const workingTrackedPaths =
+  workingTracked
+    ? workingTracked
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .sort()
+    : [];
+
+const allowedWorkingTracked =
+  [
+    DATABASE,
+    SELF,
+    WORKFLOW
+  ].sort();
+
+assert.ok(
+  workingTrackedPaths.every(function (path) {
+    return (
+      allowedWorkingTracked.indexOf(
+        path
+      ) !== -1
+    );
+  }),
+  'Operation-intent validator found unauthorized tracked working-tree changes.'
+);
+
 const untracked =
   git([
     'ls-files',
@@ -101,10 +144,29 @@ const untracked =
     '--exclude-standard'
   ]);
 
-assert.strictEqual(
-  untracked,
-  '',
-  'Operation-intent validator expects no untracked files.'
+const untrackedPaths =
+  untracked
+    ? untracked
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .sort()
+    : [];
+
+const allowedUntracked =
+  [
+    IMPLEMENTATION,
+    STORE_VALIDATOR
+  ].sort();
+
+assert.ok(
+  untrackedPaths.every(function (path) {
+    return (
+      allowedUntracked.indexOf(
+        path
+      ) !== -1
+    );
+  }),
+  'Operation-intent validator found unauthorized untracked files.'
 );
 
 assert.ok(
@@ -122,10 +184,21 @@ assert.ok(
   'County-collapse CI workflow must exist.'
 );
 
-assert.ok(
-  !fs.existsSync(IMPLEMENTATION),
-  'Operation-intent storage implementation must not exist.'
-);
+if (implementationExists) {
+  assert.ok(
+    fs.existsSync(
+      STORE_VALIDATOR
+    ),
+    'Store implementation requires the certified store validator/harness.'
+  );
+} else {
+  assert.ok(
+    !fs.existsSync(
+      STORE_VALIDATOR
+    ),
+    'Store validator/harness may not exist without the store implementation.'
+  );
+}
 
 assert.ok(
   !fs.existsSync(EXECUTOR_IMPLEMENTATION),
@@ -263,6 +336,31 @@ assert.ok(
   'County-collapse CI must execute operation-intent validator.'
 );
 
+if (implementationExists) {
+  const storeCiOccurrences =
+    workflow.split(STORE_VALIDATOR).length - 1;
+
+  assert.strictEqual(
+    storeCiOccurrences,
+    2,
+    'County-collapse CI must reference the store validator/harness exactly twice.'
+  );
+
+  assert.ok(
+    workflow.includes(
+      'node --check ' + STORE_VALIDATOR
+    ),
+    'County-collapse CI must syntax-check the store validator/harness.'
+  );
+
+  assert.ok(
+    workflow.includes(
+      'run: node ' + STORE_VALIDATOR
+    ),
+    'County-collapse CI must execute the store validator/harness.'
+  );
+}
+
 const trackedRpc =
   gitStatus([
     'grep',
@@ -325,8 +423,17 @@ console.log(
 console.log(
   'PASS: county-collapse CI registers and executes operation-intent validation.'
 );
+if (implementationExists) {
+  console.log(
+    'PASS: storage implementation exists only with its required validator/harness.'
+  );
+} else {
+  console.log(
+    'PASS: storage implementation remains absent.'
+  );
+}
 console.log(
-  'PASS: no storage implementation, executor implementation, or executor RPC exists.'
+  'PASS: collapse executor implementation and executor RPC remain absent.'
 );
 console.log(
   'contract_sha256=' + sha256(doc)
