@@ -256,12 +256,38 @@ REOS.Database = (function () {
 
   var LOCK_CONTEXT_CAPABILITY_ = {};
 
+  /*
+   * Exact-object lease authority.
+   *
+   * A ScriptLock object may later report hasLock() === true after a
+   * subsequent acquisition. Therefore lock ownership alone cannot make
+   * an old context valid again.
+   *
+   * Only the exact context object registered for the current lease is
+   * accepted. Revocation removes it permanently before lock release.
+   */
+  var ACTIVE_LOCK_CONTEXTS_ = [];
+
+  function activateLockContext_(context) {
+    ACTIVE_LOCK_CONTEXTS_.push(context);
+  }
+
+  function revokeLockContext_(context) {
+    var index =
+      ACTIVE_LOCK_CONTEXTS_.indexOf(context);
+
+    if (index !== -1) {
+      ACTIVE_LOCK_CONTEXTS_.splice(index, 1);
+    }
+  }
+
   function validateLockContext_(context) {
     if (
       !context ||
       typeof context !== 'object' ||
       context.capability !==
         LOCK_CONTEXT_CAPABILITY_ ||
+      ACTIVE_LOCK_CONTEXTS_.indexOf(context) === -1 ||
       !context.lock ||
       typeof context.lock.hasLock !==
         'function' ||
@@ -338,6 +364,10 @@ REOS.Database = (function () {
           lock
       });
 
+    activateLockContext_(
+      context
+    );
+
     try {
       if (lock.hasLock() !== true) {
         throw new Error(
@@ -354,6 +384,15 @@ REOS.Database = (function () {
 
       throw error;
     } finally {
+      /*
+       * Revoke lease authority before flush/release. The captured
+       * context must never become valid again if this ScriptLock object
+       * is reacquired later.
+       */
+      revokeLockContext_(
+        context
+      );
+
       try {
         SpreadsheetApp.flush();
       } catch (flushError) {
