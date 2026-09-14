@@ -30,6 +30,9 @@ const DATABASE =
 const PROPOSED_IMPL =
   'build/apps-script-brand/CountyCodeViolationCollapseExecutor.js';
 
+const WORKFLOW =
+  '.github/workflows/county-collapse-offline.yml';
+
 const EXPECTED_DOC_SHA =
   '54f4b5914961cec0a43e5a0a3a71028e4af84954049e0484e35ddef80a515317';
 
@@ -116,10 +119,18 @@ const committedScope =
     ])
   );
 
-assert.deepStrictEqual(
-  committedScope,
-  [DOC, SELF].sort(),
-  'Committed executor-design scope must remain exactly contract + validator.'
+const committedTwoFileScope =
+  JSON.stringify(committedScope) ===
+  JSON.stringify([DOC, SELF].sort());
+
+const committedThreeFileScope =
+  JSON.stringify(committedScope) ===
+  JSON.stringify([DOC, SELF, WORKFLOW].sort());
+
+assert.ok(
+  committedTwoFileScope ||
+  committedThreeFileScope,
+  'Committed executor-design scope must remain contract + validator, optionally with certified CI registration.'
 );
 
 /*
@@ -136,14 +147,14 @@ const workingTracked =
   );
 
 assert.ok(
-  (
-    workingTracked.length === 0
-  ) ||
-  (
-    workingTracked.length === 1 &&
-    workingTracked[0] === SELF
-  ),
-  'Working-tree changes are limited to the validator during lifecycle remediation.'
+  workingTracked.every(function (path) {
+    return (
+      path === SELF ||
+      path === WORKFLOW
+    );
+  }) &&
+  workingTracked.length <= 2,
+  'Working-tree changes are limited to validator / CI registration remediation.'
 );
 
 const staged =
@@ -188,8 +199,8 @@ const effectiveScope =
 
 assert.deepStrictEqual(
   effectiveScope,
-  [DOC, SELF].sort(),
-  'Effective design scope must remain exactly contract + validator.'
+  [DOC, SELF, WORKFLOW].sort(),
+  'Effective design scope must remain exactly contract + validator + CI registration.'
 );
 
 assert.ok(
@@ -221,6 +232,9 @@ const winnerPlan =
 
 const database =
   fs.readFileSync(DATABASE, 'utf8');
+
+const workflow =
+  fs.readFileSync(WORKFLOW, 'utf8');
 
 assert.strictEqual(
   sha256(doc),
@@ -337,6 +351,32 @@ assert.ok(
   'Certified physical delete primitive must exist.'
 );
 
+const ciValidatorPath =
+  'scripts/validate-county-code-violation-collapse-executor-contract-v1.js';
+
+const ciValidatorOccurrences =
+  workflow.split(ciValidatorPath).length - 1;
+
+assert.strictEqual(
+  ciValidatorOccurrences,
+  2,
+  'County-collapse CI must reference the executor contract validator exactly twice.'
+);
+
+assert.ok(
+  workflow.includes(
+    'node --check ' + ciValidatorPath
+  ),
+  'County-collapse CI must syntax-check the executor contract validator.'
+);
+
+assert.ok(
+  workflow.includes(
+    'run: node ' + ciValidatorPath
+  ),
+  'County-collapse CI must execute the executor contract validator.'
+);
+
 [
   /\.deleteRow\s*\(/,
   /\.deleteRows\s*\(/,
@@ -411,7 +451,11 @@ console.log(
 );
 
 console.log(
-  'PASS: repository design scope remains limited to contract + validator.'
+  'PASS: repository design scope remains limited to contract + validator + CI registration.'
+);
+
+console.log(
+  'PASS: county-collapse CI registers and executes the executor contract validator.'
 );
 
 console.log(
