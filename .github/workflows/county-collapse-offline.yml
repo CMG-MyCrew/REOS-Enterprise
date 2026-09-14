@@ -34,3 +34,6 @@ jobs:
 
       - name: Validate execution preflight with mocked services
         run: node scripts/validate-county-code-violation-collapse-execution-preflight-v1.js
+
+      - name: Validate database lock-context revocation
+        run: node scripts/validate-database-lock-context-revocation.js
