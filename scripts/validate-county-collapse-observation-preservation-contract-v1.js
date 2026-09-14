@@ -8,6 +8,12 @@ const cp = require('child_process');
 const BASE =
   'd60cbea8622c94e8525310038ced2f54fb4f709f';
 
+const CONTRACT_COMMIT =
+  'd8333f0ca27667c5aeddf954b47775713a32916b';
+
+const EXPECTED_CONTRACT_SHA =
+  'ed0142bf040c52eee5ef0c95113791e36667d1fb9965ced8906b71379f134f12';
+
 const AUTHORITY =
   '87ec06c98009dec42f5cfa52ecdeeaf6167d9c67d13dc0ca1eb353acf05964ee';
 
@@ -31,6 +37,12 @@ const EXECUTOR =
 
 const IMPLEMENTATION =
   'build/apps-script-brand/CountyCodeViolationCollapseObservationPreservation.js';
+
+const SELF =
+  'scripts/validate-county-collapse-observation-preservation-contract-v1.js';
+
+const WORKFLOW =
+  '.github/workflows/county-collapse-offline.yml';
 
 function read(path) {
   return fs.readFileSync(path, 'utf8');
@@ -92,12 +104,32 @@ assert.ok(
   'Executor design contract must exist.'
 );
 
+assert.ok(
+  fs.existsSync(SELF),
+  'Observation-preservation validator must exist.'
+);
+
+assert.ok(
+  fs.existsSync(WORKFLOW),
+  'County-collapse CI workflow must exist.'
+);
+
+assert.strictEqual(
+  git(
+    'merge-base',
+    BASE,
+    'HEAD'
+  ),
+  BASE,
+  'Certified observation-preservation base is no longer an ancestry root.'
+);
+
 cp.execFileSync(
   'git',
   [
     'merge-base',
     '--is-ancestor',
-    BASE,
+    CONTRACT_COMMIT,
     'HEAD'
   ],
   {
@@ -109,6 +141,13 @@ const contract = read(CONTRACT);
 const winner = read(WINNER);
 const fullrow = read(FULLROW);
 const executor = read(EXECUTOR);
+const workflow = read(WORKFLOW);
+
+assert.strictEqual(
+  sha256(contract),
+  EXPECTED_CONTRACT_SHA,
+  'Observation-preservation contract SHA drift.'
+);
 
 requireAll(
   contract,
@@ -224,6 +263,24 @@ requireAll(
   'executor prerequisite'
 );
 
+requireText(
+  workflow,
+  'node --check scripts/validate-county-collapse-observation-preservation-contract-v1.js',
+  'CI syntax registration'
+);
+
+requireText(
+  workflow,
+  '- name: Validate collapse observation-preservation contract',
+  'CI validation step'
+);
+
+requireText(
+  workflow,
+  'run: node scripts/validate-county-collapse-observation-preservation-contract-v1.js',
+  'CI validator execution'
+);
+
 assert.ok(
   !fullrow.includes('formulas:'),
   'Full-row evidence unexpectedly became formula-complete; contract discovery must be revisited.'
@@ -260,14 +317,20 @@ for (const file of buildFiles) {
   );
 }
 
-const trackedChanges =
+const stagedChanges =
   git(
     'diff',
-    '--name-only',
-    BASE + '...HEAD'
+    '--cached',
+    '--name-only'
   )
     .split('\n')
     .filter(Boolean);
+
+assert.strictEqual(
+  stagedChanges.length,
+  0,
+  'Observation-preservation validator expects no staged changes.'
+);
 
 const workingChanges =
   git(
@@ -277,14 +340,18 @@ const workingChanges =
     .split('\n')
     .filter(Boolean);
 
-const stagedChanges =
-  git(
-    'diff',
-    '--cached',
-    '--name-only'
-  )
-    .split('\n')
-    .filter(Boolean);
+const allowedWorkingChanges = new Set([
+  SELF,
+  WORKFLOW
+]);
+
+workingChanges.forEach((path) => {
+  assert.ok(
+    allowedWorkingChanges.has(path),
+    'Unauthorized tracked working-tree change: ' +
+      path
+  );
+});
 
 const untracked =
   git(
@@ -295,23 +362,11 @@ const untracked =
     .split('\n')
     .filter(Boolean);
 
-const allowed = new Set([
-  CONTRACT,
-  'scripts/validate-county-collapse-observation-preservation-contract-v1.js'
-]);
-
-[
-  ...trackedChanges,
-  ...workingChanges,
-  ...stagedChanges,
-  ...untracked
-].forEach((path) => {
-  assert.ok(
-    allowed.has(path),
-    'Unexpected design-gate file scope: ' +
-      path
-  );
-});
+assert.strictEqual(
+  untracked.length,
+  0,
+  'Observation-preservation validator expects no untracked files.'
+);
 
 const contractSha =
   sha256(contract);
