@@ -31,6 +31,7 @@ jobs:
           node --check scripts/validate-county-code-violation-collapse-execution-preflight-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-contract-v1.js
           node --check scripts/validate-county-code-violation-collapse-maintenance-quiescence-contract-v1.js
+          node --check scripts/validate-county-mutation-exclusion-lease-contract-v1.js
           node --check scripts/validate-county-collapse-operation-intent-contract-v1.js
           node --check scripts/validate-county-collapse-observation-preservation-contract-v1.js
           node --check scripts/validate-county-collapse-observation-preservation-implementation-contract-v1.js
@@ -52,6 +53,9 @@ jobs:
 
       - name: Validate collapse maintenance / writer-quiescence contract
         run: node scripts/validate-county-code-violation-collapse-maintenance-quiescence-contract-v1.js
+
+      - name: Validate county mutation-exclusion lease contract
+        run: node scripts/validate-county-mutation-exclusion-lease-contract-v1.js
 
       - name: Validate collapse operation-intent contract
         run: node scripts/validate-county-collapse-operation-intent-contract-v1.js
