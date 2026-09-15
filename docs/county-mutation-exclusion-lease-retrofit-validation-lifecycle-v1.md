@@ -11,6 +11,10 @@ HISTORICAL_RUNTIME_LIFECYCLE_IMMUTABLE=true
 HISTORICAL_RUNTIME_LIFECYCLE_ACTIVE_EXECUTION=false
 RUNTIME_LEASE_REQUIRED=true
 RUNTIME_HARNESS_REQUIRED=true
+RUNTIME_HARNESS_IMMUTABLE=true
+RUNTIME_HARNESS_SYNTAX_CHECK_REQUIRED_DURING_RETROFIT=true
+RUNTIME_HARNESS_ACTIVE_EXECUTION_DURING_RETROFIT=false
+RUNTIME_HARNESS_HISTORICAL_50_CASE_CERTIFICATION_PRESERVED=true
 PROTECTED_WRITER_INVENTORY_VERSION=1
 PROTECTED_WRITER_COUNT=12
 PROTECTED_WRITER_RETROFIT_VALIDATION_ENABLED=true
@@ -42,6 +46,13 @@ twelve protected non-owner county writers.
 The historical runtime lifecycle validator remains byte-exact evidence and is
 reduced to syntax-only CI registration. This new lifecycle validator becomes
 the active dispatcher.
+
+The runtime lease 50-case harness also remains byte-exact historical
+runtime-stage evidence. During RETROFIT it remains required, SHA-pinned,
+present, and syntax-checked, but is not re-executed after protected-writer
+changes begin because its certified test 50 intentionally requires zero
+protected-writer source changes. Per-writer retrofit harnesses are the active
+execution evidence for changed writers.
 
 A protected writer may differ from the certified runtime main only when:
 
