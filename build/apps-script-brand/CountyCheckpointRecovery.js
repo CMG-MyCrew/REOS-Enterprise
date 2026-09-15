@@ -13,6 +13,8 @@ REOS.CountyCheckpointRecovery = (function () {
   'use strict';
 
   const LOCK_WAIT_MS = 5000;
+  const WRITER_ID =
+    'COUNTY_CHECKPOINT_RECOVERY';
 
   const CYCLE_ID =
     'REOS_COUNTY_SCHEDULER_CYCLE_ID';
@@ -45,6 +47,23 @@ REOS.CountyCheckpointRecovery = (function () {
 
   function requireAdmin_() {
     REOS.Security.requireAdmin();
+  }
+
+  function assertWriterAllowed_() {
+    if (
+      !REOS.CountyMutationExclusionLease ||
+      typeof REOS.CountyMutationExclusionLease
+        .assertWriterAllowed !==
+        'function'
+    ) {
+      throw new Error(
+        'County mutation-exclusion lease writer guard is required.'
+      );
+    }
+
+    return REOS.CountyMutationExclusionLease.assertWriterAllowed({
+      writerId: WRITER_ID
+    });
   }
 
   function properties_() {
@@ -235,6 +254,8 @@ REOS.CountyCheckpointRecovery = (function () {
           'County checkpoint recovery scheduler authority changed under lock.'
         );
       }
+
+      assertWriterAllowed_();
 
       const props = properties_();
       const before = rawSnapshot_(props);
