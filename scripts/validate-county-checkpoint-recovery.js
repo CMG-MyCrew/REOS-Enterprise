@@ -79,6 +79,7 @@ let adminCalls = 0;
 let triggerCount = 0;
 let lockAvailable = true;
 let lockHeld = false;
+let leaseGuardCalls = 0;
 let setCalls = [];
 
 const props = {
@@ -114,6 +115,44 @@ const context = {
     Security: {
       requireAdmin() {
         adminCalls++;
+      }
+    },
+
+    /*
+     * Compatibility test double for the protected-writer retrofit.
+     *
+     * The historical checkpoint contract remains valid before the
+     * writer retrofit (zero calls) and after it (guard called under the
+     * already-held native ScriptLock). The exact mapped writer harness
+     * owns the dedicated lease-denial and ordering assertions.
+     */
+    CountyMutationExclusionLease: {
+      assertWriterAllowed(options) {
+        leaseGuardCalls++;
+
+        assert.strictEqual(
+          lockHeld,
+          true,
+          'checkpoint recovery lease guard requires held ScriptLock'
+        );
+
+        assert.strictEqual(
+          Object.keys(options).sort().join(','),
+          'writerId'
+        );
+
+        assert.strictEqual(
+          options.writerId,
+          'COUNTY_CHECKPOINT_RECOVERY'
+        );
+
+        return {
+          ok: true,
+          allowed: true,
+          writerId:
+            'COUNTY_CHECKPOINT_RECOVERY',
+          blockedByLease: false
+        };
       }
     }
   },
