@@ -44,6 +44,9 @@ const WORKFLOW =
 const PATCH_VALIDATOR =
   'scripts/validate-database-physical-row-patch-exact.js';
 
+const STORE_VALIDATOR =
+  'scripts/validate-county-collapse-observation-preservation-store-v1.js';
+
 const FUTURE_STORE =
   'build/apps-script-brand/CountyCollapseObservationPreservationStore.js';
 
@@ -170,10 +173,49 @@ if (patchImplemented) {
   );
 }
 
-assert.ok(
-  !fs.existsSync(FUTURE_STORE),
-  'Preservation store implementation already exists.'
-);
+const storeImplemented =
+  fs.existsSync(
+    FUTURE_STORE
+  );
+
+if (storeImplemented) {
+  assert.ok(
+    fs.existsSync(
+      STORE_VALIDATOR
+    ),
+    'Preservation store implementation requires its dedicated validator.'
+  );
+
+  const preservationStore =
+    read(
+      FUTURE_STORE
+    );
+
+  [
+    'REOS.CountyCollapseObservationPreservationStore',
+    'COUNTY_COLLAPSE_PRESERVATION_EVENTS',
+    'COUNTY_COLLAPSE_PRESERVATION_CHUNKS',
+    'REOS_COUNTY_COLLAPSE_OBSERVATION_PRESERVATION_WORKBOOK_ID',
+    'PRESERVATION_PREPARED',
+    'PATCH_INVOCATION_STARTED',
+    'PRESERVATION_RECEIPT_VERIFIED',
+    'UNCERTAIN_STORAGE_INVALID',
+    'VERIFIED_PRESERVATION_RECEIPT'
+  ].forEach((marker) => {
+    requireText(
+      preservationStore,
+      marker,
+      'Preservation store implementation'
+    );
+  });
+} else {
+  assert.ok(
+    !fs.existsSync(
+      STORE_VALIDATOR
+    ),
+    'Preservation store validator exists before store implementation lifecycle.'
+  );
+}
 
 const rpcSearch = cp.spawnSync(
   'git',
@@ -388,6 +430,26 @@ if (patchImplemented) {
   });
 }
 
+if (storeImplemented) {
+  [
+    'node --check ' + FUTURE_STORE,
+    'node --check ' + STORE_VALIDATOR,
+    'name: Validate collapse observation-preservation store',
+    'run: node ' + STORE_VALIDATOR
+  ].forEach((marker) => {
+    const count =
+      workflow.split(marker).length - 1;
+
+    assert.strictEqual(
+      count,
+      1,
+      'Preservation-store CI registration count for ' +
+        marker +
+        ' must be exactly one.'
+    );
+  });
+}
+
 const trackedChanges =
   git('diff', '--name-only')
     .split('\n')
@@ -404,6 +466,14 @@ const allowedPatchImplementationTrackedChanges = [
   SELF,
   WORKFLOW
 ].sort();
+
+const storeIntegrationRemediationAuthoringLifecycle =
+  storeImplemented &&
+  JSON.stringify(trackedChanges) ===
+  JSON.stringify([
+    SELF,
+    'scripts/validate-county-runtime-integration.js'
+  ].sort());
 
 const cleanTrackedLifecycle =
   trackedChanges.length === 0;
@@ -423,6 +493,7 @@ const patchImplementationAuthoringLifecycle =
 assert.ok(
   cleanTrackedLifecycle ||
   ciRemediationAuthoringLifecycle ||
+  storeIntegrationRemediationAuthoringLifecycle ||
   patchImplementationAuthoringLifecycle,
   'Unexpected tracked design/CI scope: ' +
     trackedChanges.join(',')
@@ -468,10 +539,18 @@ const patchImplementationUntrackedAuthoringLifecycle =
     PATCH_VALIDATOR
   ]);
 
+const storeImplementationUntrackedAuthoringLifecycle =
+  JSON.stringify(untracked) ===
+  JSON.stringify([
+    FUTURE_STORE,
+    STORE_VALIDATOR
+  ].sort());
+
 assert.ok(
   cleanCommittedLifecycle ||
   authoringLifecycle ||
-  patchImplementationUntrackedAuthoringLifecycle,
+  patchImplementationUntrackedAuthoringLifecycle ||
+  storeImplementationUntrackedAuthoringLifecycle,
   'Unexpected untracked design-gate scope: ' +
     untracked.join(',')
 );
@@ -503,7 +582,9 @@ console.log(
   'PASS: recovery is read-only and forbids automatic retry/delete/recreation.'
 );
 console.log(
-  'PASS: preservation implementation and RPC remain absent.'
+  storeImplemented
+    ? 'PASS: preservation store implementation lifecycle is certified; orchestration and RPC remain absent.'
+    : 'PASS: preservation implementation and RPC remain absent.'
 );
 console.log(
   'PASS: county-collapse CI registers and executes this implementation-contract validator.'
