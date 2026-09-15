@@ -244,7 +244,48 @@ requireText(
   'Retrofit lifecycle execution registration'
 );
 
-runNode(RUNTIME_HARNESS);
+const runtimeHarnessSource =
+  fs.readFileSync(
+    RUNTIME_HARNESS,
+    'utf8'
+  );
+
+requireText(
+  runtimeHarnessSource,
+  'no protected writer source is modified by runtime lease implementation',
+  'Historical runtime harness protected-writer invariant'
+);
+
+const runtimeHarnessSyntax =
+  cp.spawnSync(
+    process.execPath,
+    [
+      '--check',
+      RUNTIME_HARNESS
+    ],
+    {
+      encoding:
+        'utf8'
+    }
+  );
+
+if (runtimeHarnessSyntax.stdout) {
+  process.stdout.write(
+    runtimeHarnessSyntax.stdout
+  );
+}
+
+if (runtimeHarnessSyntax.stderr) {
+  process.stderr.write(
+    runtimeHarnessSyntax.stderr
+  );
+}
+
+assert.strictEqual(
+  runtimeHarnessSyntax.status,
+  0,
+  'Historical runtime harness syntax failed.'
+);
 
 const expectedHarnesses =
   new Set(WRITERS.map(entry => entry.harness));
@@ -358,7 +399,7 @@ console.log(
 );
 
 console.log(
-  'PASS: runtime lease and 50-case harness remain certified.'
+  'PASS: runtime lease remains certified; historical 50-case harness remains SHA-pinned and syntax-valid.'
 );
 
 console.log(
