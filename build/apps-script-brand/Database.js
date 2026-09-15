@@ -3014,53 +3014,157 @@ REOS.Database = (function () {
   }
 
   function update(sheetName, idField, idValue, changes) {
-    const lock = LockService.getScriptLock();
+    var options =
+      (
+        arguments.length > 4 &&
+        arguments[4]
+      )
+        ? arguments[4]
+        : {};
 
-    lock.waitLock(30000);
+    var callerOwnsLock =
+      Object.prototype.hasOwnProperty.call(
+        options,
+        'lockContext'
+      );
+
+    var lock;
 
     var lockObservation =
-      beginLockObservation_(
-        'Database.update',
-        sheetName,
-        {
-          waitMode: 'waitLock',
-          waitMilliseconds: 30000
-        }
-      );
+      null;
 
     var lockOutcome =
       'SUCCESS';
 
+    if (callerOwnsLock) {
+      lock =
+        validateLockContext_(
+          options.lockContext
+        );
+    } else {
+      lock =
+        LockService.getScriptLock();
+
+      lock.waitLock(
+        30000
+      );
+
+      lockObservation =
+        beginLockObservation_(
+          'Database.update',
+          sheetName,
+          {
+            waitMode: 'waitLock',
+            waitMilliseconds: 30000
+          }
+        );
+    }
+
     try {
       const sheet = getSheet(sheetName);
       const headers = getHeaders(sheetName);
-      const rowNumber = findRowById(sheetName, idField, idValue);
-      if (!rowNumber) throw new Error('Record not found: ' + idValue);
-      const currentValues = sheet.getRange(rowNumber, 1, 1, headers.length).getValues()[0];
-      const currentRecord = rowToObject(headers, currentValues, rowNumber);
-      const updatedRecord = Object.assign({}, currentRecord, changes || {});
+      const rowNumber =
+        findRowById(
+          sheetName,
+          idField,
+          idValue
+        );
+
+      if (!rowNumber) {
+        throw new Error(
+          'Record not found: ' +
+          idValue
+        );
+      }
+
+      const currentValues =
+        sheet
+          .getRange(
+            rowNumber,
+            1,
+            1,
+            headers.length
+          )
+          .getValues()[0];
+
+      const currentRecord =
+        rowToObject(
+          headers,
+          currentValues,
+          rowNumber
+        );
+
+      const updatedRecord =
+        Object.assign(
+          {},
+          currentRecord,
+          changes || {}
+        );
+
       delete updatedRecord._rowNumber;
-      if (headers.indexOf('Updated At') !== -1) updatedRecord['Updated At'] = new Date();
-      const row = objectToRow(headers, updatedRecord);
-      sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
-      if (REOS.Logger) REOS.Logger.info('DB update', { sheet: sheetName, id: idValue });
-      return rowToObject(headers, row, rowNumber);
+
+      if (
+        headers.indexOf(
+          'Updated At'
+        ) !== -1
+      ) {
+        updatedRecord[
+          'Updated At'
+        ] = new Date();
+      }
+
+      const row =
+        objectToRow(
+          headers,
+          updatedRecord
+        );
+
+      sheet
+        .getRange(
+          rowNumber,
+          1,
+          1,
+          row.length
+        )
+        .setValues(
+          [row]
+        );
+
+      if (REOS.Logger) {
+        REOS.Logger.info(
+          'DB update',
+          {
+            sheet:
+              sheetName,
+            id:
+              idValue
+          }
+        );
+      }
+
+      return rowToObject(
+        headers,
+        row,
+        rowNumber
+      );
     } catch (error) {
       lockOutcome =
         'ERROR';
 
       throw error;
     } finally {
-      lock.releaseLock();
+      if (!callerOwnsLock) {
+        lock.releaseLock();
 
-      endLockObservation_(
-        lockObservation,
-        lockOutcome,
-        {
-          sheetName:
-            sheetName
-        }
-      );
+        endLockObservation_(
+          lockObservation,
+          lockOutcome,
+          {
+            sheetName:
+              sheetName
+          }
+        );
+      }
     }
   }
 

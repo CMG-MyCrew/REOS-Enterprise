@@ -80,7 +80,13 @@ const ownerBlock =
 const insertBlock =
   isolate(
     'function insert(sheetName, record, options)',
-    'function update(sheetName, idField, idValue, changes)'
+    'function update('
+  );
+
+const updateBlock =
+  isolate(
+    'function update(',
+    'function upsert(sheetName, idField, idValue, record, options)'
   );
 
 assert.ok(
@@ -132,6 +138,36 @@ assert.ok(
 
 assert.ok(
   insertBlock.includes(
+    'if (!callerOwnsLock)'
+  )
+);
+
+
+assert.match(
+  updateBlock,
+  /\.waitLock\s*\(\s*30000\s*\)/
+);
+
+assert.equal(
+  /\.tryLock\s*\(/.test(
+    updateBlock
+  ),
+  false
+);
+
+assert.match(
+  updateBlock,
+  /hasOwnProperty\.call\s*\(\s*options\s*,\s*'lockContext'\s*\)/
+);
+
+assert.ok(
+  updateBlock.includes(
+    'validateLockContext_('
+  )
+);
+
+assert.ok(
+  updateBlock.includes(
     'if (!callerOwnsLock)'
   )
 );
@@ -738,6 +774,468 @@ pass(
 
 pass(
   'private lock capability is not exported on REOS.Database'
+);
+
+
+
+function createUpdateHarness(
+  options = {}
+) {
+  const state = {
+    events: [],
+    waitCalls: [],
+    tryCalls: [],
+    hasLockCalls: 0,
+    releaseCalls: 0,
+    flushCalls: 0,
+    setCalls: 0,
+    getScriptLockCalls: 0,
+    getSheetCalls: 0
+  };
+
+  let held = false;
+
+  const lock = {
+    waitLock(timeout) {
+      state.waitCalls.push(
+        timeout
+      );
+
+      state.events.push(
+        'wait:' + timeout
+      );
+
+      held = true;
+    },
+
+    tryLock(timeout) {
+      state.tryCalls.push(
+        timeout
+      );
+
+      state.events.push(
+        'try:' + timeout
+      );
+
+      if (
+        options.lockAvailable ===
+        false
+      ) {
+        return false;
+      }
+
+      held = true;
+
+      return true;
+    },
+
+    hasLock() {
+      state.hasLockCalls += 1;
+
+      return held;
+    },
+
+    releaseLock() {
+      state.releaseCalls += 1;
+
+      state.events.push(
+        'release'
+      );
+
+      held = false;
+    }
+  };
+
+  const headers = [
+    'Record ID',
+    'Value',
+    'Updated At'
+  ];
+
+  const row = [
+    'ROW-1',
+    'before',
+    ''
+  ];
+
+  const sheet = {
+    getLastColumn() {
+      return headers.length;
+    },
+
+    getLastRow() {
+      return 2;
+    },
+
+    getRange(
+      rowNumber,
+      column,
+      rowCount,
+      columnCount
+    ) {
+      return {
+        getValues() {
+          if (
+            rowNumber === 1 &&
+            column === 1 &&
+            rowCount === 1 &&
+            columnCount ===
+              headers.length
+          ) {
+            return [
+              headers.slice()
+            ];
+          }
+
+          if (
+            rowNumber === 2 &&
+            column === 1 &&
+            rowCount === 1 &&
+            columnCount === 1
+          ) {
+            return [
+              [row[0]]
+            ];
+          }
+
+          if (
+            rowNumber === 2 &&
+            column === 1 &&
+            rowCount === 1 &&
+            columnCount ===
+              headers.length
+          ) {
+            return [
+              row.slice()
+            ];
+          }
+
+          throw new Error(
+            'Unexpected getValues range: ' +
+            [
+              rowNumber,
+              column,
+              rowCount,
+              columnCount
+            ].join(',')
+          );
+        },
+
+        setValues(values) {
+          assert.equal(
+            rowNumber,
+            2
+          );
+
+          assert.equal(
+            column,
+            1
+          );
+
+          assert.equal(
+            rowCount,
+            1
+          );
+
+          assert.equal(
+            columnCount,
+            headers.length
+          );
+
+          assert.equal(
+            values.length,
+            1
+          );
+
+          row.splice(
+            0,
+            row.length,
+            ...values[0]
+          );
+
+          state.setCalls += 1;
+
+          state.events.push(
+            'set'
+          );
+
+          return this;
+        }
+      };
+    }
+  };
+
+  const spreadsheet = {
+    getSheetByName() {
+      state.getSheetCalls += 1;
+
+      return sheet;
+    }
+  };
+
+  const sandbox = {
+    REOS: {
+      Logger: null
+    },
+
+    SpreadsheetApp: {
+      getActiveSpreadsheet() {
+        return spreadsheet;
+      },
+
+      flush() {
+        state.flushCalls += 1;
+
+        state.events.push(
+          'flush'
+        );
+      }
+    },
+
+    LockService: {
+      getScriptLock() {
+        state.getScriptLockCalls += 1;
+
+        return lock;
+      }
+    },
+
+    console
+  };
+
+  vm.createContext(
+    sandbox
+  );
+
+  vm.runInContext(
+    source,
+    sandbox
+  );
+
+  return {
+    sandbox,
+    state,
+    row
+  };
+}
+
+
+{
+  const h =
+    createUpdateHarness();
+
+  const result =
+    h.sandbox
+      .REOS
+      .Database
+      .update(
+        'TEST',
+        'Record ID',
+        'ROW-1',
+        {
+          Value: 'default-update'
+        }
+      );
+
+  assert.equal(
+    result.Value,
+    'default-update'
+  );
+
+  assert.deepEqual(
+    h.state.waitCalls,
+    [30000]
+  );
+
+  assert.deepEqual(
+    h.state.tryCalls,
+    []
+  );
+
+  assert.equal(
+    h.state.releaseCalls,
+    1
+  );
+
+  assert.equal(
+    h.state.flushCalls,
+    0
+  );
+
+  assert.equal(
+    h.state.setCalls,
+    1
+  );
+}
+
+pass(
+  'default Database.update retains waitLock(30000) ownership behavior'
+);
+
+
+{
+  const h =
+    createUpdateHarness();
+
+  const db =
+    h.sandbox
+      .REOS
+      .Database;
+
+  db.withScriptLockContext(
+    (lockContext) => {
+      db.update(
+        'TEST',
+        'Record ID',
+        'ROW-1',
+        {
+          Value: 'handoff-update'
+        },
+        {
+          lockContext
+        }
+      );
+    }
+  );
+
+  assert.deepEqual(
+    h.state.waitCalls,
+    []
+  );
+
+  assert.deepEqual(
+    h.state.tryCalls,
+    [1000]
+  );
+
+  assert.equal(
+    h.state.setCalls,
+    1
+  );
+
+  assert.equal(
+    h.state.flushCalls,
+    1
+  );
+
+  assert.equal(
+    h.state.releaseCalls,
+    1
+  );
+
+  assert.deepEqual(
+    h.state.events,
+    [
+      'try:1000',
+      'set',
+      'flush',
+      'release'
+    ]
+  );
+}
+
+pass(
+  'valid caller-owned context lets Database.update avoid nested ScriptLock'
+);
+
+
+for (
+  const invalidContext
+  of [
+    true,
+    false,
+    {},
+    {
+      lock: {
+        hasLock() {
+          return true;
+        }
+      }
+    }
+  ]
+) {
+  const h =
+    createUpdateHarness();
+
+  expectThrow(
+    () =>
+      h.sandbox
+        .REOS
+        .Database
+        .update(
+          'TEST',
+          'Record ID',
+          'ROW-1',
+          {
+            Value: 'invalid'
+          },
+          {
+            lockContext:
+              invalidContext
+          }
+        ),
+    /lock context is invalid/
+  );
+
+  assert.equal(
+    h.state.getScriptLockCalls,
+    0
+  );
+
+  assert.equal(
+    h.state.setCalls,
+    0
+  );
+}
+
+pass(
+  'Database.update rejects forged caller-owned lock context before I/O'
+);
+
+
+{
+  const h =
+    createUpdateHarness();
+
+  const db =
+    h.sandbox
+      .REOS
+      .Database;
+
+  let stale = null;
+
+  db.withScriptLockContext(
+    (lockContext) => {
+      stale =
+        lockContext;
+    }
+  );
+
+  expectThrow(
+    () =>
+      db.update(
+        'TEST',
+        'Record ID',
+        'ROW-1',
+        {
+          Value: 'stale'
+        },
+        {
+          lockContext:
+            stale
+        }
+      ),
+    /no longer owns ScriptLock/
+  );
+
+  assert.equal(
+    h.state.setCalls,
+    0
+  );
+}
+
+pass(
+  'Database.update rejects released lock capability before mutation'
 );
 
 
