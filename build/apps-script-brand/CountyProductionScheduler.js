@@ -13,6 +13,8 @@ var REOS = REOS || {};
 REOS.CountyProductionScheduler = (function () {
   const HANDLER = 'reosCountyProductionSchedulerRun';
   const LOCK_WAIT_MS = 1000;
+  const WRITER_ID =
+    'COUNTY_PRODUCTION_SCHEDULER';
   const STALE_HOURS = 48;
 
   /*
@@ -88,6 +90,45 @@ REOS.CountyProductionScheduler = (function () {
 
   function requireAdmin_() {
     REOS.Security.requireAdmin();
+  }
+
+  function assertWriterAllowed_() {
+    if (
+      !REOS.CountyMutationExclusionLease ||
+      typeof REOS.CountyMutationExclusionLease
+        .assertWriterAllowed !==
+        'function'
+    ) {
+      throw new Error(
+        'County mutation-exclusion lease writer guard is required.'
+      );
+    }
+
+    return REOS.CountyMutationExclusionLease.assertWriterAllowed({
+      writerId: WRITER_ID
+    });
+  }
+
+  function withWriterMutationGuard_(work) {
+    const lock = LockService.getScriptLock();
+
+    if (!lock.tryLock(LOCK_WAIT_MS)) {
+      throw new Error(
+        'County production scheduler mutation lock unavailable.'
+      );
+    }
+
+    try {
+      assertWriterAllowed_();
+      return work();
+    } finally {
+      if (
+        typeof lock.hasLock !== 'function' ||
+        lock.hasLock()
+      ) {
+        lock.releaseLock();
+      }
+    }
   }
 
   function managedTriggers_() {
@@ -192,57 +233,61 @@ REOS.CountyProductionScheduler = (function () {
   function installScheduler() {
     requireAdmin_();
 
-    const existing = managedTriggers_();
-    let removed = 0;
+    return withWriterMutationGuard_(function () {
+      const existing = managedTriggers_();
+      let removed = 0;
 
-    if (existing.length !== 1) {
-      existing.forEach(function (trigger) {
-        ScriptApp.deleteTrigger(trigger);
-        removed++;
-      });
+      if (existing.length !== 1) {
+        existing.forEach(function (trigger) {
+          ScriptApp.deleteTrigger(trigger);
+          removed++;
+        });
 
-      ScriptApp
-        .newTrigger(HANDLER)
-        .timeBased()
-        .everyHours(6)
-        .create();
-    }
+        ScriptApp
+          .newTrigger(HANDLER)
+          .timeBased()
+          .everyHours(6)
+          .create();
+      }
 
-    properties_().setProperty(
-      INSTALLED_AT,
-      nowIso_()
-    );
+      properties_().setProperty(
+        INSTALLED_AT,
+        nowIso_()
+      );
 
-    const status = getStatus_();
+      const status = getStatus_();
 
-    return {
-      ok: true,
-      installed: status.scheduler.triggerCount,
-      removed: removed,
-      status: status
-    };
+      return {
+        ok: true,
+        installed: status.scheduler.triggerCount,
+        removed: removed,
+        status: status
+      };
+    });
   }
 
   function removeScheduler() {
     requireAdmin_();
 
-    const existing = managedTriggers_();
-    let removed = 0;
+    return withWriterMutationGuard_(function () {
+      const existing = managedTriggers_();
+      let removed = 0;
 
-    existing.forEach(function (trigger) {
-      ScriptApp.deleteTrigger(trigger);
-      removed++;
+      existing.forEach(function (trigger) {
+        ScriptApp.deleteTrigger(trigger);
+        removed++;
+      });
+
+      properties_().setProperty(
+        REMOVED_AT,
+        nowIso_()
+      );
+
+      return {
+        ok: true,
+        removed: removed
+      };
     });
-
-    properties_().setProperty(
-      REMOVED_AT,
-      nowIso_()
-    );
-
-    return {
-      ok: true,
-      removed: removed
-    };
   }
 
   function getStatus() {
@@ -371,11 +416,6 @@ REOS.CountyProductionScheduler = (function () {
     const props = properties_();
     const attemptAt = nowIso_();
 
-    props.setProperty(
-      LAST_ATTEMPT_AT,
-      attemptAt
-    );
-
     const lock = LockService.getScriptLock();
 
     if (!lock.tryLock(LOCK_WAIT_MS)) {
@@ -398,11 +438,6 @@ REOS.CountyProductionScheduler = (function () {
           );
       }
 
-      props.setProperty(
-        LAST_CONTENDED_AT,
-        attemptAt
-      );
-
       return {
         ok: false,
         skipped: true,
@@ -412,27 +447,43 @@ REOS.CountyProductionScheduler = (function () {
     }
 
     var lockObservation =
-      REOS.ScriptLockObservability &&
-      typeof REOS.ScriptLockObservability
-        .begin ===
-        'function'
-        ? REOS.ScriptLockObservability
-            .begin(
-              'CountyProductionScheduler',
-              isManual
-                ? 'manual'
-                : 'scheduled',
-              {
-                waitMilliseconds:
-                  LOCK_WAIT_MS
-              }
-            )
-        : null;
+      null;
 
     var lockOutcome =
       'SUCCESS';
 
+    var writerGuardPassed =
+      false;
+
     try {
+      assertWriterAllowed_();
+
+      writerGuardPassed =
+        true;
+
+      props.setProperty(
+        LAST_ATTEMPT_AT,
+        attemptAt
+      );
+
+      lockObservation =
+        REOS.ScriptLockObservability &&
+        typeof REOS.ScriptLockObservability
+          .begin ===
+          'function'
+          ? REOS.ScriptLockObservability
+              .begin(
+                'CountyProductionScheduler',
+                isManual
+                  ? 'manual'
+                  : 'scheduled',
+                {
+                  waitMilliseconds:
+                    LOCK_WAIT_MS
+                }
+              )
+          : null;
+
       const scheduler = schedulerSnapshot_();
 
       let cycle = cycleSnapshot_(props);
@@ -837,12 +888,23 @@ REOS.CountyProductionScheduler = (function () {
       lockOutcome =
         'ERROR';
 
-      const failureAt = nowIso_();
       const message = String(
         error && error.message
           ? error.message
           : error
       );
+
+      if (!writerGuardPassed) {
+        return {
+          ok: false,
+          skipped: true,
+          status: 'Blocked',
+          attemptedAt: attemptAt,
+          error: message
+        };
+      }
+
+      const failureAt = nowIso_();
 
       props.setProperty(
         LAST_FAILURE_AT,
@@ -926,68 +988,71 @@ REOS.CountyProductionScheduler = (function () {
     retireCheckpoint: function (expectedCycleId) {
       requireAdmin_();
 
-      const props = properties_();
-      const cycle = cycleSnapshot_(props);
-      const expected = String(expectedCycleId || '').trim();
+      return withWriterMutationGuard_(function () {
+        const props = properties_();
+        const cycle = cycleSnapshot_(props);
+        const expected =
+          String(expectedCycleId || '').trim();
 
-      if (!expected) {
-        throw new Error(
-          'Expected county scheduler cycle ID is required.'
-        );
-      }
+        if (!expected) {
+          throw new Error(
+            'Expected county scheduler cycle ID is required.'
+          );
+        }
 
-      if (!cycle.id) {
+        if (!cycle.id) {
+          return {
+            ok: true,
+            retired: false,
+            reason: 'No active checkpoint.',
+            checkpoint: cycle
+          };
+        }
+
+        if (cycle.id !== expected) {
+          throw new Error(
+            'County scheduler checkpoint changed; expected ' +
+            expected +
+            ', found ' +
+            cycle.id +
+            '.'
+          );
+        }
+
+        const retired = {
+          id: cycle.id,
+          startedAt: cycle.startedAt,
+          nextFeedIndex: cycle.nextFeedIndex,
+          currentFeedCursor: cycle.currentFeedCursor,
+          completedFeeds: cycle.completedFeeds,
+          totalFeeds: cycle.totalFeeds,
+          results: cycle.results
+        };
+
+        clearCycle_(props);
+
+        const after = cycleSnapshot_(props);
+
+        if (
+          after.id ||
+          after.startedAt ||
+          after.nextFeedIndex !== 0 ||
+          after.currentFeedCursor ||
+          after.completedFeeds !== 0 ||
+          after.results.length !== 0
+        ) {
+          throw new Error(
+            'County scheduler checkpoint retirement verification failed.'
+          );
+        }
+
         return {
           ok: true,
-          retired: false,
-          reason: 'No active checkpoint.',
-          checkpoint: cycle
+          retired: true,
+          retiredCheckpoint: retired,
+          checkpoint: after
         };
-      }
-
-      if (cycle.id !== expected) {
-        throw new Error(
-          'County scheduler checkpoint changed; expected ' +
-          expected +
-          ', found ' +
-          cycle.id +
-          '.'
-        );
-      }
-
-      const retired = {
-        id: cycle.id,
-        startedAt: cycle.startedAt,
-        nextFeedIndex: cycle.nextFeedIndex,
-        currentFeedCursor: cycle.currentFeedCursor,
-        completedFeeds: cycle.completedFeeds,
-        totalFeeds: cycle.totalFeeds,
-        results: cycle.results
-      };
-
-      clearCycle_(props);
-
-      const after = cycleSnapshot_(props);
-
-      if (
-        after.id ||
-        after.startedAt ||
-        after.nextFeedIndex !== 0 ||
-        after.currentFeedCursor ||
-        after.completedFeeds !== 0 ||
-        after.results.length !== 0
-      ) {
-        throw new Error(
-          'County scheduler checkpoint retirement verification failed.'
-        );
-      }
-
-      return {
-        ok: true,
-        retired: true,
-        retiredCheckpoint: retired,
-        checkpoint: after
-      };
+      });
     },
     getProvenance: function () {
       const props = properties_();
