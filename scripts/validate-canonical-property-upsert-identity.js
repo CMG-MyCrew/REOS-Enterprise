@@ -109,8 +109,62 @@ function createHarness(initialLeads) {
   };
 
   let idSequence = 0;
+  let activeLockContext = null;
+  let lockSequence = 0;
 
   const database = {
+    withScriptLockContext: function (work) {
+      assert.strictEqual(
+        typeof work,
+        'function',
+        'lock-context callback is required'
+      );
+
+      assert.strictEqual(
+        activeLockContext,
+        null,
+        'nested ScriptLock context is prohibited'
+      );
+
+      lockSequence += 1;
+
+      const lockContext =
+        Object.freeze({
+          id:
+            'CANONICAL-IDENTITY-LOCK-' +
+            lockSequence
+        });
+
+      activeLockContext =
+        lockContext;
+
+      try {
+        return work(
+          lockContext
+        );
+      } finally {
+        activeLockContext =
+          null;
+      }
+    },
+
+    assertScriptLockContext: function (
+      lockContext
+    ) {
+      assert.ok(
+        activeLockContext,
+        'ScriptLock context is not active'
+      );
+
+      assert.strictEqual(
+        lockContext,
+        activeLockContext,
+        'wrong caller-owned ScriptLock context'
+      );
+
+      return true;
+    },
+
     ensureTable: function () {},
 
     getAll: function (sheetName) {
@@ -264,6 +318,36 @@ function createHarness(initialLeads) {
 
     REOS: {
       Database: database,
+
+      CountyMutationExclusionLease: {
+        assertWriterAllowed: function (
+          request
+        ) {
+          assert.ok(
+            activeLockContext,
+            'writer lease assertion must execute under active ScriptLock'
+          );
+
+          assert.ok(
+            request &&
+            request.writerId ===
+              'COUNTY_CONNECTOR_LIVE_PERSISTENCE',
+            'canonical identity harness received wrong protected writer ID'
+          );
+
+          assert.strictEqual(
+            Object.keys(request)
+              .sort()
+              .join(','),
+            'writerId',
+            'writer assertion must contain only certified writer ID'
+          );
+
+          return {
+            allowed: true
+          };
+        }
+      },
 
       Logger: {
         info: function () {},

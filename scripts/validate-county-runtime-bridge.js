@@ -61,6 +61,9 @@ function createDatabase(legacyHeaders) {
   const events = [];
   const counters = new Map();
 
+  let activeLockContext = null;
+  let lockSequence = 0;
+
   tables.set('DISTRESS_LEADS', {
     headers: legacyHeaders.slice(),
     rows: []
@@ -111,6 +114,68 @@ function createDatabase(legacyHeaders) {
   }
 
   const Database = {
+    withScriptLockContext(work) {
+      assert.equal(
+        typeof work,
+        'function',
+        'Database lock-context callback is required'
+      );
+
+      assert.equal(
+        activeLockContext,
+        null,
+        'nested Database ScriptLock context is prohibited'
+      );
+
+      lockSequence += 1;
+
+      const lockContext =
+        Object.freeze({
+          id:
+            'RUNTIME-BRIDGE-LOCK-' +
+            lockSequence
+        });
+
+      activeLockContext =
+        lockContext;
+
+      events.push({
+        type: 'scriptLockEnter'
+      });
+
+      try {
+        return work(
+          lockContext
+        );
+      } finally {
+        events.push({
+          type: 'scriptLockExit'
+        });
+
+        activeLockContext =
+          null;
+      }
+    },
+
+    assertScriptLockContext(lockContext) {
+      assert.ok(
+        activeLockContext,
+        'Database ScriptLock context is not active'
+      );
+
+      assert.equal(
+        lockContext,
+        activeLockContext,
+        'wrong caller-owned Database ScriptLock context'
+      );
+
+      events.push({
+        type: 'scriptLockContextAssert'
+      });
+
+      return true;
+    },
+
     ensureTable(name, headers) {
       events.push({
         type: 'ensureTable',
@@ -279,6 +344,38 @@ function createDatabase(legacyHeaders) {
   return {
     Database,
 
+    assertWriterAllowed(request) {
+      assert.ok(
+        activeLockContext,
+        'writer lease assertion must execute under active Database ScriptLock'
+      );
+
+      assert.ok(
+        request &&
+        request.writerId ===
+          'COUNTY_CONNECTOR_LIVE_PERSISTENCE',
+        'runtime bridge received wrong protected writer ID'
+      );
+
+      assert.equal(
+        Object.keys(request)
+          .sort()
+          .join(','),
+        'writerId',
+        'writer assertion must contain only certified writer ID'
+      );
+
+      events.push({
+        type: 'writerLeaseAssert',
+        writerId:
+          request.writerId
+      });
+
+      return {
+        allowed: true
+      };
+    },
+
     rows(name) {
       return getTable(name)
         .rows
@@ -375,6 +472,14 @@ const context = vm.createContext({
 
   REOS: {
     Database: database.Database,
+
+    CountyMutationExclusionLease: {
+      assertWriterAllowed(request) {
+        return database.assertWriterAllowed(
+          request
+        );
+      }
+    },
 
     generateId_(prefix) {
       generatedId += 1;
