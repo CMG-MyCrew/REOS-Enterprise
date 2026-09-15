@@ -202,6 +202,8 @@ function createHarness(options) {
     adminCalls: 0,
     lockAttempts: 0,
     lockReleases: 0,
+    lockHeld: false,
+    leaseCalls: 0,
     lockAvailable:
       options.lockAvailable !== false,
     mutateRowOnHeaderWrite:
@@ -331,6 +333,40 @@ function createHarness(options) {
         }
       },
 
+      CountyMutationExclusionLease: {
+        assertWriterAllowed(request) {
+          state.leaseCalls += 1;
+
+          assert.equal(
+            state.lockHeld,
+            true,
+            'lease guard must execute while migration ScriptLock is held'
+          );
+
+          assert.ok(
+            request &&
+            typeof request === 'object'
+          );
+
+          assert.deepEqual(
+            Object.keys(request).sort(),
+            ['writerId']
+          );
+
+          assert.equal(
+            request.writerId,
+            'COUNTY_C1_SCHEMA_MIGRATION'
+          );
+
+          return {
+            ok: true,
+            allowed: true,
+            writerId:
+              'COUNTY_C1_SCHEMA_MIGRATION'
+          };
+        }
+      },
+
       Security: {
         requireAdmin() {
           state.adminCalls += 1;
@@ -350,10 +386,26 @@ function createHarness(options) {
 
             state.lockAttempts += 1;
 
+            if (
+              state.lockAvailable
+            ) {
+              state.lockHeld =
+                true;
+            }
+
             return state.lockAvailable;
           },
 
           releaseLock() {
+            assert.equal(
+              state.lockHeld,
+              true,
+              'releaseLock requires held migration ScriptLock'
+            );
+
+            state.lockHeld =
+              false;
+
             state.lockReleases += 1;
           }
         };
