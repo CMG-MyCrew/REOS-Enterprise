@@ -9,6 +9,64 @@ REOS.CountyConnectorSDK = (function () {
   var AUDIT_SHEET = 'COUNTY_CONNECTOR_RUNS';
   var TARGET_SHEET = 'DISTRESS_LEADS';
 
+  var WRITER_ID =
+    'COUNTY_CONNECTOR_LIVE_PERSISTENCE';
+
+
+  function assertLivePersistenceWriterAllowed_() {
+    if (
+      !REOS.CountyMutationExclusionLease ||
+      typeof REOS.CountyMutationExclusionLease
+        .assertWriterAllowed !==
+        'function'
+    ) {
+      throw new Error(
+        'County connector live-persistence mutation-exclusion guard is required.'
+      );
+    }
+
+    return REOS.CountyMutationExclusionLease.assertWriterAllowed({
+      writerId: WRITER_ID
+    });
+  }
+
+
+  function withLivePersistenceWriterGuard_(work) {
+    if (typeof work !== 'function') {
+      throw new Error(
+        'County connector live-persistence guarded callback is required.'
+      );
+    }
+
+    if (
+      !REOS.Database ||
+      typeof REOS.Database
+        .withScriptLockContext !==
+        'function' ||
+      typeof REOS.Database
+        .assertScriptLockContext !==
+        'function'
+    ) {
+      throw new Error(
+        'County connector live persistence requires Database ScriptLock handoff.'
+      );
+    }
+
+    return REOS.Database.withScriptLockContext(
+      function (lockContext) {
+        REOS.Database.assertScriptLockContext(
+          lockContext
+        );
+
+        assertLivePersistenceWriterAllowed_();
+
+        return work(
+          lockContext
+        );
+      }
+    );
+  }
+
 
   /*
    * Gate 2A - Philadelphia code-violation durable observation
@@ -470,12 +528,12 @@ REOS.CountyConnectorSDK = (function () {
           ? String(response.nextCursor || '')
           : String(cursor || '');
 
-      var pagePersistence =
-        context.dryRun
-          ? null
-          : createPagePersistence_();
-
-      rawRecords.forEach(function (raw, index) {
+      var processRawRecords =
+        function (
+          pagePersistence,
+          lockContext
+        ) {
+          rawRecords.forEach(function (raw, index) {
         try {
           var normalized = connector.normalize(raw, context);
 
@@ -526,7 +584,8 @@ REOS.CountyConnectorSDK = (function () {
           var result = persist_(
             normalized,
             context,
-            pagePersistence
+            pagePersistence,
+            lockContext
           );
           stats[result.action] += 1;
         } catch (recordError) {
@@ -564,7 +623,29 @@ REOS.CountyConnectorSDK = (function () {
             });
           }
         }
-      });
+          });
+        };
+
+      if (context.dryRun) {
+        processRawRecords(
+          null,
+          null
+        );
+      } else {
+        withLivePersistenceWriterGuard_(
+          function (lockContext) {
+            var pagePersistence =
+              createPagePersistence_(
+                lockContext
+              );
+
+            processRawRecords(
+              pagePersistence,
+              lockContext
+            );
+          }
+        );
+      }
 
       var completed = new Date();
 
@@ -639,7 +720,8 @@ REOS.CountyConnectorSDK = (function () {
   function persist_(
     record,
     context,
-    pagePersistence
+    pagePersistence,
+    lockContext
   ) {
     if (context.dryRun) {
       return {
@@ -647,6 +729,21 @@ REOS.CountyConnectorSDK = (function () {
         record: record
       };
     }
+
+    if (
+      !REOS.Database ||
+      typeof REOS.Database
+        .assertScriptLockContext !==
+        'function'
+    ) {
+      throw new Error(
+        'County connector live persistence requires Database lock-context validation.'
+      );
+    }
+
+    REOS.Database.assertScriptLockContext(
+      lockContext
+    );
 
     var identity = resolveIdentity_(record);
 
@@ -741,7 +838,10 @@ REOS.CountyConnectorSDK = (function () {
 
           'Updated At':
             new Date()
-        })
+        }),
+        {
+          lockContext: lockContext
+        }
       );
 
       if (pagePersistence) {
@@ -780,7 +880,8 @@ REOS.CountyConnectorSDK = (function () {
       }),
       {
         idField: 'Distress Lead ID',
-        idPrefix: 'DL'
+        idPrefix: 'DL',
+        lockContext: lockContext
       }
     );
 
@@ -796,7 +897,24 @@ REOS.CountyConnectorSDK = (function () {
     };
   }
 
-  function createPagePersistence_() {
+  function createPagePersistence_(
+    lockContext
+  ) {
+    if (
+      !REOS.Database ||
+      typeof REOS.Database
+        .assertScriptLockContext !==
+        'function'
+    ) {
+      throw new Error(
+        'County connector live page snapshot requires Database lock-context validation.'
+      );
+    }
+
+    REOS.Database.assertScriptLockContext(
+      lockContext
+    );
+
     return {
       rows: REOS.Database.getAll(TARGET_SHEET)
     };
