@@ -638,6 +638,18 @@ const expectedCodeViolationCollapsePreservationStoreFiles = new Set([
   'build/apps-script-brand/CountyCollapseObservationPreservationStore.js'
 ]);
 
+/*
+ * Shared county mutation-exclusion lease runtime contributes exactly one
+ * additional production Apps Script module.
+ *
+ * This allowlist entry certifies exclusion coordination only. It grants no
+ * county-data mutation, physical-delete, scheduler, checkpoint, connector,
+ * collapse, deployment, MAO, or automatic-offer authority.
+ */
+const expectedCountyMutationExclusionLeaseFiles = new Set([
+  'build/apps-script-brand/CountyMutationExclusionLease.js'
+]);
+
 const expectedProductionFiles = new Set([
   ...expectedCountyProductionFiles,
   ...expectedPreservationFiles,
@@ -649,7 +661,8 @@ const expectedProductionFiles = new Set([
   ...expectedCodeViolationPostRollingFiles,
   ...expectedCodeViolationCollapseDiagnosticFiles,
   ...expectedCodeViolationCollapseOperationIntentFiles,
-  ...expectedCodeViolationCollapsePreservationStoreFiles
+  ...expectedCodeViolationCollapsePreservationStoreFiles,
+  ...expectedCountyMutationExclusionLeaseFiles
 ]);
 
 assert.equal(
@@ -869,9 +882,22 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCountyMutationExclusionLeaseFiles.size,
+  1,
+  'expected county mutation-exclusion lease runtime inventory must contain exactly 1 file'
+);
+
+assert.ok(
+  expectedCountyMutationExclusionLeaseFiles.has(
+    'build/apps-script-brand/CountyMutationExclusionLease.js'
+  ),
+  'CountyMutationExclusionLease.js must be the explicit authority-free shared county writer-exclusion runtime'
+);
+
+assert.equal(
   expectedProductionFiles.size,
-  129,
-  'expected reconciled production inventory must contain 129 files'
+  130,
+  'expected reconciled production inventory must contain 130 files'
 );
 
 assert.equal(
