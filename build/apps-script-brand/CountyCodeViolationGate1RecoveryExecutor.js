@@ -107,6 +107,26 @@ REOS.CountyCodeViolationGate1RecoveryExecutor =
     ).trim();
   }
 
+  function assertWriterAllowed_() {
+    var lease =
+      REOS.CountyMutationExclusionLease;
+
+    if (
+      !lease ||
+      typeof lease
+        .assertWriterAllowed !==
+        'function'
+    ) {
+      throw new Error(
+        'County mutation-exclusion lease assertion is required.'
+      );
+    }
+
+    return REOS.CountyMutationExclusionLease.assertWriterAllowed({
+      writerId: 'CODE_VIOLATION_GATE1_RECOVERY'
+    });
+  }
+
 
   function upper_(value) {
     return text_(value)
@@ -2027,6 +2047,22 @@ REOS.CountyCodeViolationGate1RecoveryExecutor =
               throw new Error(
                 'Gate 1 recovery locked mutation batch exceeded certified bound.'
               );
+            }
+
+            if (
+              lockedCandidates.length >
+                0
+            ) {
+              /*
+               * Writer 10: assert the mutation-exclusion lease under
+               * this existing Database ScriptLock immediately before
+               * the bounded insert transaction.
+               *
+               * Do not introduce compensating delete authority.
+               * Persisted durable identities remain the sole progress
+               * authority after partial insert failure.
+               */
+              assertWriterAllowed_();
             }
 
             var inserted =

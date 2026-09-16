@@ -22,6 +22,9 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
     var DATASET = 'code_violations';
     var TABLE = 'DISTRESS_LEADS';
 
+    var WRITER_ID =
+      'CODE_VIOLATION_BLOCKED_STORAGE_BACKFILL';
+
     var SOURCE_RECORD_KEY_EXPECTED_COLUMN = 25;
     var SOURCE_OBSERVATION_KEY_EXPECTED_COLUMN = 51;
 
@@ -122,6 +125,21 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
       if (!condition) {
         throw new Error(message);
       }
+    }
+
+    function assertWriterAllowed_() {
+      var lease =
+        REOS.CountyMutationExclusionLease;
+
+      assert_(
+        lease &&
+          typeof lease.assertWriterAllowed === 'function',
+        'County mutation-exclusion lease assertion is required.'
+      );
+
+      return REOS.CountyMutationExclusionLease.assertWriterAllowed({
+        writerId: WRITER_ID
+      });
     }
 
     function positiveInteger_(value, name) {
@@ -1205,6 +1223,15 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
 
             verifyPhysicalPrestate_(sheet, columns, lockedSpans);
 
+            try {
+              /*
+               * Protected Writer #6 boundary.
+               *
+               * Forward writes and any certified rollback remain inside
+               * this same existing Database ScriptLock callback.
+               */
+              assertWriterAllowed_();
+
             prestate = capturePrestate_(sheet, columns, lockedSpans);
             mutationStarted = true;
 
@@ -1233,6 +1260,83 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
               lockedSpans: lockedSpans,
               writeResult: writeResult
             };
+            } catch (mutationError) {
+              if (!mutationStarted) {
+                throw mutationError;
+              }
+
+              if (mutationComplete) {
+                throw mutationError;
+              }
+
+              try {
+                assert_(
+                  Array.isArray(prestate) &&
+                    prestate.length > 0,
+                  'Rollback prestate is unavailable.'
+                );
+
+                restoreBackfillSpans_(
+                  sheet,
+                  columns,
+                  prestate
+                );
+
+                SpreadsheetApp.flush();
+
+                var rollbackPlan =
+                  plan_();
+
+                verifyPhysicalPrestate_(
+                  sheet,
+                  columns,
+                  lockedSpans
+                );
+
+                assert_(
+                  text_(rollbackPlan.migrationPlanSha256) ===
+                    text_(prePlan.migrationPlanSha256),
+                  'Rollback migration plan SHA did not return to prestate.'
+                );
+
+                assert_(
+                  text_(rollbackPlan.completePlanSha256) ===
+                    text_(prePlan.completePlanSha256),
+                  'Rollback complete plan SHA did not return to prestate.'
+                );
+
+                assert_(
+                  currentWindowNumber_(rollbackPlan) ===
+                    requested.windowNumber,
+                  'Rollback blocked-backfill window did not return to prestate.'
+                );
+
+                frozenCheckpoint_();
+                assertQuiescence_();
+              } catch (rollbackError) {
+                throw new Error(
+                  ROLLBACK_AMBIGUOUS +
+                    ': backfill=' +
+                    text_(
+                      mutationError.message ||
+                      mutationError
+                    ) +
+                    '; rollback=' +
+                    text_(
+                      rollbackError.message ||
+                      rollbackError
+                    )
+                );
+              }
+
+              throw new Error(
+                'Blocked storage backfill failed and certified prestate was restored: ' +
+                  text_(
+                    mutationError.message ||
+                    mutationError
+                  )
+              );
+            }
           });
 
         var summaries = spanSummary_(result.lockedSpans);
@@ -1295,6 +1399,11 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
           retryPermitted: false
         };
       } catch (error) {
+        /*
+         * A failure after mutationComplete means the callback had already
+         * verified the mutation. Never perform rollback outside the
+         * protected lock boundary.
+         */
         if (mutationComplete) {
           throw new Error(
             ROLLBACK_AMBIGUOUS +
@@ -1304,56 +1413,7 @@ REOS.CountyCodeViolationBlockedStorageBackfillExecutor =
           );
         }
 
-        if (!mutationStarted) {
-          throw error;
-        }
-
-        try {
-          assert_(
-            Array.isArray(prestate) && prestate.length > 0,
-            'Rollback prestate is unavailable.'
-          );
-
-          restoreBackfillSpans_(sheet, columns, prestate);
-          SpreadsheetApp.flush();
-
-          var rollbackPlan = plan_();
-
-          verifyPhysicalPrestate_(sheet, columns, spans);
-
-          assert_(
-            text_(rollbackPlan.migrationPlanSha256) ===
-              text_(prePlan.migrationPlanSha256),
-            'Rollback migration plan SHA did not return to prestate.'
-          );
-
-          assert_(
-            text_(rollbackPlan.completePlanSha256) ===
-              text_(prePlan.completePlanSha256),
-            'Rollback complete plan SHA did not return to prestate.'
-          );
-
-          assert_(
-            currentWindowNumber_(rollbackPlan) === requested.windowNumber,
-            'Rollback blocked-backfill window did not return to prestate.'
-          );
-
-          frozenCheckpoint_();
-          assertQuiescence_();
-        } catch (rollbackError) {
-          throw new Error(
-            ROLLBACK_AMBIGUOUS +
-              ': backfill=' +
-              text_(error.message || error) +
-              '; rollback=' +
-              text_(rollbackError.message || rollbackError)
-          );
-        }
-
-        throw new Error(
-          'Blocked storage backfill failed and certified prestate was restored: ' +
-            text_(error.message || error)
-        );
+        throw error;
       }
     }
 

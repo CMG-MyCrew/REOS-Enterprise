@@ -87,6 +87,26 @@ REOS.CountyPage85SourceObservation214Repair = (function () {
         : value
     ).trim();
   }
+  function assertWriterAllowed_() {
+    var lease =
+      REOS.CountyMutationExclusionLease;
+
+    if (
+      !lease ||
+      typeof lease
+        .assertWriterAllowed !==
+        'function'
+    ) {
+      throw new Error(
+        'County mutation-exclusion lease assertion is required.'
+      );
+    }
+
+    return REOS.CountyMutationExclusionLease.assertWriterAllowed({
+      writerId: 'PAGE85_SOURCE_OBSERVATION_214_REPAIR'
+    });
+  }
+
 
   function requireAdmin_() {
     if (
@@ -788,6 +808,17 @@ REOS.CountyPage85SourceObservation214Repair = (function () {
             null;
 
           try {
+            /*
+             * Writer 11: assert the county mutation-exclusion lease
+             * under this existing Database ScriptLock immediately
+             * before the first bounded physical write.
+             *
+             * Any rollback remains inside this same lock callback and
+             * uses the same lease assertion. No additional row-delete
+             * or compensating mutation authority is introduced.
+             */
+            assertWriterAllowed_();
+
             writePhysicalRow_(
               sheet,
               headers,

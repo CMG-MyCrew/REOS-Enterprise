@@ -52,6 +52,17 @@ REOS.CountyCodeViolationDurableIdentityMultiSpanMigrationExecutor =
       }
     }
 
+    function assertWriterAllowed_() {
+      var lease = REOS.CountyMutationExclusionLease;
+      assert_(
+        lease && typeof lease.assertWriterAllowed === 'function',
+        'County mutation-exclusion lease assertion is required.'
+      );
+      return REOS.CountyMutationExclusionLease.assertWriterAllowed({
+        writerId: 'CODE_VIOLATION_DURABLE_IDENTITY_MULTISPAN'
+      });
+    }
+
     function positiveInteger_(value, name) {
       var n = Number(value);
 
@@ -836,36 +847,89 @@ REOS.CountyCodeViolationDurableIdentityMultiSpanMigrationExecutor =
 
             verifyPhysicalPrestate_(sheet, lockedSpans);
 
-            prestate =
-              capturePrestate_(sheet, lockedSpans);
+            try {
+              // Writer 8: lease check, forward writes, and rollback share
+              // this existing Database ScriptLock callback.
+              assertWriterAllowed_();
 
-            mutationStarted = true;
+              prestate =
+                capturePrestate_(sheet, lockedSpans);
 
-            var writeResult =
-              writeIdentitySpans_(sheet, lockedSpans);
+              mutationStarted = true;
 
-            SpreadsheetApp.flush();
+              var writeResult =
+                writeIdentitySpans_(sheet, lockedSpans);
 
-            var postPlan = plan_();
+              SpreadsheetApp.flush();
 
-            var nextHashes =
-              verifyPostPlan_(
-                lockedPlan,
-                postPlan,
-                lockedSelected
+              var postPlan = plan_();
+
+              var nextHashes =
+                verifyPostPlan_(
+                  lockedPlan,
+                  postPlan,
+                  lockedSelected
+                );
+
+              frozenCheckpoint_();
+              assertQuiescence_();
+
+              mutationComplete = true;
+
+              return {
+                postPlan: postPlan,
+                nextHashes: nextHashes,
+                lockedSpans: lockedSpans,
+                writeResult: writeResult
+              };
+            } catch (mutationError) {
+              if (!mutationStarted || mutationComplete) {
+                throw mutationError;
+              }
+
+              try {
+                assert_(
+                  Array.isArray(prestate) && prestate.length > 0,
+                  'Rollback prestate is unavailable.'
+                );
+
+                restoreIdentitySpans_(sheet, prestate);
+
+                SpreadsheetApp.flush();
+
+                var rollbackPlan = plan_();
+
+                verifyPhysicalPrestate_(sheet, lockedSpans);
+
+                assert_(
+                  text_(rollbackPlan.migrationPlanSha256) ===
+                    text_(prePlan.migrationPlanSha256),
+                  'Rollback plan SHA did not return to prestate.'
+                );
+
+                assert_(
+                  text_(rollbackPlan.completePlanSha256) ===
+                    text_(prePlan.completePlanSha256),
+                  'Rollback complete SHA did not return to prestate.'
+                );
+
+                frozenCheckpoint_();
+                assertQuiescence_();
+              } catch (rollbackError) {
+                throw new Error(
+                  ROLLBACK_AMBIGUOUS +
+                    ': migration=' +
+                    text_(mutationError.message || mutationError) +
+                    '; rollback=' +
+                    text_(rollbackError.message || rollbackError)
+                );
+              }
+
+              throw new Error(
+                'Generic multi-span migration failed and certified prestate was restored: ' +
+                  text_(mutationError.message || mutationError)
               );
-
-            frozenCheckpoint_();
-            assertQuiescence_();
-
-            mutationComplete = true;
-
-            return {
-              postPlan: postPlan,
-              nextHashes: nextHashes,
-              lockedSpans: lockedSpans,
-              writeResult: writeResult
-            };
+            }
           });
 
         var summaries =
@@ -937,52 +1001,9 @@ REOS.CountyCodeViolationDurableIdentityMultiSpanMigrationExecutor =
           );
         }
 
-        if (!mutationStarted) {
-          throw error;
-        }
-
-        try {
-          assert_(
-            Array.isArray(prestate) && prestate.length > 0,
-            'Rollback prestate is unavailable.'
-          );
-
-          restoreIdentitySpans_(sheet, prestate);
-
-          SpreadsheetApp.flush();
-
-          var rollbackPlan = plan_();
-
-          verifyPhysicalPrestate_(sheet, spans);
-
-          assert_(
-            text_(rollbackPlan.migrationPlanSha256) ===
-              text_(prePlan.migrationPlanSha256),
-            'Rollback plan SHA did not return to prestate.'
-          );
-
-          assert_(
-            text_(rollbackPlan.completePlanSha256) ===
-              text_(prePlan.completePlanSha256),
-            'Rollback complete SHA did not return to prestate.'
-          );
-
-          frozenCheckpoint_();
-          assertQuiescence_();
-        } catch (rollbackError) {
-          throw new Error(
-            ROLLBACK_AMBIGUOUS +
-              ': migration=' +
-              text_(error.message || error) +
-              '; rollback=' +
-              text_(rollbackError.message || rollbackError)
-          );
-        }
-
-        throw new Error(
-          'Generic multi-span migration failed and certified prestate was restored: ' +
-            text_(error.message || error)
-        );
+        // Rollback is completed inside the lock callback above.
+        // Outer finalization failures must never trigger unlocked writes.
+        throw error;
       }
     }
 

@@ -756,6 +756,26 @@ function createHarness(options = {}) {
   let evidenceCallCount = 0;
   let writeCount = 0;
 
+  const state = {
+    lockHeld:
+      false,
+
+    lockCalls:
+      0,
+
+    leaseAllowed:
+      false,
+
+    leaseCalls:
+      0,
+
+    leaseCallsThisLock:
+      0,
+
+    events:
+      []
+  };
+
   const distressSheet = {
     getLastRow() {
       return 918;
@@ -795,7 +815,29 @@ function createHarness(options = {}) {
         },
 
         setValues(values) {
+          assert.equal(
+            state.lockHeld,
+            true,
+            'Page-86 forward and rollback writes must hold Database ScriptLock'
+          );
+
+          assert.equal(
+            state.leaseAllowed,
+            true,
+            'Page-86 forward and rollback writes must hold Writer 12 lease permission'
+          );
+
+          assert.equal(
+            state.leaseCallsThisLock,
+            1,
+            'Page-86 transaction may assert the lease only once'
+          );
+
           writeCount++;
+
+          state.events.push(
+            'write'
+          );
 
           if (
             options.rollbackWriteFailure ===
@@ -925,6 +967,63 @@ function createHarness(options = {}) {
     },
 
     REOS: {
+      CountyMutationExclusionLease: {
+        assertWriterAllowed(request) {
+          state.leaseCalls +=
+            1;
+
+          state.leaseCallsThisLock +=
+            1;
+
+          assert.equal(
+            state.lockHeld,
+            true,
+            'Writer 12 lease assertion must execute under Database ScriptLock'
+          );
+
+          assert.equal(
+            state.leaseCallsThisLock,
+            1,
+            'Writer 12 may assert the lease only once per locked repair'
+          );
+
+          assert.deepEqual(
+            Object.keys(request),
+            ['writerId']
+          );
+
+          assert.equal(
+            request.writerId,
+            'PAGE86_DUPLICATE_SOURCE_REPAIR'
+          );
+
+          state.events.push(
+            'lease'
+          );
+
+          if (
+            options.leaseError
+          ) {
+            throw options
+              .leaseError;
+          }
+
+          state.leaseAllowed =
+            true;
+
+          return {
+            ok:
+              true,
+
+            allowed:
+              true,
+
+            writerId:
+              request.writerId
+          };
+        }
+      },
+
       Security: {
         requireAdmin() {}
       },
@@ -959,10 +1058,62 @@ function createHarness(options = {}) {
         },
 
         withScriptLockContext(work) {
-          return work({
-            capability:
-              'TEST'
-          });
+          state.lockCalls +=
+            1;
+
+          state.events.push(
+            'lock'
+          );
+
+          if (
+            options.lockAvailable ===
+              false
+          ) {
+            throw new Error(
+              'Database ScriptLock is contended; no operation executed.'
+            );
+          }
+
+          assert.equal(
+            state.lockHeld,
+            false,
+            'nested Database ScriptLocks are prohibited'
+          );
+
+          state.lockHeld =
+            true;
+
+          state.leaseAllowed =
+            false;
+
+          state.leaseCallsThisLock =
+            0;
+
+          try {
+            if (
+              typeof options
+                .onLockAcquired ===
+                'function'
+            ) {
+              options
+                .onLockAcquired();
+            }
+
+            return work({
+              capability:
+                'TEST'
+            });
+          } finally {
+            state.leaseAllowed =
+              false;
+
+            state.lockHeld =
+              false;
+
+            state.events.push(
+              'release'
+            );
+          }
         }
       },
 
@@ -1000,6 +1151,25 @@ function createHarness(options = {}) {
     }
   };
 
+  if (
+    options.missingLeaseModule
+  ) {
+    delete sandbox
+      .REOS
+      .CountyMutationExclusionLease;
+  }
+
+  if (
+    options.missingLeaseGuard &&
+    sandbox.REOS
+      .CountyMutationExclusionLease
+  ) {
+    delete sandbox
+      .REOS
+      .CountyMutationExclusionLease
+      .assertWriterAllowed;
+  }
+
   vm.createContext(
     sandbox
   );
@@ -1029,6 +1199,8 @@ function createHarness(options = {}) {
   }
 
   return {
+    state,
+
     execute() {
       return sandbox
         .REOS
@@ -1040,6 +1212,13 @@ function createHarness(options = {}) {
           checkpointCursor:
             CHECKPOINT_CURSOR
         });
+    },
+
+    status() {
+      return sandbox
+        .REOS
+        .CountyPage86DuplicateSourceRepair
+        .status();
     },
 
     writeCount() {
@@ -1167,6 +1346,514 @@ console.log(
     'rollback failure is ambiguous and explicitly non-retriable'
   );
 }
+
+
+
+let writer12LeaseBehaviorCases =
+  0;
+
+function writer12LeasePass(
+  message
+) {
+  writer12LeaseBehaviorCases +=
+    1;
+
+  pass(
+    message
+  );
+}
+
+
+/* Case 1: missing lease module fails closed under lock before write. */
+{
+  const harness =
+    createHarness({
+      missingLeaseModule:
+        true
+    });
+
+  const error =
+    expectThrow(
+      () =>
+        harness.execute(),
+      /lease assertion is required/
+    );
+
+  assert.equal(
+    error.message,
+    'County mutation-exclusion lease assertion is required.'
+  );
+
+  assert.equal(
+    harness.state.lockCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    0
+  );
+
+  assert.equal(
+    harness.writeCount(),
+    0
+  );
+
+  assert.deepEqual(
+    harness.corridor(),
+    harness.originalCorridor
+  );
+
+  writer12LeasePass(
+    'Writer 12 missing lease module fails closed under lock before write'
+  );
+}
+
+
+/* Case 2: missing lease guard fails closed under lock before write. */
+{
+  const harness =
+    createHarness({
+      missingLeaseGuard:
+        true
+    });
+
+  const error =
+    expectThrow(
+      () =>
+        harness.execute(),
+      /lease assertion is required/
+    );
+
+  assert.equal(
+    error.message,
+    'County mutation-exclusion lease assertion is required.'
+  );
+
+  assert.equal(
+    harness.writeCount(),
+    0
+  );
+
+  assert.deepEqual(
+    harness.corridor(),
+    harness.originalCorridor
+  );
+
+  writer12LeasePass(
+    'Writer 12 missing lease guard fails closed under lock before write'
+  );
+}
+
+
+/* Case 3: active lease rejection propagates unchanged. */
+{
+  const rejection =
+    new Error(
+      'TEST_WRITER_12_ACTIVE_LEASE_REJECTION'
+    );
+
+  const harness =
+    createHarness({
+      leaseError:
+        rejection
+    });
+
+  const error =
+    expectThrow(
+      () =>
+        harness.execute(),
+      /TEST_WRITER_12_ACTIVE_LEASE_REJECTION/
+    );
+
+  assert.equal(
+    error,
+    rejection
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    1
+  );
+
+  assert.equal(
+    harness.writeCount(),
+    0
+  );
+
+  assert.deepEqual(
+    harness.corridor(),
+    harness.originalCorridor
+  );
+
+  writer12LeasePass(
+    'Writer 12 active lease rejection propagates unchanged before write'
+  );
+}
+
+
+/* Case 4: denial introduced after lock acquisition is observed. */
+{
+  const rejection =
+    new Error(
+      'TEST_WRITER_12_LATE_LEASE_REJECTION'
+    );
+
+  const harnessOptions = {
+    onLockAcquired() {
+      harnessOptions.leaseError =
+        rejection;
+    }
+  };
+
+  const harness =
+    createHarness(
+      harnessOptions
+    );
+
+  const error =
+    expectThrow(
+      () =>
+        harness.execute(),
+      /TEST_WRITER_12_LATE_LEASE_REJECTION/
+    );
+
+  assert.equal(
+    error,
+    rejection
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    1
+  );
+
+  assert.equal(
+    harness.writeCount(),
+    0
+  );
+
+  writer12LeasePass(
+    'Writer 12 observes lease denial introduced after lock acquisition'
+  );
+}
+
+
+/* Case 5: lock contention performs no lease assertion or write. */
+{
+  const harness =
+    createHarness({
+      lockAvailable:
+        false
+    });
+
+  expectThrow(
+    () =>
+      harness.execute(),
+    /contended/
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    0
+  );
+
+  assert.equal(
+    harness.writeCount(),
+    0
+  );
+
+  writer12LeasePass(
+    'Writer 12 lock contention performs no lease assertion'
+  );
+}
+
+
+/* Case 6: lock-bound evidence drift stays lease-free and non-mutating. */
+{
+  const harness =
+    createHarness({
+      referenceDrift:
+        true
+    });
+
+  expectThrow(
+    () =>
+      harness.execute(),
+    /evidence changed before mutation authority/i
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    0
+  );
+
+  assert.equal(
+    harness.writeCount(),
+    0
+  );
+
+  assert.deepEqual(
+    harness.corridor(),
+    harness.originalCorridor
+  );
+
+  writer12LeasePass(
+    'Writer 12 lock-bound evidence drift remains lease-free and preserves prestate'
+  );
+}
+
+
+/* Case 7: read-only status never asserts lease and never takes write lock. */
+{
+  const harness =
+    createHarness();
+
+  const status =
+    harness.status();
+
+  assert.equal(
+    status.ok,
+    true
+  );
+
+  assert.equal(
+    status.readOnly,
+    true
+  );
+
+  assert.equal(
+    status.productionDataMutationExecuted,
+    false
+  );
+
+  assert.equal(
+    harness.state.lockCalls,
+    0
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    0
+  );
+
+  assert.equal(
+    harness.writeCount(),
+    0
+  );
+
+  writer12LeasePass(
+    'Writer 12 status path remains lease-free and non-mutating'
+  );
+}
+
+
+/* Case 8: successful repair gets one lease before the one block write. */
+{
+  const harness =
+    createHarness();
+
+  const result =
+    harness.execute();
+
+  assert.equal(
+    result.ok,
+    true
+  );
+
+  assert.equal(
+    result.repairExecuted,
+    true
+  );
+
+  assert.equal(
+    harness.state.lockCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    1
+  );
+
+  assert.equal(
+    harness.writeCount(),
+    1
+  );
+
+  assert.equal(
+    harness.state.lockHeld,
+    false
+  );
+
+  assert.equal(
+    harness.state.leaseAllowed,
+    false
+  );
+
+  const lockIndex =
+    harness.state.events.indexOf(
+      'lock'
+    );
+
+  const leaseIndex =
+    harness.state.events.indexOf(
+      'lease'
+    );
+
+  const writeIndex =
+    harness.state.events.indexOf(
+      'write'
+    );
+
+  assert.ok(
+    lockIndex !== -1 &&
+    leaseIndex > lockIndex &&
+    writeIndex > leaseIndex
+  );
+
+  assert.equal(
+    harness.state.events[
+      harness.state.events.length - 1
+    ],
+    'release'
+  );
+
+  writer12LeasePass(
+    'Writer 12 successful repair is lease-guarded inside the existing lock'
+  );
+}
+
+
+/* Case 9: rollback restores corridor in same lock under same lease. */
+{
+  const harness =
+    createHarness({
+      postWriteCorruption:
+        true
+    });
+
+  expectThrow(
+    () =>
+      harness.execute(),
+    /certified prestate was restored/i
+  );
+
+  assert.equal(
+    harness.state.lockCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    1
+  );
+
+  assert.equal(
+    harness.writeCount(),
+    2
+  );
+
+  assert.deepEqual(
+    harness.corridor(),
+    harness.originalCorridor
+  );
+
+  assert.deepEqual(
+    harness.state.events.filter(
+      event =>
+        event === 'lease'
+    ),
+    ['lease']
+  );
+
+  assert.deepEqual(
+    harness.state.events.filter(
+      event =>
+        event === 'write'
+    ),
+    [
+      'write',
+      'write'
+    ]
+  );
+
+  assert.equal(
+    harness.state.lockHeld,
+    false
+  );
+
+  writer12LeasePass(
+    'Writer 12 rollback restores exact corridor in the same lease-guarded lock interval'
+  );
+}
+
+
+/* Case 10: rollback failure stays ambiguous with no second lock/lease. */
+{
+  const harness =
+    createHarness({
+      postWriteCorruption:
+        true,
+
+      rollbackWriteFailure:
+        true
+    });
+
+  const error =
+    expectThrow(
+      () =>
+        harness.execute(),
+      /PAGE_86_REPAIR_RESULT_AMBIGUOUS/i
+    );
+
+  assert.match(
+    String(
+      error.message ||
+      error
+    ),
+    /NO_RETRY/i
+  );
+
+  assert.equal(
+    harness.state.lockCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    1
+  );
+
+  assert.equal(
+    harness.writeCount(),
+    2
+  );
+
+  assert.equal(
+    harness.state.lockHeld,
+    false
+  );
+
+  assert.equal(
+    harness.state.leaseAllowed,
+    false
+  );
+
+  writer12LeasePass(
+    'Writer 12 rollback failure remains ambiguous with no second lock or lease assertion'
+  );
+}
+
+
+console.log(
+  'writer12_page86_lease_behavior_cases=' +
+    writer12LeaseBehaviorCases
+);
+
+console.log(
+  'WRITER_12_LEASE_BOUNDARY_BEHAVIOR_PASSED=true'
+);
 
 console.log();
 

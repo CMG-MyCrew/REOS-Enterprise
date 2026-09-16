@@ -441,6 +441,21 @@ REOS.CountyCodeViolationDurableIdentityMigrationBatch1Executor =
     }
 
 
+    function assertWriterAllowed_() {
+      var lease = REOS.CountyMutationExclusionLease;
+
+      if (!lease || typeof lease.assertWriterAllowed !== 'function') {
+        throw new Error(
+          'County mutation-exclusion lease assertion is required.'
+        );
+      }
+
+      return REOS.CountyMutationExclusionLease.assertWriterAllowed({
+        writerId: 'CODE_VIOLATION_DURABLE_IDENTITY_BATCH1'
+      });
+    }
+
+
     function requireDependencies_() {
       if (
         !REOS.Security ||
@@ -1504,6 +1519,10 @@ REOS.CountyCodeViolationDurableIdentityMigrationBatch1Executor =
 
                 var writeAttempted =
                   false;
+
+                // Writer 7: assert under the existing lock, before mutation.
+                // Forward writes and rollback keep this same lock interval.
+                assertWriterAllowed_();
 
                 try {
                   writeAttempted =
