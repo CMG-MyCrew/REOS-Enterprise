@@ -315,6 +315,9 @@ function buildTxHarness(injectBadPost) {
   const txWrites = [];
   let txFlushes = 0;
   let txLocks = 0;
+  let txLockHeld = false;
+  let txLeaseCalls = 0;
+  let txLeaseUnderLock = true;
 
   function cellKey(row, column) {
     return String(row) + ':' + String(column);
@@ -539,6 +542,11 @@ function buildTxHarness(injectBadPost) {
             });
           });
 
+          assert(
+            txLockHeld,
+            'every forward and rollback setValues must execute under the same transaction lock.'
+          );
+
           txWrites.push({
             firstRow,
             firstColumn,
@@ -556,6 +564,36 @@ function buildTxHarness(injectBadPost) {
     console,
 
     REOS: {
+      CountyMutationExclusionLease: {
+        assertWriterAllowed(request) {
+          txLeaseCalls += 1;
+
+          txLeaseUnderLock =
+            txLeaseUnderLock &&
+            txLockHeld;
+
+          assert(
+            txLockHeld,
+            'Writer #6 lease assertion must execute under transaction lock.'
+          );
+
+          assert(
+            request &&
+              Object.keys(request).length === 1 &&
+              request.writerId ===
+                'CODE_VIOLATION_BLOCKED_STORAGE_BACKFILL',
+            'Writer #6 lease request must contain exact writer identity.'
+          );
+
+          return {
+            ok: true,
+            allowed: true,
+            writerId:
+              'CODE_VIOLATION_BLOCKED_STORAGE_BACKFILL'
+          };
+        }
+      },
+
       Database: {
         getHeaders() {
           return txHeaders.slice();
@@ -567,7 +605,19 @@ function buildTxHarness(injectBadPost) {
 
         withScriptLockContext(callback) {
           txLocks += 1;
-          return callback();
+
+          assert(
+            txLockHeld === false,
+            'transaction lock must not nest.'
+          );
+
+          txLockHeld = true;
+
+          try {
+            return callback();
+          } finally {
+            txLockHeld = false;
+          }
         }
       },
 
@@ -738,6 +788,18 @@ function buildTxHarness(injectBadPost) {
 
     get locks() {
       return txLocks;
+    },
+
+    get leaseCalls() {
+      return txLeaseCalls;
+    },
+
+    get leaseUnderLock() {
+      return txLeaseUnderLock;
+    },
+
+    get lockHeld() {
+      return txLockHeld;
     },
 
     plan:
@@ -933,6 +995,12 @@ assert(
   'repeated-window rejection must perform zero additional writes.'
 );
 
+assert(
+  txSuccess.leaseCalls === 1 &&
+    txSuccess.leaseUnderLock === true,
+  'forward transaction must assert Writer #6 lease exactly once under lock.'
+);
+
 pass(
   'synthetic forward path writes exactly the certified columns, verifies 814->564 / 0->250, and prevents window replay.'
 );
@@ -1044,9 +1112,80 @@ assert(
   'rollback must return status to certified window-1 prestate.'
 );
 
+assert(
+  txRollback.leaseCalls === 1 &&
+    txRollback.leaseUnderLock === true,
+  'rollback transaction must remain under the same Writer #6 lease and lock.'
+);
+
 pass(
   'synthetic rollback path restores physical prestate and certified plan boundary.'
 );
+
+// WRITER_6_LEASE_REJECTION_BEHAVIOR_V1
+// Test the writer boundary with unavailable and rejecting lease dependencies.
+// The certified lease implementation owns state classification; these cases
+// prove that its rejection propagates before any forward or rollback write.
+function txCellSnapshot(tx) {
+  return JSON.stringify(tx.records.map(function (record) {
+    const row = Number(record.rowNumber);
+    return [row, tx.getCell(row, 25), tx.getCell(row, 31), tx.getCell(row, 51)];
+  }));
+}
+
+[
+  'missing lease module',
+  'missing lease assertion',
+  'active lease rejection',
+  'malformed lease rejection'
+].forEach(function (scenario) {
+  const tx = buildTxHarness(false);
+  const lease = tx.context.REOS.CountyMutationExclusionLease;
+  const originalAssert = lease.assertWriterAllowed;
+  const rejection = new Error('Writer 6 test: ' + scenario);
+  const unavailable = scenario.startsWith('missing ');
+
+  if (scenario === 'missing lease module') {
+    delete tx.context.REOS.CountyMutationExclusionLease;
+  } else if (scenario === 'missing lease assertion') {
+    delete lease.assertWriterAllowed;
+  } else {
+    lease.assertWriterAllowed = function (request) {
+      originalAssert(request);
+      throw rejection;
+    };
+  }
+
+  const beforeCells = txCellSnapshot(tx);
+  const beforePlan = JSON.stringify(tx.plan());
+  let caught = null;
+  try {
+    tx.context.reosCountyCodeViolationBlockedStorageBackfillExecute(tx.options);
+  } catch (error) {
+    caught = error;
+  }
+
+  assert(caught !== null, scenario + ': execution must reject.');
+  if (unavailable) {
+    assert(
+      caught.message === 'County mutation-exclusion lease assertion is required.',
+      scenario + ': missing dependency must retain its exact failure.'
+    );
+  } else {
+    assert(caught === rejection, scenario + ': lease rejection must propagate unchanged.');
+  }
+  assert(tx.locks === 1, scenario + ': exactly one lock callback must run.');
+  assert(tx.lockHeld === false, scenario + ': lock must be released after rejection.');
+  assert(
+    tx.leaseCalls === (unavailable ? 0 : 1) && tx.leaseUnderLock,
+    scenario + ': any lease assertion must run exactly once under lock.'
+  );
+  assert(tx.writes.length === 0, scenario + ': zero forward and rollback writes.');
+  assert(tx.flushes === 0, scenario + ': executor must not flush before mutation.');
+  assert(txCellSnapshot(tx) === beforeCells, scenario + ': physical cells unchanged.');
+  assert(JSON.stringify(tx.plan()) === beforePlan, scenario + ': complete plan unchanged.');
+  pass('Writer 6 ' + scenario + ' blocks all writes and releases the lock.');
+});
 
 console.log(
   '=== GATE 2B BLOCKED STORAGE BACKFILL V1 TRANSACTION PATH VALIDATION PASSED ==='

@@ -219,6 +219,8 @@ function makeInvocation(extra) {
   );
 }
 
+const harnessStates = [];
+
 function makeHarness(options) {
   options = options || {};
 
@@ -249,8 +251,13 @@ function makeHarness(options) {
     lockCalls: 0,
     planBuildCalls: 0,
     checkpointCalls: 0,
-    triggerCalls: 0
+    triggerCalls: 0,
+    lockHeld: false,
+    leaseAllowed: false,
+    leaseCalls: 0,
+    events: []
   };
+  harnessStates.push(state);
 
   const failWrites =
     new Set(options.failWriteCalls || []);
@@ -310,6 +317,15 @@ function makeHarness(options) {
         },
 
         setValues(values) {
+          assert.strictEqual(state.lockHeld, true, 'every forward and rollback write must hold the lock');
+          assert.strictEqual(state.leaseAllowed, true, 'the lease must allow every write');
+          assert.strictEqual(columnCount, 1, 'only narrow identity-column writes are permitted');
+          assert.ok(column === 25 || column === 51, 'only identity columns may be written');
+          for (let offset = 0; offset < rowCount; offset += 1) {
+            assert.ok(Object.prototype.hasOwnProperty.call(state.rows, row + offset),
+              'no unselected or new physical row may be written');
+          }
+          state.events.push('write:' + column);
           state.writeCalls += 1;
 
           if (failWrites.has(state.writeCalls)) {
@@ -351,6 +367,20 @@ function makeHarness(options) {
     console,
 
     REOS: {
+      CountyMutationExclusionLease: {
+        assertWriterAllowed(request) {
+          state.leaseCalls += 1;
+          assert.strictEqual(state.lockHeld, true, 'lease assertion must run under lock');
+          assert.strictEqual(state.leaseCalls, 1, 'exactly one lease assertion per transaction');
+          assert.deepStrictEqual(Object.keys(request), ['writerId']);
+          assert.strictEqual(request.writerId, 'CODE_VIOLATION_DURABLE_IDENTITY_MULTISPAN');
+          state.events.push('lease');
+          if (options.leaseError) throw options.leaseError;
+          state.leaseAllowed = true;
+          return {ok: true, allowed: true, writerId: request.writerId};
+        }
+      },
+
       CountyProductionScheduler: {
         getCheckpoint() {
           state.checkpointCalls += 1;
@@ -394,15 +424,21 @@ function makeHarness(options) {
             );
           }
 
-          const result = work({});
-
-          if (options.outerFinalizationFailure) {
-            throw new Error(
-              'SIMULATED_OUTER_LOCK_FINALIZATION_FAILURE'
-            );
+          assert.strictEqual(state.lockHeld, false, 'nested locks are prohibited');
+          state.lockHeld = true;
+          state.events.push('lock');
+          try {
+            if (options.onLockAcquired) options.onLockAcquired();
+            const result = work({});
+            if (options.outerFinalizationFailure) {
+              throw new Error('SIMULATED_OUTER_LOCK_FINALIZATION_FAILURE');
+            }
+            return result;
+          } finally {
+            state.leaseAllowed = false;
+            state.lockHeld = false;
+            state.events.push('release');
           }
-
-          return result;
         }
       },
 
@@ -488,6 +524,7 @@ function makeHarness(options) {
 
     SpreadsheetApp: {
       flush() {
+        assert.strictEqual(state.lockHeld, true, 'forward and rollback flushes must hold the lock');
         state.flushCalls += 1;
 
         if (
@@ -526,6 +563,9 @@ function makeHarness(options) {
       }
     }
   };
+
+  if (options.missingLeaseModule) delete context.REOS.CountyMutationExclusionLease;
+  if (options.missingLeaseGuard) delete context.REOS.CountyMutationExclusionLease.assertWriterAllowed;
 
   vm.createContext(context);
 
@@ -631,9 +671,24 @@ function assertDurable(harness) {
 
 let failures = 0;
 
+let writer8TestsRun = 0;
+
 function test(name, work) {
+  writer8TestsRun += 1;
+  const firstHarness = harnessStates.length;
   try {
     work();
+    harnessStates.slice(firstHarness).forEach(state => {
+      assert.strictEqual(state.lockHeld, false, 'lock must be released after every outcome');
+      assert.strictEqual(state.leaseAllowed, false, 'lease grant must not outlive the lock');
+      if (state.writeCalls > 0) {
+        assert.strictEqual(state.lockCalls, 1, 'forward and rollback share exactly one lock');
+        assert.strictEqual(state.leaseCalls, 1, 'all writes share one lease assertion');
+        assert.deepStrictEqual(state.events.slice(0, 2), ['lock', 'lease']);
+        assert.strictEqual(state.events[state.events.length - 1], 'release');
+        assert.strictEqual(state.events.filter(event => event === 'release').length, 1);
+      }
+    });
     console.log('PASS:', name);
   } catch (error) {
     failures += 1;
@@ -1353,6 +1408,97 @@ test(
   }
 );
 
+// WRITER_8_LEASE_BOUNDARY_BEHAVIOR_V1
+function assertNoWriterMutation(harness, beforeRows) {
+  assert.strictEqual(harness.state.writeCalls, 0, 'denial prevents forward and rollback writes');
+  assert.strictEqual(harness.state.flushCalls, 0, 'executor does not flush a denied transaction');
+  assert.deepStrictEqual(harness.state.rows, beforeRows, 'every physical cell is preserved');
+}
+
+['status', 'preview'].forEach(method => {
+  test('Writer 8 ' + method + ' remains lease-free and read-only', () => {
+    const harness = makeHarness({missingLeaseModule: true});
+    const beforeRows = clone(harness.state.rows);
+    const result = harness[method]({batchSize: 8});
+    assert.strictEqual(result.mutationAuthorityGranted, false);
+    assert.strictEqual(harness.state.lockCalls, 0);
+    assert.strictEqual(harness.state.leaseCalls, 0);
+    assertNoWriterMutation(harness, beforeRows);
+  });
+});
+
+['missingLeaseModule', 'missingLeaseGuard'].forEach(option => {
+  test('Writer 8 ' + option + ' fails closed under lock', () => {
+    const harness = makeHarness({[option]: true});
+    const beforeRows = clone(harness.state.rows);
+    const error = expectError(() => harness.execute(makeInvocation({batchSize: 8})), /lease assertion is required/);
+    assert.strictEqual(error.message, 'County mutation-exclusion lease assertion is required.');
+    assert.strictEqual(harness.state.lockCalls, 1);
+    assert.strictEqual(harness.state.leaseCalls, 0);
+    assertNoWriterMutation(harness, beforeRows);
+  });
+});
+
+['active lease', 'malformed lease'].forEach(scenario => {
+  test('Writer 8 ' + scenario + ' rejection propagates without mutation', () => {
+    const rejection = new Error('TEST_WRITER_8_LEASE_REJECTION: ' + scenario);
+    const harness = makeHarness({leaseError: rejection});
+    const beforeRows = clone(harness.state.rows);
+    const error = expectError(() => harness.execute(makeInvocation({batchSize: 8})), /TEST_WRITER_8_LEASE_REJECTION/);
+    assert.strictEqual(error, rejection, 'the exact rejection must propagate unchanged');
+    assert.strictEqual(harness.state.lockCalls, 1);
+    assert.strictEqual(harness.state.leaseCalls, 1);
+    assertNoWriterMutation(harness, beforeRows);
+  });
+});
+
+test('Writer 8 sees lease denial introduced when the lock is acquired', () => {
+  const rejection = new Error('TEST_WRITER_8_LATE_LEASE_REJECTION');
+  const options = {onLockAcquired() { options.leaseError = rejection; }};
+  const harness = makeHarness(options);
+  const beforeRows = clone(harness.state.rows);
+  assert.strictEqual(options.leaseError, undefined);
+  const error = expectError(() => harness.execute(makeInvocation({batchSize: 8})), /TEST_WRITER_8_LATE_LEASE_REJECTION/);
+  assert.strictEqual(error, rejection);
+  assert.strictEqual(harness.state.leaseCalls, 1);
+  assertNoWriterMutation(harness, beforeRows);
+});
+
+test('Writer 8 lock contention performs no lease assertion', () => {
+  const harness = makeHarness({lockFailure: true});
+  const beforeRows = clone(harness.state.rows);
+  expectError(() => harness.execute(makeInvocation({batchSize: 8})), /ScriptLock is contended/);
+  assert.strictEqual(harness.state.leaseCalls, 0);
+  assertNoWriterMutation(harness, beforeRows);
+});
+
+test('Writer 8 first-write failure restores all five spans under the same lock', () => {
+  const harness = makeHarness({failWriteCalls: [1]});
+  const beforeRows = clone(harness.state.rows);
+  expectRestoredError(() => harness.execute(makeInvocation({batchSize: 8})));
+  assert.strictEqual(harness.state.writeCalls, 11, 'one failed forward attempt plus ten rollback ranges');
+  assert.strictEqual(harness.state.flushCalls, 1, 'one rollback flush');
+  assert.deepStrictEqual(harness.state.rows, beforeRows);
+});
+
+test('Writer 8 forward flush failure restores all spans under the same lock', () => {
+  const harness = makeHarness({failFlushCall: 1});
+  const beforeRows = clone(harness.state.rows);
+  expectRestoredError(() => harness.execute(makeInvocation({batchSize: 8})));
+  assert.strictEqual(harness.state.writeCalls, 20, 'ten forward and ten rollback ranges');
+  assert.strictEqual(harness.state.flushCalls, 2);
+  assert.deepStrictEqual(harness.state.rows, beforeRows);
+});
+
+test('Writer 8 rollback flush failure remains ambiguous with no second compensation', () => {
+  const harness = makeHarness({postPlanMismatch: true, failFlushCall: 2});
+  const error = expectError(() => harness.execute(makeInvocation({batchSize: 8})),
+    /GATE_2B_ROLLING_RESULT_AMBIGUOUS_READ_ONLY_RECONCILIATION_REQUIRED_NO_RETRY/);
+  assert.match(error.message, /SIMULATED_FLUSH_FAILURE_2/);
+  assert.strictEqual(harness.state.writeCalls, 20);
+  assert.strictEqual(harness.state.flushCalls, 2);
+});
+
 if (failures) {
   console.error();
   console.error(
@@ -1367,3 +1513,6 @@ console.log();
 console.log(
   'Gate 2B v3 multi-span behavioral validation PASSED.'
 );
+
+console.log('writer8_multispan_behavior_cases=' + writer8TestsRun);
+console.log('WRITER_8_LEASE_BOUNDARY_BEHAVIOR_PASSED=true');

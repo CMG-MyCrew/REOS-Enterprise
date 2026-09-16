@@ -171,6 +171,26 @@ REOS.CountyPage86DuplicateSourceRepair = (function () {
       )
     );
   }
+  function assertWriterAllowed_() {
+    var lease =
+      REOS.CountyMutationExclusionLease;
+
+    if (
+      !lease ||
+      typeof lease
+        .assertWriterAllowed !==
+        'function'
+    ) {
+      throw new Error(
+        'County mutation-exclusion lease assertion is required.'
+      );
+    }
+
+    return REOS.CountyMutationExclusionLease.assertWriterAllowed({
+      writerId: 'PAGE86_DUPLICATE_SOURCE_REPAIR'
+    });
+  }
+
 
   function requireDependencies_() {
     if (
@@ -1537,6 +1557,17 @@ REOS.CountyPage86DuplicateSourceRepair = (function () {
 
               var writeAttempted =
                 false;
+
+              /*
+               * Writer 12: all lock-bound evidence, schema, and exact
+               * physical prestate checks have passed. Assert the county
+               * mutation-exclusion lease inside this existing ScriptLock
+               * immediately before the bounded mutation transaction.
+               *
+               * Forward mutation and any exact rollback both remain in
+               * this same lock interval and share this single assertion.
+               */
+              assertWriterAllowed_();
 
               try {
                 writeAttempted =

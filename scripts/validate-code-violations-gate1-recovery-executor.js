@@ -681,6 +681,18 @@ function createHarness(
   }
 
   const state = {
+    lockHeld:
+      false,
+
+    leaseAllowed:
+      false,
+
+    leaseCalls:
+      0,
+
+    leaseCallsThisLock:
+      0,
+
     adminCalls:
       0,
 
@@ -1180,6 +1192,63 @@ function createHarness(
     Math,
 
     REOS: {
+      CountyMutationExclusionLease: {
+        assertWriterAllowed(request) {
+          state.leaseCalls +=
+            1;
+
+          state.leaseCallsThisLock +=
+            1;
+
+          assert.equal(
+            state.lockHeld,
+            true,
+            'Writer 10 lease assertion must execute under Database ScriptLock'
+          );
+
+          assert.equal(
+            state.leaseCallsThisLock,
+            1,
+            'Writer 10 may assert the lease only once per locked transaction'
+          );
+
+          assert.deepEqual(
+            Object.keys(request),
+            ['writerId']
+          );
+
+          assert.equal(
+            request.writerId,
+            'CODE_VIOLATION_GATE1_RECOVERY'
+          );
+
+          state.events.push(
+            'lease'
+          );
+
+          if (
+            options.leaseError
+          ) {
+            throw options
+              .leaseError;
+          }
+
+          state.leaseAllowed =
+            true;
+
+          return {
+            ok:
+              true,
+
+            allowed:
+              true,
+
+            writerId:
+              request.writerId
+          };
+        }
+      },
+
       Security: {
         requireAdmin() {
           state.adminCalls +=
@@ -1593,23 +1662,59 @@ function createHarness(
             );
           }
 
-          if (
-            typeof options
-              .beforeLockMutation ===
-              'function'
-          ) {
-            options
-              .beforeLockMutation(
-                rows
-              );
-          }
-
-          state.callbackCalls +=
-            1;
-
-          return callback(
-            lockContext
+          assert.equal(
+            state.lockHeld,
+            false,
+            'nested Database ScriptLocks are prohibited'
           );
+
+          state.lockHeld =
+            true;
+
+          state.leaseAllowed =
+            false;
+
+          state.leaseCallsThisLock =
+            0;
+
+          try {
+            if (
+              typeof options
+                .onLockAcquired ===
+                'function'
+            ) {
+              options
+                .onLockAcquired();
+            }
+
+            if (
+              typeof options
+                .beforeLockMutation ===
+                'function'
+            ) {
+              options
+                .beforeLockMutation(
+                  rows
+                );
+            }
+
+            state.callbackCalls +=
+              1;
+
+            return callback(
+              lockContext
+            );
+          } finally {
+            state.leaseAllowed =
+              false;
+
+            state.lockHeld =
+              false;
+
+            state.events.push(
+              'release'
+            );
+          }
         },
 
         insert(
@@ -1617,6 +1722,24 @@ function createHarness(
           record,
           insertOptions
         ) {
+          assert.equal(
+            state.lockHeld,
+            true,
+            'every Gate 1 recovery insert must hold the existing lock'
+          );
+
+          assert.equal(
+            state.leaseAllowed,
+            true,
+            'every Gate 1 recovery insert must hold Writer 10 lease permission'
+          );
+
+          assert.equal(
+            state.leaseCallsThisLock,
+            1,
+            'all inserts in one transaction share one lease assertion'
+          );
+
           state.insertCalls +=
             1;
 
@@ -1798,6 +1921,25 @@ function createHarness(
     }
   };
 
+
+  if (
+    options.missingLeaseModule
+  ) {
+    delete sandbox
+      .REOS
+      .CountyMutationExclusionLease;
+  }
+
+  if (
+    options.missingLeaseGuard &&
+    sandbox.REOS
+      .CountyMutationExclusionLease
+  ) {
+    delete sandbox
+      .REOS
+      .CountyMutationExclusionLease
+      .assertWriterAllowed;
+  }
 
   vm.createContext(
     sandbox
@@ -2746,6 +2888,503 @@ function rowsForViolation(
   );
 }
 
+
+
+
+let writer10LeaseBehaviorCases =
+  0;
+
+function writer10LeasePass(
+  message
+) {
+  writer10LeaseBehaviorCases +=
+    1;
+
+  pass(
+    message
+  );
+}
+
+
+/*
+ * Missing lease module: fail closed under the existing lock.
+ */
+{
+  const harness =
+    createHarness({
+      missingLeaseModule:
+        true
+    });
+
+  const before =
+    harness.rows
+      .map(clone);
+
+  const error =
+    expectThrow(
+      () =>
+        harness.execute({
+          maxInsertCount:
+            1
+        }),
+      /lease assertion is required/
+    );
+
+  assert.equal(
+    error.message,
+    'County mutation-exclusion lease assertion is required.'
+  );
+
+  assert.equal(
+    harness.state.lockCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    0
+  );
+
+  assert.equal(
+    harness.state.insertCalls,
+    0
+  );
+
+  assert.deepEqual(
+    harness.rows,
+    before
+  );
+
+  writer10LeasePass(
+    'Writer 10 missing lease module fails closed under lock with zero inserts'
+  );
+}
+
+
+/*
+ * Missing lease guard: fail closed under the existing lock.
+ */
+{
+  const harness =
+    createHarness({
+      missingLeaseGuard:
+        true
+    });
+
+  const before =
+    harness.rows
+      .map(clone);
+
+  const error =
+    expectThrow(
+      () =>
+        harness.execute({
+          maxInsertCount:
+            1
+        }),
+      /lease assertion is required/
+    );
+
+  assert.equal(
+    error.message,
+    'County mutation-exclusion lease assertion is required.'
+  );
+
+  assert.equal(
+    harness.state.insertCalls,
+    0
+  );
+
+  assert.deepEqual(
+    harness.rows,
+    before
+  );
+
+  writer10LeasePass(
+    'Writer 10 missing lease guard fails closed under lock with zero inserts'
+  );
+}
+
+
+/*
+ * Active lease rejection propagates unchanged and performs no insert.
+ */
+{
+  const rejection =
+    new Error(
+      'TEST_WRITER_10_ACTIVE_LEASE_REJECTION'
+    );
+
+  const harness =
+    createHarness({
+      leaseError:
+        rejection
+    });
+
+  const before =
+    harness.rows
+      .map(clone);
+
+  const error =
+    expectThrow(
+      () =>
+        harness.execute({
+          maxInsertCount:
+            1
+        }),
+      /TEST_WRITER_10_ACTIVE_LEASE_REJECTION/
+    );
+
+  assert.equal(
+    error,
+    rejection
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.insertCalls,
+    0
+  );
+
+  assert.deepEqual(
+    harness.rows,
+    before
+  );
+
+  writer10LeasePass(
+    'Writer 10 active lease rejection propagates unchanged before insert'
+  );
+}
+
+
+/*
+ * Malformed lease rejection also propagates unchanged.
+ */
+{
+  const rejection =
+    new Error(
+      'TEST_WRITER_10_MALFORMED_LEASE_REJECTION'
+    );
+
+  const harness =
+    createHarness({
+      leaseError:
+        rejection
+    });
+
+  const error =
+    expectThrow(
+      () =>
+        harness.execute({
+          maxInsertCount:
+            1
+        }),
+      /TEST_WRITER_10_MALFORMED_LEASE_REJECTION/
+    );
+
+  assert.equal(
+    error,
+    rejection
+  );
+
+  assert.equal(
+    harness.state.insertCalls,
+    0
+  );
+
+  writer10LeasePass(
+    'Writer 10 malformed lease rejection performs no insert'
+  );
+}
+
+
+/*
+ * Denial introduced after lock acquisition is observed.
+ */
+{
+  const rejection =
+    new Error(
+      'TEST_WRITER_10_LATE_LEASE_REJECTION'
+    );
+
+  const options = {
+    onLockAcquired() {
+      options.leaseError =
+        rejection;
+    }
+  };
+
+  const harness =
+    createHarness(
+      options
+    );
+
+  const error =
+    expectThrow(
+      () =>
+        harness.execute({
+          maxInsertCount:
+            1
+        }),
+      /TEST_WRITER_10_LATE_LEASE_REJECTION/
+    );
+
+  assert.equal(
+    error,
+    rejection
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.insertCalls,
+    0
+  );
+
+  writer10LeasePass(
+    'Writer 10 observes lease denial introduced after lock acquisition'
+  );
+}
+
+
+/*
+ * Lock contention never asserts the lease.
+ */
+{
+  const harness =
+    createHarness({
+      lockAvailable:
+        false
+    });
+
+  expectThrow(
+    () =>
+      harness.execute({
+        maxInsertCount:
+          1
+      }),
+    /contended/
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    0
+  );
+
+  assert.equal(
+    harness.state.insertCalls,
+    0
+  );
+
+  writer10LeasePass(
+    'Writer 10 lock contention performs no lease assertion'
+  );
+}
+
+
+/*
+ * Successful bounded mutation: one lease under lock before insert.
+ */
+{
+  const harness =
+    createHarness();
+
+  const result =
+    harness.execute({
+      maxInsertCount:
+        1
+    });
+
+  assert.equal(
+    result.insertedCount,
+    1
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.insertCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.lockHeld,
+    false
+  );
+
+  assert.equal(
+    harness.state.leaseAllowed,
+    false
+  );
+
+  const lockIndex =
+    harness.state.events.indexOf(
+      'lock'
+    );
+
+  const leaseIndex =
+    harness.state.events.indexOf(
+      'lease'
+    );
+
+  const insertIndex =
+    harness.state.events.indexOf(
+      'insert'
+    );
+
+  assert.ok(
+    lockIndex !== -1 &&
+    leaseIndex > lockIndex &&
+    insertIndex > leaseIndex
+  );
+
+  assert.equal(
+    harness.state.events[
+      harness.state.events.length - 1
+    ],
+    'release'
+  );
+
+  writer10LeasePass(
+    'Writer 10 successful bounded insert is lease-guarded inside the existing lock'
+  );
+}
+
+
+/*
+ * Fully recovered population: non-mutating no-op remains lease-free.
+ */
+{
+  const harness =
+    createHarness({
+      initialRecoveryAuthorities:
+        recoveryAuthorities
+    });
+
+  const result =
+    harness.execute();
+
+  assert.equal(
+    result.insertedCount,
+    0
+  );
+
+  assert.equal(
+    harness.state.insertCalls,
+    0
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    0
+  );
+
+  assert.equal(
+    result.productionDataMutationPerformed,
+    false
+  );
+
+  writer10LeasePass(
+    'Writer 10 completed population remains lease-free and non-mutating'
+  );
+}
+
+
+/*
+ * Partial persisted progress remains resumable. The retry gets one fresh
+ * lease for the next locked transaction; no compensating delete is added.
+ */
+{
+  const harness =
+    createHarness({
+      insertThrowAfterAppendAt:
+        2
+    });
+
+  expectThrow(
+    () =>
+      harness.execute({
+        maxInsertCount:
+          2
+      }),
+    /batch insert failed after 1 successful durable insert/
+  );
+
+  assert.equal(
+    harness.state.lockCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    1
+  );
+
+  assert.equal(
+    harness.state.insertCalls,
+    2
+  );
+
+  const retry =
+    harness.execute({
+      maxInsertCount:
+        2
+    });
+
+  assert.equal(
+    retry.insertedCount,
+    2
+  );
+
+  assert.equal(
+    harness.state.lockCalls,
+    2
+  );
+
+  assert.equal(
+    harness.state.leaseCalls,
+    2
+  );
+
+  assert.equal(
+    harness.state.leaseCallsThisLock,
+    1
+  );
+
+  assert.equal(
+    harness.state.lockHeld,
+    false
+  );
+
+  assert.equal(
+    harness.state.leaseAllowed,
+    false
+  );
+
+  writer10LeasePass(
+    'Writer 10 partial insert progress remains resumable with one fresh lease per retry transaction'
+  );
+}
+
+
+console.log(
+  'writer10_gate1_lease_behavior_cases=' +
+    writer10LeaseBehaviorCases
+);
+
+console.log(
+  'WRITER_10_LEASE_BOUNDARY_BEHAVIOR_PASSED=true'
+);
 
 console.log();
 console.log(

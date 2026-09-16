@@ -77,6 +77,20 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
       }
     }
 
+    function assertWriterAllowed_() {
+      var lease = REOS.CountyMutationExclusionLease;
+
+      assert_(
+        lease &&
+          typeof lease.assertWriterAllowed === 'function',
+        'County mutation-exclusion lease assertion is required.'
+      );
+
+      return REOS.CountyMutationExclusionLease.assertWriterAllowed({
+        writerId: 'CODE_VIOLATION_DURABLE_IDENTITY_ROLLING'
+      });
+    }
+
     function positiveInteger_(value, name) {
       var n = Number(value);
       assert_(
@@ -707,7 +721,7 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
 
       verifyPhysicalPrestate_(sheet, selected);
 
-      var prestate = capturePrestate_(sheet, selected);
+      var prestate = null;
 
       var mutationStarted = false;
       var mutationComplete = false;
@@ -741,12 +755,24 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
              */
             assertContiguousSelection_(selected);
 
-            /*
-             * From this point forward, a physical mutation may have
-             * occurred even if setValues() throws. Any failure must
-             * therefore attempt exact certified rollback.
-             */
-            mutationStarted = true;
+            try {
+              /*
+               * Writer 9: the lease assertion, prestate capture,
+               * forward writes, rollback writes, and flushes all share
+               * this one existing Database ScriptLock interval.
+               */
+              assertWriterAllowed_();
+
+              prestate =
+                capturePrestate_(sheet, selected);
+
+              /*
+               * From this point forward, a physical mutation may have
+               * occurred even if setValues() throws. Any failure must
+               * therefore attempt exact certified rollback before the
+               * Database ScriptLock callback is allowed to return.
+               */
+              mutationStarted = true;
 
             writeIdentityColumns_(sheet, selected);
 
@@ -766,10 +792,67 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
 
             mutationComplete = true;
 
-            return {
-              postPlan: postPlan,
-              nextHashes: nextHashes
-            };
+              return {
+                postPlan: postPlan,
+                nextHashes: nextHashes
+              };
+            } catch (mutationError) {
+              if (!mutationStarted || mutationComplete) {
+                throw mutationError;
+              }
+
+              try {
+                assert_(
+                  prestate &&
+                    Array.isArray(prestate.recordKeys) &&
+                    Array.isArray(prestate.observationKeys),
+                  'Rollback prestate is unavailable.'
+                );
+
+                restoreIdentityColumns_(
+                  sheet,
+                  selected,
+                  prestate
+                );
+
+                SpreadsheetApp.flush();
+
+                var rollbackPlan = plan_(options);
+
+                verifyPhysicalPrestate_(
+                  sheet,
+                  selected
+                );
+
+                assert_(
+                  text_(rollbackPlan.migrationPlanSha256) ===
+                    text_(prePlan.migrationPlanSha256),
+                  'Rollback plan SHA did not return to prestate.'
+                );
+
+                assert_(
+                  text_(rollbackPlan.completePlanSha256) ===
+                    text_(prePlan.completePlanSha256),
+                  'Rollback complete SHA did not return to prestate.'
+                );
+
+                frozenCheckpoint_();
+                assertQuiescence_();
+              } catch (rollbackError) {
+                throw new Error(
+                  ROLLBACK_AMBIGUOUS +
+                    ': migration=' +
+                    text_(mutationError.message || mutationError) +
+                    '; rollback=' +
+                    text_(rollbackError.message || rollbackError)
+                );
+              }
+
+              throw new Error(
+                'Generic rolling migration failed and certified prestate was restored: ' +
+                  text_(mutationError.message || mutationError)
+              );
+            }
           });
 
         return {
@@ -829,10 +912,10 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
         };
       } catch (error) {
         /*
-         * If the mutation was fully verified under the lock and only
-         * lock finalization failed afterward, physical durable state is
-         * authoritative but the overall result is ambiguous. Never
-         * perform a compensating write in that state.
+         * The only failure that may occur after the lock callback has
+         * completed a verified mutation is lock finalization. Preserve
+         * the existing explicit ambiguous/no-retry result, but never
+         * perform a compensating write after lock release.
          */
         if (mutationComplete) {
           throw new Error(
@@ -844,68 +927,10 @@ REOS.CountyCodeViolationDurableIdentityRollingMigrationExecutor =
         }
 
         /*
-         * Failures before the first physical write attempt—including
-         * ScriptLock contention, under-lock checkpoint drift, trigger
-         * drift, plan drift, and physical-prestate drift—must perform
-         * zero spreadsheet writes.
+         * Writer 9 rollback is completed inside the lock callback.
+         * Pre-mutation and lease-denial errors propagate unchanged.
          */
-        if (!mutationStarted) {
-          throw error;
-        }
-
-        /*
-         * Once a physical write has been attempted, restore both
-         * certified identity columns and independently verify the exact
-         * original plan/checkpoint/quiescent state.
-         */
-        try {
-          restoreIdentityColumns_(
-            sheet,
-            selected,
-            prestate
-          );
-
-          SpreadsheetApp.flush();
-
-          var rollbackPlan = plan_(options);
-
-          verifyPhysicalPrestate_(
-            sheet,
-            selected
-          );
-
-          assert_(
-            text_(rollbackPlan.migrationPlanSha256) ===
-              text_(prePlan.migrationPlanSha256),
-            'Rollback plan SHA did not return to prestate.'
-          );
-
-          assert_(
-            text_(rollbackPlan.completePlanSha256) ===
-              text_(prePlan.completePlanSha256),
-            'Rollback complete SHA did not return to prestate.'
-          );
-
-          frozenCheckpoint_();
-          assertQuiescence_();
-        } catch (rollbackError) {
-          throw new Error(
-            ROLLBACK_AMBIGUOUS +
-              ': migration=' +
-              text_(error.message || error) +
-              '; rollback=' +
-              text_(rollbackError.message || rollbackError)
-          );
-        }
-
-        /*
-         * This throw is deliberately outside the rollback try/catch.
-         * A successfully certified rollback is NOT an ambiguous result.
-         */
-        throw new Error(
-          'Generic rolling migration failed and certified prestate was restored: ' +
-            text_(error.message || error)
-        );
+        throw error;
       }
     }
 
