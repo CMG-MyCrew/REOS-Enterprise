@@ -1,0 +1,135 @@
+{
+  "contractVersion": 1,
+  "targetTable": "DISTRESS_LEADS",
+  "requiredIdentity": [
+    "Distress Lead ID",
+    "Canonical Property Key"
+  ],
+  "acceptedWriteOutcome": "MATCHED",
+  "ownedSemanticFields": [
+    "Owner Name",
+    "Owner Mailing Address"
+  ],
+  "protectedFields": [
+    "Distress Lead ID",
+    "Canonical Property Key",
+    "Address",
+    "City",
+    "State",
+    "Zip",
+    "Distress Type",
+    "Distress Score",
+    "Estimated Value",
+    "Estimated Repairs",
+    "Suggested Offer",
+    "Lead Source",
+    "Status",
+    "Notes",
+    "Imported Deal ID",
+    "Created At",
+    "ARV",
+    "MAO",
+    "automaticOfferAuthorityGranted"
+  ],
+  "persistenceExecutionAuthorized": false,
+  "databaseUpdateAuthorized": false,
+  "databaseInsertAuthorized": false,
+  "databaseUpsertAuthorized": false,
+  "dealCreationAuthorized": false,
+  "maoGenerationAuthorized": false,
+  "automaticOfferAuthorityGranted": false,
+  "fixtures": [
+    {
+      "id": "matched-existing-record",
+      "expected": "ELIGIBLE_FOR_FUTURE_PERSISTENCE"
+    },
+    {
+      "id": "missing-distress-lead-id",
+      "expected": "REJECT"
+    },
+    {
+      "id": "missing-canonical-property-key",
+      "expected": "REJECT"
+    },
+    {
+      "id": "record-not-found",
+      "expected": "REJECT"
+    },
+    {
+      "id": "duplicate-distress-lead-id",
+      "expected": "REJECT"
+    },
+    {
+      "id": "ambiguous-canonical-property-key",
+      "expected": "REJECT"
+    },
+    {
+      "id": "identity-dimensions-resolve-to-different-records",
+      "expected": "REJECT"
+    },
+    {
+      "id": "no-match-owner-write-attempt",
+      "expected": "REJECT"
+    },
+    {
+      "id": "ambiguous-owner-write-attempt",
+      "expected": "REJECT"
+    },
+    {
+      "id": "failed-owner-write-attempt",
+      "expected": "REJECT"
+    },
+    {
+      "id": "protected-distress-lead-id-injection",
+      "expected": "REJECT"
+    },
+    {
+      "id": "protected-lead-source-injection",
+      "expected": "REJECT"
+    },
+    {
+      "id": "protected-status-injection",
+      "expected": "REJECT"
+    },
+    {
+      "id": "protected-imported-deal-id-injection",
+      "expected": "REJECT"
+    },
+    {
+      "id": "protected-arv-injection",
+      "expected": "REJECT"
+    },
+    {
+      "id": "protected-repair-injection",
+      "expected": "REJECT"
+    },
+    {
+      "id": "protected-suggested-offer-injection",
+      "expected": "REJECT"
+    },
+    {
+      "id": "protected-mao-injection",
+      "expected": "REJECT"
+    },
+    {
+      "id": "automatic-offer-authority-injection",
+      "expected": "REJECT"
+    },
+    {
+      "id": "unknown-field-injection",
+      "expected": "REJECT"
+    },
+    {
+      "id": "raw-provider-row-as-patch",
+      "expected": "REJECT"
+    },
+    {
+      "id": "generic-csv-row-as-patch",
+      "expected": "REJECT"
+    },
+    {
+      "id": "malformed-sanitized-result",
+      "expected": "REJECT"
+    }
+  ]
+}
