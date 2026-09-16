@@ -79,6 +79,7 @@ const CONTROLLED_MODIFIED_BUILD_FILES = [
  * county production authority.
  */
 const POST_COUNTY_PRODUCTION_FILES = [
+  'build/apps-script-brand/AbsenteeOwnerEnrichmentSanitizer.js',
   'build/apps-script-brand/ZillowProductionEvidence.js',
  'build/apps-script-brand/ZillowDistressLeadProvenanceEvidence.js',
   'build/apps-script-brand/CanonicalPropertyIdentity.js',
