@@ -1,0 +1,93 @@
+{
+  "contractVersion": 1,
+  "terminalOutcomes": [
+    "MATCHED",
+    "NO_MATCH",
+    "AMBIGUOUS",
+    "FAILED"
+  ],
+  "enrichmentOwnedFields": [
+    "Owner Name",
+    "Owner Mailing Address"
+  ],
+  "protectedFields": [
+    "Distress Lead ID",
+    "Canonical Property Key",
+    "Address",
+    "City",
+    "State",
+    "Zip",
+    "Distress Type",
+    "Distress Score",
+    "Estimated Value",
+    "Estimated Repairs",
+    "Suggested Offer",
+    "Lead Source",
+    "Status",
+    "Notes",
+    "Imported Deal ID",
+    "Created At",
+    "ARV",
+    "MAO",
+    "automaticOfferAuthorityGranted"
+  ],
+  "cases": [
+    {
+      "id": "matched-clear-owner",
+      "outcome": "MATCHED"
+    },
+    {
+      "id": "no-match",
+      "outcome": "NO_MATCH"
+    },
+    {
+      "id": "ambiguous-multiple-owners",
+      "outcome": "AMBIGUOUS"
+    },
+    {
+      "id": "provider-failure",
+      "outcome": "FAILED"
+    },
+    {
+      "id": "malformed-provider-response",
+      "outcome": "FAILED"
+    },
+    {
+      "id": "missing-distress-lead-id",
+      "outcome": "FAILED"
+    },
+    {
+      "id": "missing-canonical-property-key",
+      "outcome": "FAILED"
+    },
+    {
+      "id": "protected-field-injection",
+      "outcome": "MATCHED",
+      "attemptedKeys": [
+        "Distress Lead ID",
+        "Canonical Property Key",
+        "Lead Source",
+        "Status"
+      ]
+    },
+    {
+      "id": "offer-authority-injection",
+      "outcome": "MATCHED",
+      "attemptedKeys": [
+        "ARV",
+        "Estimated Repairs",
+        "Suggested Offer",
+        "MAO",
+        "automaticOfferAuthorityGranted"
+      ]
+    },
+    {
+      "id": "deal-lifecycle-injection",
+      "outcome": "MATCHED",
+      "attemptedKeys": [
+        "Imported Deal ID",
+        "Status"
+      ]
+    }
+  ]
+}
