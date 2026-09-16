@@ -22,6 +22,9 @@ REOS.CountyC1SchemaMigration = (function () {
   var TABLE =
     'DISTRESS_LEADS';
 
+  var WRITER_ID =
+    'COUNTY_C1_SCHEMA_MIGRATION';
+
   var IDENTITY_HEADERS = [
     'Source Observation Key',
     'Canonical Property Key'
@@ -153,6 +156,25 @@ REOS.CountyC1SchemaMigration = (function () {
       );
     }
   }
+
+  function assertWriterAllowed_() {
+    if (
+      !REOS.CountyMutationExclusionLease ||
+      typeof REOS.CountyMutationExclusionLease
+        .assertWriterAllowed !==
+        'function'
+    ) {
+      throw new Error(
+        'County mutation-exclusion lease writer guard is required.'
+      );
+    }
+
+    return REOS.CountyMutationExclusionLease.assertWriterAllowed({
+      writerId:
+        WRITER_ID
+    });
+  }
+
 
   function requiredHeaders_() {
     return REOS
@@ -482,6 +504,13 @@ REOS.CountyC1SchemaMigration = (function () {
           'Unexpected identity data exists before schema migration.'
         );
       }
+
+      /*
+       * Protected writer boundary:
+       * lease assertion executes while this migration's native
+       * Apps Script ScriptLock is held and before the sole schema write.
+       */
+      assertWriterAllowed_();
 
       var sheet =
         REOS.Database
