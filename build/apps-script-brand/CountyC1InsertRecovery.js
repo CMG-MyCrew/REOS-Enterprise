@@ -36,6 +36,9 @@ REOS.CountyC1InsertRecovery = (function () {
   var DATASET =
     'code_violations';
 
+  var WRITER_ID =
+    'COUNTY_C1_INSERT_RECOVERY';
+
   var ENDPOINT_PROPERTY =
     'REOS_COUNTY_PA_PHILADELPHIA_CODE_VIOLATIONS_URL';
 
@@ -151,6 +154,24 @@ REOS.CountyC1InsertRecovery = (function () {
         return value === right[index];
       }
     );
+  }
+
+  function assertWriterAllowed_() {
+    if (
+      !REOS.CountyMutationExclusionLease ||
+      typeof REOS.CountyMutationExclusionLease
+        .assertWriterAllowed !==
+        'function'
+    ) {
+      throw new Error(
+        'County mutation-exclusion lease assertion is required.'
+      );
+    }
+
+    return REOS.CountyMutationExclusionLease.assertWriterAllowed({
+        writerId:
+          WRITER_ID
+      });
   }
 
   function requireDependencies_() {
@@ -1070,6 +1091,16 @@ REOS.CountyC1InsertRecovery = (function () {
                 'C1 source observation already exists; no insert executed.'
               );
             }
+
+            /*
+             * Protected Writer #5 boundary.
+             *
+             * This assertion executes while the existing Database
+             * ScriptLock context is still owned and immediately before
+             * the insert-only mutation path. All earlier no-write
+             * rejection paths remain lease-free.
+             */
+            assertWriterAllowed_();
 
             var insertRecord =
               Object.assign(
