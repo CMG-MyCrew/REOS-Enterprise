@@ -62,6 +62,12 @@
         );
       }
 
+      if (result.dealCreationAuthorized !== false) {
+        throw new Error(
+          'SANITIZER_DEAL_CREATION_AUTHORITY_INVALID'
+        );
+      }
+
       if (result.automaticOfferAuthorityGranted !== false) {
         throw new Error(
           'SANITIZER_OFFER_AUTHORITY_INVALID'
@@ -195,24 +201,32 @@
       var canonicalRecord =
         canonicalMatches[0];
 
-      if (distressRecord !== canonicalRecord) {
-        var distressRow =
-          distressRecord &&
-          distressRecord._rowNumber;
+      var distressRow =
+        distressRecord &&
+        distressRecord._rowNumber;
 
-        var canonicalRow =
-          canonicalRecord &&
-          canonicalRecord._rowNumber;
+      var canonicalRow =
+        canonicalRecord &&
+        canonicalRecord._rowNumber;
 
-        if (
-          !distressRow ||
-          !canonicalRow ||
-          distressRow !== canonicalRow
-        ) {
-          throw new Error(
-            'IDENTITY_DIMENSIONS_RESOLVE_TO_DIFFERENT_RECORDS'
-          );
-        }
+      if (
+        !Number.isInteger(distressRow) ||
+        distressRow < 2 ||
+        !Number.isInteger(canonicalRow) ||
+        canonicalRow < 2
+      ) {
+        throw new Error(
+          'PHYSICAL_ROW_NUMBER_INVALID'
+        );
+      }
+
+      if (
+        distressRecord !== canonicalRecord &&
+        distressRow !== canonicalRow
+      ) {
+        throw new Error(
+          'IDENTITY_DIMENSIONS_RESOLVE_TO_DIFFERENT_RECORDS'
+        );
       }
 
       return distressRecord;
@@ -252,11 +266,7 @@
           'Canonical Property Key':
             identity['Canonical Property Key']
         },
-        rowNumber:
-          record &&
-          record._rowNumber
-            ? record._rowNumber
-            : null,
+        rowNumber: record._rowNumber,
         patch: patch,
 
         persistenceExecutionAuthorized: false,

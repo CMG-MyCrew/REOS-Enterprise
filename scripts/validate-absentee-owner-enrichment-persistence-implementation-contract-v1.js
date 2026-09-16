@@ -101,6 +101,55 @@ check(() => {
   );
 });
 
+assert.ok(
+  text.includes(
+    "result.dealCreationAuthorized !== false"
+  ),
+  'Adapter must require explicit false deal creation authority.'
+);
+
+assert.ok(
+  text.includes(
+    "'SANITIZER_DEAL_CREATION_AUTHORITY_INVALID'"
+  ),
+  'Adapter must fail closed on invalid deal creation authority.'
+);
+
+assert.ok(
+  text.includes(
+    '!Number.isInteger(distressRow)'
+  ),
+  'Adapter must require integer distress physical row.'
+);
+
+assert.ok(
+  text.includes(
+    '!Number.isInteger(canonicalRow)'
+  ),
+  'Adapter must require integer canonical physical row.'
+);
+
+assert.ok(
+  text.includes(
+    'distressRow < 2'
+  ),
+  'Adapter must reject non-data distress rows.'
+);
+
+assert.ok(
+  text.includes(
+    'canonicalRow < 2'
+  ),
+  'Adapter must reject non-data canonical rows.'
+);
+
+assert.ok(
+  text.includes(
+    "'PHYSICAL_ROW_NUMBER_INVALID'"
+  ),
+  'Adapter must fail closed on invalid physical row evidence.'
+);
+
 console.log(
   'ABSENTEE_OWNER_ENRICHMENT_PERSISTENCE_IMPLEMENTATION_CONTRACT_V1_VALID=true'
 );

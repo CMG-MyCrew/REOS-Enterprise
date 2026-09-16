@@ -333,6 +333,78 @@ check(() => {
 });
 
 check(() => {
+  const value = sanitized();
+  delete value.dealCreationAuthorized;
+
+  expectError(
+    () => adapter.plan({
+      sanitizedResult: value,
+      records: [
+        record('DL-100', 'CPK-100', 7)
+      ]
+    }),
+    'SANITIZER_DEAL_CREATION_AUTHORITY_INVALID'
+  );
+});
+
+check(() => {
+  expectError(
+    () => adapter.plan({
+      sanitizedResult: sanitized({
+        dealCreationAuthorized: true
+      }),
+      records: [
+        record('DL-100', 'CPK-100', 7)
+      ]
+    }),
+    'SANITIZER_DEAL_CREATION_AUTHORITY_INVALID'
+  );
+});
+
+[
+  undefined,
+  null,
+  0,
+  1,
+  2.5,
+  '2'
+].forEach(rowNumber => {
+  check(() => {
+    const candidate =
+      record('DL-100', 'CPK-100', rowNumber);
+
+    if (rowNumber === undefined) {
+      delete candidate._rowNumber;
+    }
+
+    expectError(
+      () => adapter.plan({
+        sanitizedResult: sanitized(),
+        records: [candidate]
+      }),
+      'PHYSICAL_ROW_NUMBER_INVALID'
+    );
+  });
+});
+
+check(() => {
+  const result = adapter.plan({
+    sanitizedResult: sanitized({
+      dealCreationAuthorized: false
+    }),
+    records: [
+      record('DL-100', 'CPK-100', 2)
+    ]
+  });
+
+  assert.strictEqual(result.rowNumber, 2);
+  assert.strictEqual(
+    result.dealCreationAuthorized,
+    false
+  );
+});
+
+check(() => {
   const source = sanitized();
   const before = JSON.stringify(source);
 
