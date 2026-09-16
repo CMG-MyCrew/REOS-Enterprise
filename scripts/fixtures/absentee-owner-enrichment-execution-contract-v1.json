@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "targetTable": "DISTRESS_LEADS",
+  "requiredIdentity": [
+    "Distress Lead ID",
+    "Canonical Property Key"
+  ],
+  "ownedSemanticFields": [
+    "Owner Name",
+    "Owner Mailing Address"
+  ],
+  "allowedPhysicalConsequences": [
+    "Updated At"
+  ],
+  "maximumPhysicalMutationFields": [
+    "Owner Name",
+    "Owner Mailing Address",
+    "Updated At"
+  ],
+  "successClassification": "ABSENTEE_OWNER_EXECUTION_VERIFIED",
+  "preconditionFailureClassification": "ABSENTEE_OWNER_EXECUTION_PRECONDITION_FAILED",
+  "uncertainClassification": "ABSENTEE_OWNER_EXECUTION_OUTCOME_UNCERTAIN",
+  "requiresCallerOwnedScriptLock": true,
+  "requiresDualIdentityRevalidation": true,
+  "requiresCompletePreimage": true,
+  "requiresCompletePostimage": true,
+  "allowsInsert": false,
+  "allowsUpsert": false,
+  "allowsDealCreation": false,
+  "allowsMaoGeneration": false,
+  "allowsAutomaticOfferAuthority": false,
+  "authorizesProductionExecution": false,
+  "existingPhysicalPatchPrimitiveDirectlyAuthorized": false
+}
