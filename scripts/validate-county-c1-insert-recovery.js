@@ -409,6 +409,12 @@ function createHarness(
     maintenanceGateCalls:
       0,
 
+    lockHeld:
+      false,
+
+    leaseCalls:
+      0,
+
     events:
       []
   };
@@ -729,6 +735,44 @@ function createHarness(
         }
       },
 
+      CountyMutationExclusionLease: {
+        assertWriterAllowed(request) {
+          state.leaseCalls +=
+            1;
+
+          assert.equal(
+            state.lockHeld,
+            true,
+            'lease assertion must execute inside Database ScriptLock callback'
+          );
+
+          assert.deepEqual(
+            Object.keys(
+              request || {}
+            ).sort(),
+            [
+              'writerId'
+            ]
+          );
+
+          assert.equal(
+            request.writerId,
+            'COUNTY_C1_INSERT_RECOVERY'
+          );
+
+          return {
+            ok:
+              true,
+
+            allowed:
+              true,
+
+            writerId:
+              'COUNTY_C1_INSERT_RECOVERY'
+          };
+        }
+      },
+
       Database: {
         withScriptLockContext(
           callback
@@ -756,10 +800,25 @@ function createHarness(
             'lock:callback'
           );
 
-          const result =
-            callback(
-              lockContext
-            );
+          assert.equal(
+            state.lockHeld,
+            false
+          );
+
+          state.lockHeld =
+            true;
+
+          let result;
+
+          try {
+            result =
+              callback(
+                lockContext
+              );
+          } finally {
+            state.lockHeld =
+              false;
+          }
 
           if (
             options.ownerAfterCallbackError
