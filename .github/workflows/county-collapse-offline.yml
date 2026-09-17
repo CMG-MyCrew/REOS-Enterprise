@@ -45,6 +45,7 @@ jobs:
           node --check scripts/validate-county-collapse-observation-preservation-store-v1.js
           node --check build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationContract.js
           node --check scripts/validate-county-code-violation-group3-zillow-restoration-contract-v1.js
+          node --check scripts/validate-county-code-violation-group3-zillow-restoration-executor-contract-v1.js
           node --check scripts/validate-county-runtime-integration.js
 
       - name: Validate winner plan with local fixtures
@@ -91,6 +92,9 @@ jobs:
 
       - name: Validate Group 3 Zillow restoration contract
         run: node scripts/validate-county-code-violation-group3-zillow-restoration-contract-v1.js
+
+      - name: Validate Group 3 Zillow restoration executor contract
+        run: node scripts/validate-county-code-violation-group3-zillow-restoration-executor-contract-v1.js
 
       - name: Validate county runtime integration
         run: node scripts/validate-county-runtime-integration.js
