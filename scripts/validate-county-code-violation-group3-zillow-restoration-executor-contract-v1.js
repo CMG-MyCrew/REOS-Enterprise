@@ -209,8 +209,14 @@ assert.deepEqual(
 
 assert.equal(
   /\bfunction\s+replacePhysicalRowExact\s*\(/.test(database),
-  false,
-  'Full-row exact replacement primitive unexpectedly already exists'
+  true,
+  'Full-row exact replacement primitive is missing'
+);
+
+assert.equal(
+  /replacePhysicalRowExact\s*:\s*replacePhysicalRowExact/.test(database),
+  true,
+  'Full-row exact replacement primitive export is missing'
 );
 
 /*
@@ -307,7 +313,7 @@ console.log(
 );
 
 console.log(
-  'FULL_ROW_EXACT_REPLACEMENT_PRIMITIVE_PRESENT=false'
+  'FULL_ROW_EXACT_REPLACEMENT_PRIMITIVE_PRESENT=true'
 );
 
 console.log(
