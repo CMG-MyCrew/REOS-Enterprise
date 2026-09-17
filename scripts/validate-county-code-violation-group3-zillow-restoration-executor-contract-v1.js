@@ -23,6 +23,12 @@ const LEASE =
 const FUTURE_EXECUTOR =
   'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationExecutor.js';
 
+const OPERATOR =
+  'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationOperator.js';
+
+const OPERATOR_RPC =
+  'reosCountyCodeViolationGroup3ZillowRestorationExecute';
+
 const FUTURE_WRITER =
   'CODE_VIOLATION_GROUP3_ZILLOW_RESTORATION';
 
@@ -47,7 +53,8 @@ console.log(
   PAGE86,
   DATABASE,
   LEASE,
-  FUTURE_EXECUTOR
+  FUTURE_EXECUTOR,
+  OPERATOR
 ].forEach(file => {
   assert.ok(
     fs.existsSync(file),
@@ -67,6 +74,7 @@ const page86 = read(PAGE86);
 const database = read(DATABASE);
 const lease = read(LEASE);
 const executor = read(FUTURE_EXECUTOR);
+const operator = read(OPERATOR);
 
 [
   'DESIGN ONLY',
@@ -292,7 +300,9 @@ assert.equal(
 });
 
 /*
- * No hidden Group 3 executor or public executable RPC may exist.
+ * No hidden Group 3 executor may exist.
+ * The only public Group 3 RPC is the separately contracted operator
+ * transport entrypoint.
  */
 const buildDir =
   'build/apps-script-brand';
@@ -342,9 +352,51 @@ const group3Rpcs =
 
 assert.deepEqual(
   group3Rpcs,
-  [],
-  'Group 3 public executable RPC must remain absent'
+  [
+    {
+      file:
+        'CountyCodeViolationGroup3ZillowRestorationOperator.js',
+      rpc:
+        OPERATOR_RPC
+    }
+  ],
+  'Group 3 public executable RPC must be exactly the separately contracted operator entrypoint'
 );
+
+requireText(
+  operator,
+  'function ' + OPERATOR_RPC + '(options)',
+  'Group 3 operator public RPC'
+);
+
+requireText(
+  operator,
+  'REOS.Security.requireAdmin();',
+  'Group 3 operator Admin boundary'
+);
+
+requireText(
+  operator,
+  '.CountyCodeViolationGroup3ZillowRestorationExecutor',
+  'Group 3 operator executor delegation'
+);
+
+[
+  'REOS.Database',
+  'CountyMutationExclusionLease',
+  'LockService',
+  '.setValue(',
+  '.setValues(',
+  '.deleteRow(',
+  '.deleteRows('
+].forEach(token => {
+  assert.equal(
+    operator.includes(token),
+    false,
+    'Group 3 operator contains prohibited direct execution surface: ' +
+      token
+  );
+});
 
 console.log(
   'GROUP3_EXECUTOR_CONTRACT_DESIGN_VALIDATION_PASSED=true'
@@ -383,7 +435,11 @@ console.log(
 );
 
 console.log(
-  'GROUP3_PUBLIC_RPC_PRESENT=false'
+  'GROUP3_PUBLIC_RPC_PRESENT=true'
+);
+
+console.log(
+  'GROUP3_PUBLIC_RPC_AUTHORITY_GRANTED=false'
 );
 
 console.log(
