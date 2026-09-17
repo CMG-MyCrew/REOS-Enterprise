@@ -42,6 +42,7 @@ jobs:
           node --check build/apps-script-brand/Database.js
           node --check scripts/validate-database-physical-row-patch-exact.js
           node --check scripts/validate-database-physical-row-replace-exact-contract-v1.js
+          node --check scripts/validate-database-physical-row-replace-exact.js
           node --check build/apps-script-brand/CountyCollapseObservationPreservationStore.js
           node --check scripts/validate-county-collapse-observation-preservation-store-v1.js
           node --check build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationContract.js
@@ -90,6 +91,9 @@ jobs:
 
       - name: Validate database physical-row replace exact contract
         run: node scripts/validate-database-physical-row-replace-exact-contract-v1.js
+
+      - name: Validate database physical-row replace exact
+        run: node scripts/validate-database-physical-row-replace-exact.js
 
       - name: Validate collapse observation-preservation store
         run: node scripts/validate-county-collapse-observation-preservation-store-v1.js

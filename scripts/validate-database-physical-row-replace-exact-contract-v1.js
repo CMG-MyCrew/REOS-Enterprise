@@ -129,26 +129,27 @@ if (fs.existsSync(EXECUTOR)) {
 }
 
 /*
- * The contract increment is design-only. The implementation
- * must remain absent at this gate.
+ * The design contract is now being exercised by the separately
+ * certified implementation increment. The API and export must exist,
+ * while Group 3 execution and production authority remain absent.
  */
 if (
-  /\bfunction\s+replacePhysicalRowExact\s*\(/.test(
+  !/\bfunction\s+replacePhysicalRowExact\s*\(/.test(
     database
   )
 ) {
   fail(
-    'replacePhysicalRowExact implementation already exists.'
+    'replacePhysicalRowExact implementation is missing.'
   );
 }
 
 if (
-  /replacePhysicalRowExact\s*:/.test(
+  !/replacePhysicalRowExact\s*:\s*replacePhysicalRowExact/.test(
     database
   )
 ) {
   fail(
-    'replacePhysicalRowExact is already exported.'
+    'replacePhysicalRowExact export is missing.'
   );
 }
 
@@ -423,7 +424,7 @@ console.log(
   'DATABASE_PHYSICAL_ROW_REPLACE_EXACT_CONTRACT_VALIDATOR_PASS=true'
 );
 console.log(
-  'FULL_ROW_EXACT_REPLACEMENT_IMPLEMENTATION_PRESENT=false'
+  'FULL_ROW_EXACT_REPLACEMENT_IMPLEMENTATION_PRESENT=true'
 );
 console.log(
   'EXISTING_PATCH_PRIMITIVE_REMAINS_EXACT_THREE_HEADERS=true'
