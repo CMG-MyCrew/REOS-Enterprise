@@ -46,7 +46,8 @@ console.log(
   GROUP3,
   PAGE86,
   DATABASE,
-  LEASE
+  LEASE,
+  FUTURE_EXECUTOR
 ].forEach(file => {
   assert.ok(
     fs.existsSync(file),
@@ -56,8 +57,8 @@ console.log(
 
 assert.equal(
   fs.existsSync(FUTURE_EXECUTOR),
-  false,
-  'Group 3 executor must remain absent in design-only increment'
+  true,
+  'Group 3 executor implementation is missing'
 );
 
 const doc = read(DOC);
@@ -65,6 +66,7 @@ const group3 = read(GROUP3);
 const page86 = read(PAGE86);
 const database = read(DATABASE);
 const lease = read(LEASE);
+const executor = read(FUTURE_EXECUTOR);
 
 [
   'DESIGN ONLY',
@@ -225,8 +227,8 @@ assert.equal(
  */
 assert.equal(
   lease.includes(FUTURE_WRITER),
-  false,
-  'Future Group 3 writer is already registered in lease'
+  true,
+  'Group 3 protected writer is missing from lease'
 );
 
 assert.equal(
@@ -238,6 +240,56 @@ assert.equal(
   false,
   'Merged Group 3 contract unexpectedly owns writer authority'
 );
+
+/*
+ * Implemented executor remains bounded and non-public.
+ */
+[
+  'REOS.Database.replacePhysicalRowExact',
+  'REOS.Database.withScriptLockContext',
+  'REOS.Database.assertScriptLockContext',
+  'REOS.CountyMutationExclusionLease',
+  'assertWriterAllowed',
+  'REOS.Security',
+  'requireAdmin',
+  'GROUP3_RESTORATION_PRECONDITION_FAILED',
+  'GROUP3_RESTORATION_OUTCOME_UNCERTAIN'
+].forEach(token => {
+  requireText(
+    executor,
+    token,
+    'Group 3 executor implementation'
+  );
+});
+
+requireText(
+  executor,
+  FUTURE_WRITER,
+  'Group 3 executor protected writer identity'
+);
+
+assert.equal(
+  /\bfunction\s+reos[A-Za-z0-9_]*\s*\(/.test(executor),
+  false,
+  'Group 3 executor implementation must expose no public RPC'
+);
+
+[
+  '.setValue(',
+  '.setValues(',
+  '.deleteRow(',
+  '.deleteRows(',
+  '.appendRow(',
+  '.clearContent(',
+  'patchPhysicalRowCellsExact(',
+  'deletePhysicalRowExact('
+].forEach(token => {
+  assert.equal(
+    executor.includes(token),
+    false,
+    'Group 3 executor contains prohibited mutation surface: ' + token
+  );
+});
 
 /*
  * No hidden Group 3 executor or public executable RPC may exist.
@@ -264,8 +316,14 @@ const writerOwners =
 
 assert.equal(
   writerOwners.length,
-  0,
-  'Future Group 3 writer already has a production owner'
+  1,
+  'Group 3 writer must have exactly one implementation owner'
+);
+
+assert.equal(
+  writerOwners[0].name,
+  'CountyCodeViolationGroup3ZillowRestorationExecutor.js',
+  'Group 3 writer owner must be the dedicated executor'
 );
 
 const group3Rpcs =
@@ -317,7 +375,15 @@ console.log(
 );
 
 console.log(
-  'EXISTING_GROUP3_PROTECTED_WRITER_ID=false'
+  'EXISTING_GROUP3_PROTECTED_WRITER_ID=true'
+);
+
+console.log(
+  'GROUP3_EXECUTOR_IMPLEMENTATION_PRESENT=true'
+);
+
+console.log(
+  'GROUP3_PUBLIC_RPC_PRESENT=false'
 );
 
 console.log(
