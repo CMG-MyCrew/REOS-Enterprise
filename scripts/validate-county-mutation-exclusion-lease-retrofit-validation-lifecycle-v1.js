@@ -36,9 +36,9 @@ const EXECUTOR =
   'build/apps-script-brand/CountyCodeViolationCollapseExecutor.js';
 
 const EXPECTED_HISTORICAL_SHA = 'a33f351e25cbdbd7512c77e7ddcc511e38a4a9a93fcb40723c67eca5646d64a7';
-const EXPECTED_LEASE_SHA = 'd21eff97241d9a306e4d38d396bee2b4697f84d5df66a5789fa0f247214ebcf3';
+const EXPECTED_LEASE_SHA = '7bb81a035b8ed643a1eb02582a02cb7d17bcc43bdc4e0c71ab3da963b48473b4';
 const EXPECTED_RUNTIME_HARNESS_SHA = '61d7c1bb6d55b3be147ffe4fd7c99f932d9a9d194e0cfe30d8875addcbd44ebb';
-const EXPECTED_INTEGRATION_SHA = 'b14c3bf8ebc8d448b36eda0837f40e6b29fc2b9778d57d21ca51d568c881ce10';
+const EXPECTED_INTEGRATION_SHA = '5f6eaba9a48ac76263c9d11f64bb439cf475e24f411cd7c94867156c71ee45ff';
 
 const WRITERS = [
   {
@@ -100,6 +100,11 @@ const WRITERS = [
     id: 'PAGE86_DUPLICATE_SOURCE_REPAIR',
     file: 'build/apps-script-brand/CountyPage86DuplicateSourceRepair.js',
     harness: 'scripts/validate-county-mutation-exclusion-writer-page86-duplicate-source-repair-v1.js'
+  },
+  {
+    id: 'CODE_VIOLATION_GROUP3_ZILLOW_RESTORATION',
+    file: 'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationExecutor.js',
+    harness: 'scripts/validate-county-mutation-exclusion-writer-code-violation-group3-zillow-restoration-v1.js'
   }
 ];
 

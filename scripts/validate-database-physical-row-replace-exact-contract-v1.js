@@ -122,16 +122,18 @@ const lease =
     'County mutation-exclusion lease'
   );
 
-if (fs.existsSync(EXECUTOR)) {
-  fail(
-    'Group 3 executor unexpectedly exists.'
+const executor =
+  requireFile(
+    EXECUTOR,
+    'Group 3 restoration executor implementation'
   );
-}
 
 /*
- * The design contract is now being exercised by the separately
- * certified implementation increment. The API and export must exist,
- * while Group 3 execution and production authority remain absent.
+ * The full-row primitive now has a separately implemented bounded
+ * Group 3 caller. Presence of that caller and its protected-writer
+ * registration does not grant execution, deployment, scheduler,
+ * checkpoint, reference-rewrite, physical-delete, or production-data
+ * authority through this primitive contract.
  */
 if (
   !/\bfunction\s+replacePhysicalRowExact\s*\(/.test(
@@ -225,14 +227,63 @@ if (
 });
 
 /*
- * The future Group 3 writer still must not already be
- * registered at this design-only boundary.
+ * The separately certified Group 3 implementation now owns one
+ * exclusion-only writer identity. Registration itself grants no
+ * mutation or production-execution authority.
  */
-rejectText(
+requireText(
   lease,
   'CODE_VIOLATION_GROUP3_ZILLOW_RESTORATION',
   'County mutation-exclusion lease'
 );
+
+/*
+ * The implemented caller must remain bounded to the certified primitive
+ * and expose no direct spreadsheet-write or public RPC surface.
+ */
+[
+  'REOS.Database.replacePhysicalRowExact',
+  'REOS.Database.withScriptLockContext',
+  'REOS.Database.assertScriptLockContext',
+  'REOS.CountyMutationExclusionLease.assertWriterAllowed',
+  'CODE_VIOLATION_GROUP3_ZILLOW_RESTORATION',
+  'REOS.Security.requireAdmin',
+  'GROUP3_RESTORATION_PRECONDITION_FAILED',
+  'GROUP3_RESTORATION_OUTCOME_UNCERTAIN'
+].forEach(function (token) {
+  requireText(
+    executor,
+    token,
+    'Group 3 executor implementation'
+  );
+});
+
+[
+  '.setValue(',
+  '.setValues(',
+  '.deleteRow(',
+  '.deleteRows(',
+  '.appendRow(',
+  '.clearContent(',
+  'patchPhysicalRowCellsExact(',
+  'deletePhysicalRowExact('
+].forEach(function (token) {
+  rejectText(
+    executor,
+    token,
+    'Group 3 executor implementation'
+  );
+});
+
+if (
+  /\bfunction\s+reos[A-Za-z0-9_]*\s*\(/.test(
+    executor
+  )
+) {
+  fail(
+    'Group 3 executor implementation exposes a public RPC.'
+  );
+}
 
 /*
  * Contract API and exact request surface.
@@ -454,7 +505,16 @@ console.log(
   'AUTOMATIC_RETRY_AUTHORITY_GRANTED=false'
 );
 console.log(
+  'GROUP3_EXECUTOR_IMPLEMENTATION_PRESENT=true'
+);
+console.log(
+  'GROUP3_PROTECTED_WRITER_REGISTERED=true'
+);
+console.log(
   'GROUP3_EXECUTOR_IMPLEMENTATION_AUTHORITY_GRANTED=false'
+);
+console.log(
+  'GROUP3_RESTORATION_EXECUTION_AUTHORITY_GRANTED=false'
 );
 console.log(
   'PRODUCTION_DATA_MUTATION_AUTHORITY_GRANTED=false'
