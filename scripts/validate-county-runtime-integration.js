@@ -82,6 +82,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/AbsenteeOwnerEnrichmentSanitizer.js',
   'build/apps-script-brand/AbsenteeOwnerEnrichmentPersistenceAdapter.js',
   'build/apps-script-brand/ZillowProductionEvidence.js',
+  'build/apps-script-brand/ZillowGmailConnectorStateDiagnostic.js',
  'build/apps-script-brand/ZillowDistressLeadProvenanceEvidence.js',
   'build/apps-script-brand/CanonicalPropertyIdentity.js',
   'build/apps-script-brand/CountyIdentityHistoricalAudit.js',
@@ -182,6 +183,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-page86-duplicate-source-repair-failure-paths.js',
   'validate-county-page89-source-observation-622060-repair.js',
   'validate-philadelphia-probate-public-notice-feed.js',
+  'validate-zillow-production-gmail-connector-state-diagnostic-v1.js',
   'validate-county-runtime-bridge.js'
 ];
 
