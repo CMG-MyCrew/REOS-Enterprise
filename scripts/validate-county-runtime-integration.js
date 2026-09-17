@@ -658,13 +658,15 @@ const expectedCountyMutationExclusionLeaseFiles = new Set([
  * - one authority-only restoration contract; and
  * - one bounded internal executor.
  *
- * The executor exposes no public RPC and receives no standalone deployment,
- * scheduler, checkpoint, downstream-reference rewrite, physical-delete,
- * connector-execution, MAO, or automatic-offer authority.
+ * The executor remains internal. The operator exposes only the separately
+ * contracted public RPC transport boundary. Neither module receives standalone
+ * deployment, scheduler, checkpoint, downstream-reference rewrite,
+ * physical-delete, connector-execution, MAO, or automatic-offer authority.
  */
 const expectedCodeViolationGroup3ZillowRestorationFiles = new Set([
   'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationContract.js',
-  'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationExecutor.js'
+  'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationExecutor.js',
+  'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationOperator.js'
 ]);
 
 const expectedProductionFiles = new Set([
@@ -914,8 +916,8 @@ assert.ok(
 
 assert.equal(
   expectedCodeViolationGroup3ZillowRestorationFiles.size,
-  2,
-  'expected Group 3 Zillow restoration production inventory must contain exactly 2 files'
+  3,
+  'expected Group 3 Zillow restoration production inventory must contain exactly 3 files'
 );
 
 assert.ok(
@@ -932,10 +934,17 @@ assert.ok(
   'CountyCodeViolationGroup3ZillowRestorationExecutor.js must be the explicit bounded internal Group 3 restoration executor'
 );
 
+assert.ok(
+  expectedCodeViolationGroup3ZillowRestorationFiles.has(
+    'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationOperator.js'
+  ),
+  'CountyCodeViolationGroup3ZillowRestorationOperator.js must be the single bounded public Group 3 transport entrypoint'
+);
+
 assert.equal(
   expectedProductionFiles.size,
-  132,
-  'expected reconciled production inventory must contain 132 files'
+  133,
+  'expected reconciled production inventory must contain 133 files'
 );
 
 assert.equal(

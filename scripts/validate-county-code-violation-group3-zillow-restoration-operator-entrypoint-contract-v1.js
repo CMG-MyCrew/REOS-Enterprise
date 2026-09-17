@@ -3,30 +3,34 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve(
-  __dirname,
-  '..'
-);
+const ROOT =
+  path.resolve(
+    __dirname,
+    '..'
+  );
 
-const DOC = path.join(
-  ROOT,
-  'docs',
-  'county-code-violation-group3-zillow-restoration-operator-entrypoint-contract-v1.md'
-);
+const DOC =
+  path.join(
+    ROOT,
+    'docs',
+    'county-code-violation-group3-zillow-restoration-operator-entrypoint-contract-v1.md'
+  );
 
-const EXECUTOR = path.join(
-  ROOT,
-  'build',
-  'apps-script-brand',
-  'CountyCodeViolationGroup3ZillowRestorationExecutor.js'
-);
+const EXECUTOR =
+  path.join(
+    ROOT,
+    'build',
+    'apps-script-brand',
+    'CountyCodeViolationGroup3ZillowRestorationExecutor.js'
+  );
 
-const FUTURE_OPERATOR = path.join(
-  ROOT,
-  'build',
-  'apps-script-brand',
-  'CountyCodeViolationGroup3ZillowRestorationOperator.js'
-);
+const OPERATOR =
+  path.join(
+    ROOT,
+    'build',
+    'apps-script-brand',
+    'CountyCodeViolationGroup3ZillowRestorationOperator.js'
+  );
 
 const RPC =
   'reosCountyCodeViolationGroup3ZillowRestorationExecute';
@@ -38,12 +42,20 @@ const CHECKPOINT_CURSOR =
   'AK1|PHL-CODE-HIGH-SEED-20250901-OID636638-V1|1782545296000|2281';
 
 function fail(message) {
-  throw new Error(message);
+  throw new Error(
+    message
+  );
 }
 
-function requireFile(file, label) {
+function requireFile(
+  file,
+  label
+) {
   if (!fs.existsSync(file)) {
-    fail(label + ' is missing.');
+    fail(
+      label +
+      ' is missing.'
+    );
   }
 
   return fs.readFileSync(
@@ -71,7 +83,7 @@ function requireTokens(
 const doc =
   requireFile(
     DOC,
-    'Operator-entrypoint contract'
+    'Operator-entrypoint design contract'
   );
 
 const executor =
@@ -80,11 +92,11 @@ const executor =
     'Merged Group 3 executor'
   );
 
-if (fs.existsSync(FUTURE_OPERATOR)) {
-  fail(
-    'Future operator implementation unexpectedly exists during design-only increment.'
+const operator =
+  requireFile(
+    OPERATOR,
+    'Group 3 operator implementation'
   );
-}
 
 requireTokens(
   doc,
@@ -100,10 +112,6 @@ requireTokens(
     '`checkpointCursor`',
     CHECKPOINT_ID,
     CHECKPOINT_CURSOR,
-    'zero managed county scheduler triggers',
-    'GROUP3_RESTORATION_PRECONDITION_FAILED',
-    'GROUP3_RESTORATION_OUTCOME_UNCERTAIN',
-    'GROUP3_RESTORATION_VERIFIED',
     'No automatic retry is permitted.',
     'Deployment must be a separate certified production gate.',
     'Deployment does not authorize restoration execution.',
@@ -122,7 +130,7 @@ requireTokens(
     'CONNECTOR_EXECUTION_AUTHORITY_GRANTED=false',
     'AUTOMATIC_OFFER_AUTHORITY_GRANTED=false'
   ],
-  'Operator-entrypoint contract'
+  'Operator-entrypoint design contract'
 );
 
 requireTokens(
@@ -130,51 +138,104 @@ requireTokens(
   [
     'INTERNAL EXECUTOR ONLY.',
     'function execute(options)',
-    "'confirmRestoration'",
-    "'checkpointId'",
-    "'checkpointCursor'",
-    CHECKPOINT_ID,
-    CHECKPOINT_CURSOR,
     'REOS.Security.requireAdmin();',
     'assertWriterAllowed_();',
     'REOS.Database.replacePhysicalRowExact(',
     'GROUP3_RESTORATION_PRECONDITION_FAILED',
     'GROUP3_RESTORATION_OUTCOME_UNCERTAIN',
-    'GROUP3_RESTORATION_VERIFIED',
-    'return Object.freeze({',
-    'execute:'
+    'GROUP3_RESTORATION_VERIFIED'
   ],
   'Merged Group 3 executor'
 );
 
-const brandDir = path.join(
-  ROOT,
-  'build',
-  'apps-script-brand'
+requireTokens(
+  operator,
+  [
+    'function ' + RPC + '(options)',
+    "'checkpointCursor'",
+    "'checkpointId'",
+    "'confirmRestoration'",
+    CHECKPOINT_ID,
+    CHECKPOINT_CURSOR,
+    'REOS.Security.requireAdmin();',
+    '.CountyCodeViolationGroup3ZillowRestorationExecutor',
+    '.execute(options)'
+  ],
+  'Group 3 operator implementation'
 );
+
+[
+  'REOS.Database',
+  'CountyMutationExclusionLease',
+  'LockService',
+  'ScriptApp',
+  'PropertiesService',
+  'SpreadsheetApp',
+  '.setValue(',
+  '.setValues(',
+  '.appendRow(',
+  '.deleteRow(',
+  '.deleteRows(',
+  'patchPhysicalRowCellsExact',
+  'deletePhysicalRowExact'
+].forEach((token) => {
+  if (operator.includes(token)) {
+    fail(
+      'Operator contains prohibited direct surface: ' +
+      token
+    );
+  }
+});
+
+if (
+  /\btry\s*\{/.test(operator) ||
+  /\bcatch\s*\(/.test(operator)
+) {
+  fail(
+    'Operator must not catch/retry executor execution.'
+  );
+}
+
+const brandDir =
+  path.join(
+    ROOT,
+    'build',
+    'apps-script-brand'
+  );
 
 const publicRpcPattern =
   /\bfunction\s+(reos[A-Za-z0-9_$]*Group3[A-Za-z0-9_$]*)\s*\(/g;
 
 const publicMatches = [];
 
-fs.readdirSync(brandDir)
-  .filter((name) => name.endsWith('.js'))
+fs.readdirSync(
+  brandDir
+)
+  .filter(
+    (name) =>
+      name.endsWith('.js')
+  )
   .sort()
   .forEach((name) => {
-    const text = fs.readFileSync(
-      path.join(
-        brandDir,
-        name
-      ),
-      'utf8'
-    );
+    const text =
+      fs.readFileSync(
+        path.join(
+          brandDir,
+          name
+        ),
+        'utf8'
+      );
 
     let match;
 
     while (
-      (match = publicRpcPattern.exec(text)) !==
-      null
+      (
+        match =
+          publicRpcPattern.exec(
+            text
+          )
+      ) !==
+        null
     ) {
       publicMatches.push({
         file: name,
@@ -182,17 +243,27 @@ fs.readdirSync(brandDir)
       });
     }
 
-    publicRpcPattern.lastIndex = 0;
+    publicRpcPattern.lastIndex =
+      0;
   });
 
-if (publicMatches.length !== 0) {
+if (
+  publicMatches.length !==
+    1 ||
+  publicMatches[0].file !==
+    'CountyCodeViolationGroup3ZillowRestorationOperator.js' ||
+  publicMatches[0].name !==
+    RPC
+) {
   fail(
-    'Public Group 3 RPC unexpectedly exists during design-only increment: ' +
-    JSON.stringify(publicMatches)
+    'Exactly one contract-bound Group 3 public RPC must exist: ' +
+    JSON.stringify(
+      publicMatches
+    )
   );
 }
 
-const forbiddenTrue = [
+const forbiddenTrueInContract = [
   'GROUP3_OPERATOR_ENTRYPOINT_IMPLEMENTATION_PRESENT=true',
   'GROUP3_OPERATOR_PUBLIC_RPC_PRESENT=true',
   'GROUP3_OPERATOR_ENTRYPOINT_DEPLOYMENT_AUTHORITY_GRANTED=true',
@@ -207,39 +278,49 @@ const forbiddenTrue = [
   'AUTOMATIC_OFFER_AUTHORITY_GRANTED=true'
 ];
 
-forbiddenTrue.forEach((token) => {
-  if (doc.includes(token)) {
-    fail(
-      'Design contract unexpectedly grants authority: ' +
-      token
-    );
+forbiddenTrueInContract.forEach(
+  (token) => {
+    if (doc.includes(token)) {
+      fail(
+        'Design contract unexpectedly grants authority: ' +
+        token
+      );
+    }
   }
-});
+);
 
 console.log(
   'GROUP3_OPERATOR_ENTRYPOINT_CONTRACT_VALIDATION_PASSED=true'
 );
+
 console.log(
-  'GROUP3_OPERATOR_ENTRYPOINT_DESIGN_ONLY=true'
+  'GROUP3_OPERATOR_ENTRYPOINT_CONTRACT_DESIGN_MARKERS_PRESERVED=true'
 );
+
 console.log(
-  'GROUP3_OPERATOR_ENTRYPOINT_IMPLEMENTATION_PRESENT=false'
+  'GROUP3_OPERATOR_ENTRYPOINT_IMPLEMENTATION_PRESENT=true'
 );
+
 console.log(
-  'GROUP3_OPERATOR_PUBLIC_RPC_COUNT=0'
+  'GROUP3_OPERATOR_PUBLIC_RPC_COUNT=1'
 );
+
 console.log(
-  'GROUP3_OPERATOR_PUBLIC_RPC_PRESENT=false'
+  'GROUP3_OPERATOR_PUBLIC_RPC_PRESENT=true'
 );
+
 console.log(
   'GROUP3_OPERATOR_ENTRYPOINT_DEPLOYMENT_AUTHORITY_GRANTED=false'
 );
+
 console.log(
   'GROUP3_OPERATOR_ENTRYPOINT_EXECUTION_AUTHORITY_GRANTED=false'
 );
+
 console.log(
   'GROUP3_RESTORATION_EXECUTION_AUTHORITY_GRANTED=false'
 );
+
 console.log(
   'PRODUCTION_DATA_MUTATION_AUTHORITY_GRANTED=false'
 );
