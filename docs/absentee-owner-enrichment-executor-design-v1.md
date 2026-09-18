@@ -9,11 +9,18 @@ It does not authorize production execution.
 
 ## Upstream authorities
 
-The executor accepts only an already-certified Phase 1F persistence plan
-derived from the Phase 1D sanitized MATCHED result.
+The executor accepts only an already-certified Phase 1H execution request
+produced by `REOS.AbsenteeOwnerEnrichmentExecutionRequestBuilder` from an
+already-certified Phase 1F persistence plan derived from the Phase 1D
+sanitized MATCHED result.
+
+The Phase 1H execution request is evidence input only. Its embedded authority
+flags remain false and do not independently authorize persistence or database
+mutation.
 
 Raw provider records, generic CSV rows, arbitrary database patches,
-and caller-manufactured enrichment patches are not execution authority.
+caller-manufactured enrichment patches, direct Phase 1F persistence plans,
+and caller-manufactured execution requests are not execution authority.
 
 ## Target
 

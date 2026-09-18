@@ -15,10 +15,22 @@ pipeline:
 
 1. Phase 1D sanitizer;
 2. Phase 1F persistence adapter;
-3. this execution boundary.
+3. Phase 1H execution-request builder;
+4. this execution boundary.
 
-Raw provider rows, generic CSV rows, arbitrary database patches, and
-untrusted caller-created persistence plans are not execution authority.
+The executor accepts only the certified Phase 1H execution request. The
+request's prepared spreadsheet, sheet, row, geometry, header, physical-value,
+formula, dual-identity, and semantic-patch evidence must be treated as
+expected preimage evidence and independently revalidated while holding the
+caller-owned mutation lock.
+
+The Phase 1H request does not itself authorize persistence or database
+mutation. Its embedded authority flags remain false.
+
+Raw provider rows, generic CSV rows, arbitrary database patches,
+untrusted caller-created persistence plans, direct Phase 1F persistence
+plans, and caller-manufactured execution requests are not execution
+authority.
 
 ## Target
 
