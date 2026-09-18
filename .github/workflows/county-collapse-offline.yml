@@ -27,6 +27,7 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check build/apps-script-brand/CountyCodeViolationCollapseExecutionPreflight.js
+          node --check scripts/validate-county-code-violation-post-restoration-collapse-authority-contract-v1.js
           node --check scripts/validate-county-code-violation-collapse-winner-plan-v1.js
           node --check scripts/validate-county-code-violation-collapse-execution-preflight-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-contract-v1.js
@@ -55,6 +56,9 @@ jobs:
           node --check build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationOperator.js
           node --check scripts/validate-county-code-violation-group3-zillow-restoration-operator-entrypoint-v1.js
           node --check scripts/validate-county-runtime-integration.js
+
+      - name: Validate post-restoration collapse authority design
+        run: node scripts/validate-county-code-violation-post-restoration-collapse-authority-contract-v1.js
 
       - name: Validate winner plan with local fixtures
         run: node scripts/validate-county-code-violation-collapse-winner-plan-v1.js
