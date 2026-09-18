@@ -35,6 +35,12 @@ const OPERATOR =
 const RPC =
   'reosCountyCodeViolationGroup3ZillowRestorationExecute';
 
+const EVIDENCE_FILE =
+  'CountyCodeViolationGroup3PostRestorationEvidence.js';
+
+const EVIDENCE_RPC =
+  'reosCountyCodeViolationGroup3PostRestorationEvidence';
+
 const CHECKPOINT_ID =
   'COUNTY-20260902222607805';
 
@@ -247,16 +253,47 @@ fs.readdirSync(
       0;
   });
 
+const sortedPublicMatches =
+  publicMatches
+    .slice()
+    .sort(
+      (left, right) =>
+        (
+          left.file +
+          ':' +
+          left.name
+        ).localeCompare(
+          right.file +
+          ':' +
+          right.name
+        )
+    );
+
+const expectedPublicMatches = [
+  {
+    file:
+      EVIDENCE_FILE,
+    name:
+      EVIDENCE_RPC
+  },
+  {
+    file:
+      'CountyCodeViolationGroup3ZillowRestorationOperator.js',
+    name:
+      RPC
+  }
+];
+
 if (
-  publicMatches.length !==
-    1 ||
-  publicMatches[0].file !==
-    'CountyCodeViolationGroup3ZillowRestorationOperator.js' ||
-  publicMatches[0].name !==
-    RPC
+  JSON.stringify(
+    sortedPublicMatches
+  ) !==
+  JSON.stringify(
+    expectedPublicMatches
+  )
 ) {
   fail(
-    'Exactly one contract-bound Group 3 public RPC must exist: ' +
+    'Exact Group 3 public RPC inventory must contain one read-only evidence RPC and one restoration operator RPC: ' +
     JSON.stringify(
       publicMatches
     )
@@ -307,6 +344,15 @@ console.log(
 
 console.log(
   'GROUP3_OPERATOR_PUBLIC_RPC_PRESENT=true'
+);
+
+
+console.log(
+  'GROUP3_READ_ONLY_EVIDENCE_RPC_PRESENT=true'
+);
+
+console.log(
+  'GROUP3_GLOBAL_PUBLIC_RPC_COUNT=2'
 );
 
 console.log(

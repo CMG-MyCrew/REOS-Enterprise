@@ -29,6 +29,12 @@ const OPERATOR =
 const OPERATOR_RPC =
   'reosCountyCodeViolationGroup3ZillowRestorationExecute';
 
+const EVIDENCE_FILE =
+  'CountyCodeViolationGroup3PostRestorationEvidence.js';
+
+const EVIDENCE_RPC =
+  'reosCountyCodeViolationGroup3PostRestorationEvidence';
+
 const FUTURE_WRITER =
   'CODE_VIOLATION_GROUP3_ZILLOW_RESTORATION';
 
@@ -350,9 +356,30 @@ const group3Rpcs =
     }));
   });
 
+const sortedGroup3Rpcs =
+  group3Rpcs
+    .slice()
+    .sort(function (left, right) {
+      return (
+        left.file +
+        ':' +
+        left.rpc
+      ).localeCompare(
+        right.file +
+        ':' +
+        right.rpc
+      );
+    });
+
 assert.deepEqual(
-  group3Rpcs,
+  sortedGroup3Rpcs,
   [
+    {
+      file:
+        EVIDENCE_FILE,
+      rpc:
+        EVIDENCE_RPC
+    },
     {
       file:
         'CountyCodeViolationGroup3ZillowRestorationOperator.js',
@@ -360,8 +387,46 @@ assert.deepEqual(
         OPERATOR_RPC
     }
   ],
-  'Group 3 public executable RPC must be exactly the separately contracted operator entrypoint'
+  'Group 3 public RPC inventory must contain exactly one read-only evidence RPC and one separately contracted executable operator RPC'
 );
+
+const evidenceOwners =
+  buildSources.filter(
+    entry =>
+      entry.name ===
+      EVIDENCE_FILE
+  );
+
+assert.equal(
+  evidenceOwners.length,
+  1,
+  'Group 3 read-only evidence RPC must have exactly one implementation owner'
+);
+
+requireText(
+  evidenceOwners[0].source,
+  'function ' + EVIDENCE_RPC + '(',
+  'Group 3 read-only evidence public RPC'
+);
+
+[
+  'CountyCodeViolationGroup3ZillowRestorationExecutor',
+  'REOS.Database.replacePhysicalRowExact',
+  'REOS.Database.patchPhysicalRowCellsExact',
+  'REOS.Database.deletePhysicalRowExact',
+  '.setValue(',
+  '.setValues(',
+  '.appendRow(',
+  '.deleteRow(',
+  '.deleteRows('
+].forEach(token => {
+  assert.equal(
+    evidenceOwners[0].source.includes(token),
+    false,
+    'Group 3 read-only evidence RPC contains prohibited execution surface: ' +
+      token
+  );
+});
 
 requireText(
   operator,
@@ -436,6 +501,15 @@ console.log(
 
 console.log(
   'GROUP3_PUBLIC_RPC_PRESENT=true'
+);
+
+
+console.log(
+  'GROUP3_READ_ONLY_EVIDENCE_RPC_PRESENT=true'
+);
+
+console.log(
+  'GROUP3_GLOBAL_PUBLIC_RPC_COUNT=2'
 );
 
 console.log(
