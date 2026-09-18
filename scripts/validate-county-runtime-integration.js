@@ -84,6 +84,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/AbsenteeOwnerEnrichmentExecutionRequestBuilder.js',
   'build/apps-script-brand/AbsenteeOwnerEnrichmentExecutor.js',
   'build/apps-script-brand/AbsenteeOwnerEnrichmentCertificationEntrypoint.js',
+  'build/apps-script-brand/AbsenteeOwnerEnrichmentExactRecordSelector.js',
   'build/apps-script-brand/ZillowProductionEvidence.js',
   'build/apps-script-brand/ZillowGmailConnectorStateDiagnostic.js',
   'build/apps-script-brand/ZillowGmailFailClosedTriggerInstaller.js',
