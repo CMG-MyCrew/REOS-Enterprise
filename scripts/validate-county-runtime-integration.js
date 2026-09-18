@@ -154,6 +154,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-code-violation-collapse-only-evidence-authority-v2.js',
   'validate-county-code-violation-collapse-fullrow-evidence-v2.js',
   'validate-county-code-violation-collapse-winner-plan-v1.js',
+  'validate-county-code-violation-group3-post-restoration-evidence-v1.js',
   'validate-county-code-violation-single-row-drift-diagnostic.js',
   'validate-county-code-violation-two-row-raw-evidence.js',
   'validate-county-code-violation-durable-source-reconciliation.js',
@@ -661,20 +662,22 @@ const expectedCountyMutationExclusionLeaseFiles = new Set([
 ]);
 
 /*
- * Group 3 Zillow restoration contributes exactly two production modules:
+ * Group 3 Zillow restoration contributes exactly four production modules:
  *
- * - one authority-only restoration contract; and
- * - one bounded internal executor.
+ * - one authority-only restoration contract;
+ * - one bounded internal executor;
+ * - one explicitly invoked operator transport boundary; and
+ * - one durable read-only post-restoration evidence surface.
  *
- * The executor remains internal. The operator exposes only the separately
- * contracted public RPC transport boundary. Neither module receives standalone
- * deployment, scheduler, checkpoint, downstream-reference rewrite,
- * physical-delete, connector-execution, MAO, or automatic-offer authority.
+ * The post-restoration evidence surface grants no replay, repair, collapse,
+ * physical-delete, reference-rewrite, scheduler, checkpoint, connector,
+ * deployment, MAO, or automatic-offer authority.
  */
 const expectedCodeViolationGroup3ZillowRestorationFiles = new Set([
   'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationContract.js',
   'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationExecutor.js',
-  'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationOperator.js'
+  'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationOperator.js',
+  'build/apps-script-brand/CountyCodeViolationGroup3PostRestorationEvidence.js'
 ]);
 
 const expectedProductionFiles = new Set([
@@ -924,8 +927,8 @@ assert.ok(
 
 assert.equal(
   expectedCodeViolationGroup3ZillowRestorationFiles.size,
-  3,
-  'expected Group 3 Zillow restoration production inventory must contain exactly 3 files'
+  4,
+  'expected Group 3 Zillow restoration production inventory must contain exactly 4 files'
 );
 
 assert.ok(
@@ -949,10 +952,18 @@ assert.ok(
   'CountyCodeViolationGroup3ZillowRestorationOperator.js must be the single bounded public Group 3 transport entrypoint'
 );
 
+
+assert.ok(
+  expectedCodeViolationGroup3ZillowRestorationFiles.has(
+    'build/apps-script-brand/CountyCodeViolationGroup3PostRestorationEvidence.js'
+  ),
+  'CountyCodeViolationGroup3PostRestorationEvidence.js must be the authority-free durable read-only Group 3 post-restoration evidence surface'
+);
+
 assert.equal(
   expectedProductionFiles.size,
-  133,
-  'expected reconciled production inventory must contain 133 files'
+  134,
+  'expected reconciled production inventory must contain 134 files'
 );
 
 assert.equal(

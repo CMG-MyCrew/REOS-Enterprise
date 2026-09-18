@@ -54,6 +54,8 @@ jobs:
           node --check scripts/validate-county-code-violation-group3-zillow-restoration-executor-contract-v1.js
           node --check scripts/validate-county-code-violation-group3-zillow-restoration-operator-entrypoint-contract-v1.js
           node --check build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationOperator.js
+          node --check build/apps-script-brand/CountyCodeViolationGroup3PostRestorationEvidence.js
+          node --check scripts/validate-county-code-violation-group3-post-restoration-evidence-v1.js
           node --check scripts/validate-county-code-violation-group3-zillow-restoration-operator-entrypoint-v1.js
           node --check scripts/validate-county-runtime-integration.js
 
@@ -107,6 +109,9 @@ jobs:
 
       - name: Validate collapse observation-preservation store
         run: node scripts/validate-county-collapse-observation-preservation-store-v1.js
+
+      - name: Validate Group 3 post-restoration evidence
+        run: node scripts/validate-county-code-violation-group3-post-restoration-evidence-v1.js
 
       - name: Validate Group 3 Zillow restoration contract
         run: node scripts/validate-county-code-violation-group3-zillow-restoration-contract-v1.js
