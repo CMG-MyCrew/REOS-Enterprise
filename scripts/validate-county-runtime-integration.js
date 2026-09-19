@@ -4,6 +4,7 @@
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
@@ -199,6 +200,15 @@ const COMPONENT_VALIDATORS = [
   'validate-county-code-violation-collapse-executor-implementation-lifecycle-v1.js',
   'validate-county-runtime-bridge.js'
 ];
+
+const CERTIFIED_EXECUTOR_IMPLEMENTATION_LIFECYCLE_VALIDATOR =
+  'validate-county-code-violation-collapse-executor-implementation-lifecycle-v1.js';
+
+const CERTIFIED_EXECUTOR_IMPLEMENTATION_REPLAY_SHA =
+  '5ed9766fe4f06b9c3e1c665a08d9212fb8617800';
+
+const CERTIFIED_EXECUTOR_IMPLEMENTATION_REPLAY_TREE =
+  '3bc32b52da3021967505000e984539c47fd8631b';
 
 function pass(message) {
   console.log(`PASS: ${message}`);
@@ -1399,24 +1409,170 @@ console.log(
   '=== COMPONENT CERTIFICATIONS ==='
 );
 
+function runComponentCertification(fileName) {
+  if (
+    fileName !==
+      CERTIFIED_EXECUTOR_IMPLEMENTATION_LIFECYCLE_VALIDATOR
+  ) {
+    return spawnSync(
+      process.execPath,
+      [
+        path.join(
+          ROOT,
+          'scripts',
+          fileName
+        )
+      ],
+      {
+        cwd: ROOT,
+        stdio: 'inherit'
+      }
+    );
+  }
+
+  const replayRoot =
+    fs.mkdtempSync(
+      path.join(
+        os.tmpdir(),
+        'reos-executor-implementation-lifecycle-replay-'
+      )
+    );
+
+  const replayWorktree =
+    path.join(
+      replayRoot,
+      'certified'
+    );
+
+  try {
+    const add = spawnSync(
+      'git',
+      [
+        'worktree',
+        'add',
+        '--detach',
+        replayWorktree,
+        CERTIFIED_EXECUTOR_IMPLEMENTATION_REPLAY_SHA
+      ],
+      {
+        cwd: ROOT,
+        encoding: 'utf8'
+      }
+    );
+
+    if (add.error) {
+      throw add.error;
+    }
+
+    assert.equal(
+      add.status,
+      0,
+      'unable to materialize certified executor implementation lifecycle replay'
+    );
+
+    const head = spawnSync(
+      'git',
+      [
+        'rev-parse',
+        'HEAD'
+      ],
+      {
+        cwd: replayWorktree,
+        encoding: 'utf8'
+      }
+    );
+
+    if (head.error) {
+      throw head.error;
+    }
+
+    assert.equal(
+      head.status,
+      0,
+      'unable to read certified executor implementation replay head'
+    );
+
+    assert.equal(
+      String(head.stdout || '').trim(),
+      CERTIFIED_EXECUTOR_IMPLEMENTATION_REPLAY_SHA,
+      'certified executor implementation replay head changed'
+    );
+
+    const tree = spawnSync(
+      'git',
+      [
+        'rev-parse',
+        'HEAD^{tree}'
+      ],
+      {
+        cwd: replayWorktree,
+        encoding: 'utf8'
+      }
+    );
+
+    if (tree.error) {
+      throw tree.error;
+    }
+
+    assert.equal(
+      tree.status,
+      0,
+      'unable to read certified executor implementation replay tree'
+    );
+
+    assert.equal(
+      String(tree.stdout || '').trim(),
+      CERTIFIED_EXECUTOR_IMPLEMENTATION_REPLAY_TREE,
+      'certified executor implementation replay tree changed'
+    );
+
+    return spawnSync(
+      process.execPath,
+      [
+        path.join(
+          replayWorktree,
+          'scripts',
+          fileName
+        )
+      ],
+      {
+        cwd: replayWorktree,
+        stdio: 'inherit'
+      }
+    );
+  } finally {
+    spawnSync(
+      'git',
+      [
+        'worktree',
+        'remove',
+        '--force',
+        replayWorktree
+      ],
+      {
+        cwd: ROOT,
+        stdio: 'ignore'
+      }
+    );
+
+    fs.rmSync(
+      replayRoot,
+      {
+        recursive: true,
+        force: true
+      }
+    );
+  }
+}
+
 COMPONENT_VALIDATORS.forEach(fileName => {
   console.log('');
   console.log(`--- ${fileName} ---`);
 
-  const result = spawnSync(
-    process.execPath,
-    [
-      path.join(
-        ROOT,
-        'scripts',
-        fileName
-      )
-    ],
-    {
-      cwd: ROOT,
-      stdio: 'inherit'
-    }
-  );
+  const result =
+    runComponentCertification(
+      fileName
+    );
 
   if (result.error) {
     throw result.error;
