@@ -16,6 +16,9 @@ const cp =
 const BASE =
   '644063fb7aa7e74e556c02cde20f85ee914abf12';
 
+const IMPLEMENTATION_AUTHORITY =
+  'cd32f67a4038d6321ed5ffbcc88a29e62847d580';
+
 const MODULE =
   'build/apps-script-brand/CountyCollapseRuntimePrerequisiteCertification.js';
 
@@ -432,69 +435,39 @@ const head =
     'HEAD'
   ]).stdout.trim();
 
-const authoring = [
-  ...git([
-    'diff',
-    '--name-only'
-  ]).stdout
-    .trim()
-    .split(/\r?\n/)
-    .filter(Boolean),
+assert.notStrictEqual(
+  head,
+  BASE,
+  'Prerequisite lifecycle requires an integrated implementation descendant.'
+);
 
-  ...git([
-    'ls-files',
-    '--others',
-    '--exclude-standard'
+assert.strictEqual(
+  git([
+    'merge-base',
+    IMPLEMENTATION_AUTHORITY,
+    'HEAD'
+  ]).stdout.trim(),
+  IMPLEMENTATION_AUTHORITY,
+  'Current revision must descend from the certified prerequisite implementation authority.'
+);
+
+const integrated =
+  git([
+    'diff',
+    '--name-only',
+    BASE,
+    IMPLEMENTATION_AUTHORITY
   ]).stdout
     .trim()
     .split(/\r?\n/)
     .filter(Boolean)
-];
+    .sort();
 
-const authoringScope =
-  Array.from(
-    new Set(authoring)
-  ).sort();
-
-if (
-  authoringScope.length > 0
-) {
-  assert.strictEqual(
-    head,
-    BASE,
-    'Uncommitted implementation must remain pinned to implementation base.'
-  );
-
-  assert.deepStrictEqual(
-    authoringScope,
-    EXPECTED_SCOPE,
-    'Prerequisite implementation authoring scope must be exactly seven files.'
-  );
-} else {
-  assert.notStrictEqual(
-    head,
-    BASE,
-    'Clean lifecycle requires an integrated implementation descendant.'
-  );
-
-  const integrated =
-    git([
-      'diff',
-      '--name-only',
-      BASE,
-      'HEAD'
-    ]).stdout
-      .trim()
-      .split(/\r?\n/)
-      .filter(Boolean)
-      .sort();
-
-  assert.deepStrictEqual(
-    integrated,
-    EXPECTED_SCOPE,
-    'Integrated prerequisite implementation scope must be exactly seven files.'
-  );
-}
+assert.deepStrictEqual(
+  integrated,
+  EXPECTED_SCOPE,
+  'Certified prerequisite implementation authority must remain exactly seven files.'
+);
 
 runNode(
   LEASE_HARNESS
