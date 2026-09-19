@@ -31,6 +31,7 @@ jobs:
           node --check scripts/validate-county-code-violation-collapse-winner-plan-v1.js
           node --check scripts/validate-county-code-violation-collapse-execution-preflight-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-contract-v1.js
+          node --check scripts/validate-county-code-violation-collapse-executor-implementation-authorization-v1.js
           node --check scripts/validate-county-code-violation-collapse-maintenance-quiescence-contract-v1.js
           node --check scripts/validate-county-code-violation-collapse-execution-boundary-v2.js
           node --check build/apps-script-brand/CountyCodeViolationCollapseMaintenanceGate.js
@@ -82,6 +83,9 @@ jobs:
 
       - name: Validate collapse executor contract
         run: node scripts/validate-county-code-violation-collapse-executor-contract-v1.js
+
+      - name: Validate collapse executor implementation authorization
+        run: node scripts/validate-county-code-violation-collapse-executor-implementation-authorization-v1.js
 
       - name: Validate collapse maintenance implementation lifecycle
         run: node scripts/validate-county-code-violation-collapse-maintenance-implementation-lifecycle-v1.js
