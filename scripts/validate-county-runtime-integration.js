@@ -165,6 +165,7 @@ const COMPONENT_VALIDATORS = [
   'validate-code-violations-gate1-recovery-authority.js',
   'validate-code-violations-gate1-recovery-preflight.js',
   'validate-code-violations-gate1-recovery-maintenance-gate.js',
+  'validate-county-code-violation-collapse-maintenance-gate-v1.js',
   'validate-code-violations-gate1-recovery-executor.js',
   'validate-county-identity-source-reconciliation.js',
   'validate-county-identity-repair-evidence-export.js',
@@ -662,6 +663,19 @@ const expectedCountyMutationExclusionLeaseFiles = new Set([
 ]);
 
 /*
+ * Current-authority Code Violations collapse maintenance readiness contributes
+ * exactly one production Apps Script module.
+ *
+ * The facade delegates durable exclusion state to CountyMutationExclusionLease.
+ * This allowlist grants readiness only and no collapse, physical-delete,
+ * scheduler, checkpoint, connector, deployment, MAO, or automatic-offer
+ * authority.
+ */
+const expectedCodeViolationCollapseMaintenanceGateFiles = new Set([
+  'build/apps-script-brand/CountyCodeViolationCollapseMaintenanceGate.js'
+]);
+
+/*
  * Group 3 Zillow restoration contributes exactly four production modules:
  *
  * - one authority-only restoration contract;
@@ -693,6 +707,7 @@ const expectedProductionFiles = new Set([
   ...expectedCodeViolationCollapseOperationIntentFiles,
   ...expectedCodeViolationCollapsePreservationStoreFiles,
   ...expectedCountyMutationExclusionLeaseFiles,
+  ...expectedCodeViolationCollapseMaintenanceGateFiles,
   ...expectedCodeViolationGroup3ZillowRestorationFiles
 ]);
 
@@ -926,6 +941,19 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCodeViolationCollapseMaintenanceGateFiles.size,
+  1,
+  'expected collapse maintenance-gate production inventory must contain exactly 1 file'
+);
+
+assert.ok(
+  expectedCodeViolationCollapseMaintenanceGateFiles.has(
+    'build/apps-script-brand/CountyCodeViolationCollapseMaintenanceGate.js'
+  ),
+  'CountyCodeViolationCollapseMaintenanceGate.js must be the authority-free CURRENT collapse maintenance readiness facade'
+);
+
+assert.equal(
   expectedCodeViolationGroup3ZillowRestorationFiles.size,
   4,
   'expected Group 3 Zillow restoration production inventory must contain exactly 4 files'
@@ -962,8 +990,8 @@ assert.ok(
 
 assert.equal(
   expectedProductionFiles.size,
-  134,
-  'expected reconciled production inventory must contain 134 files'
+  135,
+  'expected reconciled production inventory must contain 135 files'
 );
 
 assert.equal(
@@ -1077,6 +1105,20 @@ expectedCodeViolationCollapseDiagnosticFiles.forEach(file => {
 
 pass(
   'Code Violations collapse diagnostic surface is exactly two explicitly allowlisted read-only additive files'
+);
+
+expectedCodeViolationCollapseMaintenanceGateFiles.forEach(file => {
+  assert.ok(
+    diffEntries.some(entry =>
+      entry.file === file &&
+      entry.status === 'A'
+    ),
+    `expected collapse maintenance-gate production file missing from baseline diff: ${file}`
+  );
+});
+
+pass(
+  'collapse maintenance readiness surface is exactly one explicitly allowlisted authority-free additive file'
 );
 
 expectedPreservationFiles.forEach(file => {
