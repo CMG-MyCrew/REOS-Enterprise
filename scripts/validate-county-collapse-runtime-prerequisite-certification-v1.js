@@ -180,8 +180,17 @@ class FakeSpreadsheet {
     this.owner =
       new FakeUser(ownerEmail);
 
-    this.editors = [];
-    this.viewers = [];
+    /*
+     * Live Apps Script can return the owner through both hierarchical
+     * access-list methods even when Drive has no additional permissions.
+     */
+    this.editors = [
+      this.owner
+    ];
+
+    this.viewers = [
+      this.owner
+    ];
 
     this.sheets =
       sheets || [
@@ -1332,10 +1341,22 @@ for (
     context
   } = environment({
     createdMutator(workbook) {
+      /*
+       * Keep owner-inclusive live access-list semantics coherent when
+       * this test deliberately replaces the fake workbook owner.
+       */
       workbook.owner =
         new FakeUser(
           'different-owner@example.com'
         );
+
+      workbook.editors = [
+        workbook.owner
+      ];
+
+      workbook.viewers = [
+        workbook.owner
+      ];
     }
   });
 

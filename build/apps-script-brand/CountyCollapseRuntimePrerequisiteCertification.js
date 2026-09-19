@@ -424,8 +424,44 @@ REOS.CountyCollapseRuntimePrerequisiteCertification =
       workbook.getViewers();
 
     if (
-      !Array.isArray(editors) ||
-      editors.length !== 0
+      !Array.isArray(editors)
+    ) {
+      fail_(
+        'Operation-intent workbook editor inspection is malformed.'
+      );
+    }
+
+    if (
+      !Array.isArray(viewers)
+    ) {
+      fail_(
+        'Operation-intent workbook viewer inspection is malformed.'
+      );
+    }
+
+    /*
+     * Apps Script access lists can include the workbook owner even when
+     * there are no additional Drive permissions. The certified access
+     * invariant is zero users other than the already-verified owner.
+     */
+    var additionalEditors =
+      editors.filter(function (user) {
+        return (
+          userEmail_(user) !==
+          ownerEmail
+        );
+      });
+
+    var additionalViewers =
+      viewers.filter(function (user) {
+        return (
+          userEmail_(user) !==
+          ownerEmail
+        );
+      });
+
+    if (
+      additionalEditors.length !== 0
     ) {
       fail_(
         'Operation-intent workbook has additional editors.'
@@ -433,8 +469,7 @@ REOS.CountyCollapseRuntimePrerequisiteCertification =
     }
 
     if (
-      !Array.isArray(viewers) ||
-      viewers.length !== 0
+      additionalViewers.length !== 0
     ) {
       fail_(
         'Operation-intent workbook has additional viewers.'
