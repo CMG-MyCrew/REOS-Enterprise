@@ -197,7 +197,9 @@ const COMPONENT_VALIDATORS = [
   'validate-zillow-production-gmail-connector-state-diagnostic-v1.js',
   'validate-zillow-production-gmail-fail-closed-trigger-installer-v1.js',
   'validate-county-code-violation-collapse-executor-runtime-v1.js',
+  'validate-county-code-violation-collapse-executor-safety-correction-runtime-v1.js',
   'validate-county-code-violation-collapse-executor-implementation-lifecycle-v1.js',
+  'validate-county-code-violation-collapse-executor-safety-correction-implementation-lifecycle-v1.js',
   'validate-county-runtime-bridge.js'
 ];
 
@@ -209,6 +211,15 @@ const CERTIFIED_EXECUTOR_IMPLEMENTATION_REPLAY_SHA =
 
 const CERTIFIED_EXECUTOR_IMPLEMENTATION_REPLAY_TREE =
   '3bc32b52da3021967505000e984539c47fd8631b';
+
+const CERTIFIED_EXECUTOR_RUNTIME_VALIDATOR =
+  'validate-county-code-violation-collapse-executor-runtime-v1.js';
+
+const CERTIFIED_EXECUTOR_RUNTIME_REPLAY_SHA =
+  'dc19ab42fa9faf63b3db327598e32da6844de733';
+
+const CERTIFIED_EXECUTOR_RUNTIME_REPLAY_TREE =
+  '78db590eeae0c2fc64da4d4be29896e1f4980159';
 
 function pass(message) {
   console.log(`PASS: ${message}`);
@@ -1410,10 +1421,30 @@ console.log(
 );
 
 function runComponentCertification(fileName) {
+  var replaySha = '';
+  var replayTree = '';
+
   if (
-    fileName !==
+    fileName ===
       CERTIFIED_EXECUTOR_IMPLEMENTATION_LIFECYCLE_VALIDATOR
   ) {
+    replaySha =
+      CERTIFIED_EXECUTOR_IMPLEMENTATION_REPLAY_SHA;
+
+    replayTree =
+      CERTIFIED_EXECUTOR_IMPLEMENTATION_REPLAY_TREE;
+  } else if (
+    fileName ===
+      CERTIFIED_EXECUTOR_RUNTIME_VALIDATOR
+  ) {
+    replaySha =
+      CERTIFIED_EXECUTOR_RUNTIME_REPLAY_SHA;
+
+    replayTree =
+      CERTIFIED_EXECUTOR_RUNTIME_REPLAY_TREE;
+  }
+
+  if (!replaySha) {
     return spawnSync(
       process.execPath,
       [
@@ -1452,7 +1483,7 @@ function runComponentCertification(fileName) {
         'add',
         '--detach',
         replayWorktree,
-        CERTIFIED_EXECUTOR_IMPLEMENTATION_REPLAY_SHA
+        replaySha
       ],
       {
         cwd: ROOT,
@@ -1494,7 +1525,7 @@ function runComponentCertification(fileName) {
 
     assert.equal(
       String(head.stdout || '').trim(),
-      CERTIFIED_EXECUTOR_IMPLEMENTATION_REPLAY_SHA,
+      replaySha,
       'certified executor implementation replay head changed'
     );
 
@@ -1522,7 +1553,7 @@ function runComponentCertification(fileName) {
 
     assert.equal(
       String(tree.stdout || '').trim(),
-      CERTIFIED_EXECUTOR_IMPLEMENTATION_REPLAY_TREE,
+      replayTree,
       'certified executor implementation replay tree changed'
     );
 

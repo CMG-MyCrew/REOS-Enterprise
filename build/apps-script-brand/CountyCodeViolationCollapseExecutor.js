@@ -315,6 +315,10 @@ REOS.CountyCodeViolationCollapseExecutor =
       typeof REOS
         .CountyCollapseOperationIntentStore
         .read !==
+        'function' ||
+      typeof REOS
+        .CountyCollapseOperationIntentStore
+        .listOperationIds !==
         'function'
     ) {
       fail_(
@@ -688,6 +692,84 @@ REOS.CountyCodeViolationCollapseExecutor =
       currentGroupRows:
         current
     };
+  }
+
+  function assertNoTargetBoundOperationHistory_(
+    store,
+    targetDeleteDistressLeadId
+  ) {
+    var operationIds =
+      store.listOperationIds();
+
+    if (!Array.isArray(operationIds)) {
+      fail_(
+        'Operation-intent enumeration is malformed.'
+      );
+    }
+
+    var previousOperationId =
+      '';
+
+    for (
+      var index = 0;
+      index < operationIds.length;
+      index++
+    ) {
+      var operationId =
+        text_(
+          operationIds[index]
+        );
+
+      if (
+        !operationId ||
+        (
+          previousOperationId &&
+          operationId <=
+            previousOperationId
+        )
+      ) {
+        fail_(
+          'Operation-intent enumeration is not strict deterministic order.'
+        );
+      }
+
+      previousOperationId =
+        operationId;
+
+      var history =
+        store.read(
+          operationId
+        );
+
+      if (
+        !history ||
+        history.found !== true ||
+        !Array.isArray(
+          history.events
+        ) ||
+        history.events.length < 1 ||
+        !history.events[0] ||
+        !history.events[0].manifest
+      ) {
+        fail_(
+          'Enumerated operation history is unavailable or malformed.'
+        );
+      }
+
+      if (
+        text_(
+          history
+            .events[0]
+            .manifest
+            .targetDeleteDistressLeadId
+        ) ===
+        targetDeleteDistressLeadId
+      ) {
+        fail_(
+          'Existing durable operation history already binds requested delete candidate.'
+        );
+      }
+    }
   }
 
   function captureSheetEvidence_(
@@ -1469,6 +1551,11 @@ REOS.CountyCodeViolationCollapseExecutor =
                 request
               );
 
+            assertNoTargetBoundOperationHistory_(
+              store,
+              request.deleteDistressLeadId
+            );
+
             var prepared =
               store.prepare(
                 {
@@ -1586,6 +1673,13 @@ REOS.CountyCodeViolationCollapseExecutor =
                 'Pre-delete evidence changed after intent persistence.'
               );
             }
+
+            requirePreflightReady_();
+
+            maintenanceReady_(
+              request,
+              lockContext
+            );
 
             var barrier =
               store.append(
