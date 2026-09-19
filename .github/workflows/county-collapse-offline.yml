@@ -36,6 +36,7 @@ jobs:
           node --check build/apps-script-brand/CountyCodeViolationCollapseMaintenanceGate.js
           node --check scripts/validate-county-code-violation-collapse-maintenance-gate-v1.js
           node --check scripts/validate-county-code-violation-collapse-maintenance-implementation-lifecycle-v1.js
+          node --check scripts/validate-county-collapse-runtime-prerequisite-certification-contract-v1.js
           node --check scripts/validate-county-mutation-exclusion-lease-contract-v1.js
           node --check scripts/validate-county-mutation-exclusion-lease-implementation-contract-v1.js
           node --check scripts/validate-county-mutation-exclusion-lease-validation-lifecycle-v1.js
@@ -78,6 +79,9 @@ jobs:
 
       - name: Validate collapse maintenance implementation lifecycle
         run: node scripts/validate-county-code-violation-collapse-maintenance-implementation-lifecycle-v1.js
+
+      - name: Validate collapse runtime prerequisite certification design
+        run: node scripts/validate-county-collapse-runtime-prerequisite-certification-contract-v1.js
 
       - name: Validate county mutation-exclusion lease retrofit lifecycle
         run: node scripts/validate-county-mutation-exclusion-lease-retrofit-validation-lifecycle-v1.js
