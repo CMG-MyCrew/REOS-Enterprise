@@ -238,9 +238,16 @@ assert.ok(
   )
 );
 
-assert.ok(
+assert.strictEqual(
   preflight.includes(
     'CURRENT_AUTHORITY_LEASE_COMPATIBILITY_NOT_CERTIFIED'
+  ),
+  false
+);
+
+assert.ok(
+  preflight.includes(
+    'CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE'
   )
 );
 

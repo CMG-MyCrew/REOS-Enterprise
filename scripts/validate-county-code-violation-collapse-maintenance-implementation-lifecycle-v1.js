@@ -127,6 +127,29 @@ function git(args) {
   return result;
 }
 
+function sha256GitFile(ref, path) {
+  const result =
+    git([
+      'show',
+      ref + ':' + path
+    ]);
+
+  assert.strictEqual(
+    result.status,
+    0,
+    'Unable to read historical maintenance lifecycle artifact: ' +
+      path
+  );
+
+  return crypto
+    .createHash('sha256')
+    .update(
+      result.stdout,
+      'utf8'
+    )
+    .digest('hex');
+}
+
 function requireText(
   text,
   marker,
@@ -251,9 +274,12 @@ assert.strictEqual(
 );
 
 assert.strictEqual(
-  sha256File(PREFLIGHT),
+  sha256GitFile(
+    BASE,
+    PREFLIGHT
+  ),
   EXPECTED_PREFLIGHT_SHA,
-  'Collapse execution preflight changed during maintenance-gate implementation.'
+  'Historical collapse execution preflight changed at maintenance lifecycle base.'
 );
 
 assert.strictEqual(
@@ -275,8 +301,7 @@ assert.strictEqual(
   V2_VAL,
   LEASE,
   LEASE_COMPAT_VALIDATOR,
-  LEASE_COMPAT_HARNESS,
-  PREFLIGHT
+  LEASE_COMPAT_HARNESS
 ].forEach(path => {
   assert.strictEqual(
     git([
@@ -360,16 +385,19 @@ assert.strictEqual(
   'Maintenance RPC is prohibited.'
 );
 
-[
+requireText(
+  preflight,
   'CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE',
-  'CURRENT_AUTHORITY_LEASE_COMPATIBILITY_NOT_CERTIFIED'
-].forEach(marker => {
-  requireText(
-    preflight,
-    marker,
-    'Preserved execution blocker'
-  );
-});
+  'Preserved execution blocker'
+);
+
+assert.strictEqual(
+  preflight.includes(
+    'CURRENT_AUTHORITY_LEASE_COMPATIBILITY_NOT_CERTIFIED'
+  ),
+  false,
+  'Retired lease-compatibility blocker must not remain in current preflight.'
+);
 
 assert.strictEqual(
   workflow.split(HIST_MAINT_VAL).length - 1,
@@ -482,7 +510,7 @@ console.log(
 );
 
 console.log(
-  'PASS: both collapse execution blockers remain intact.'
+  'PASS: certified collapse executor blocker remains intact and the current lease-compatibility blocker is retired.'
 );
 
 console.log(

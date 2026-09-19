@@ -543,8 +543,7 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
        * Primitive availability is not execution authority.
        */
       var blockers = [
-        'CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE',
-        'CURRENT_AUTHORITY_LEASE_COMPATIBILITY_NOT_CERTIFIED'
+        'CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE'
       ];
 
       return Object.freeze({

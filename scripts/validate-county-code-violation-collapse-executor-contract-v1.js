@@ -404,11 +404,12 @@ assert.ok(
   'Historical Group 3 may not remain blocked in the current post-restoration winner plan.'
 );
 
-assert.ok(
+assert.strictEqual(
   preflight.includes(
     'CURRENT_AUTHORITY_LEASE_COMPATIBILITY_NOT_CERTIFIED'
   ),
-  'Current preflight must remain blocked until lease compatibility is separately certified.'
+  false,
+  'Certified current preflight must not retain the retired lease-compatibility blocker.'
 );
 
 assert.ok(
