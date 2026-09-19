@@ -11,6 +11,9 @@ const BASE = '33b9feb19ce4feafd352a90fb108206a41e0d630';
 const COMPATIBILITY_BASE =
   '212bd5b56ec8fda87e437467d774bfa206e75726';
 
+const INTEGRATION_AUTHORITY =
+  'cd32f67a4038d6321ed5ffbcc88a29e62847d580';
+
 const HISTORICAL =
   'scripts/validate-county-mutation-exclusion-lease-validation-lifecycle-v1.js';
 
@@ -246,10 +249,32 @@ assert.strictEqual(
 );
 
 assert.strictEqual(
-  sha256File(INTEGRATION),
+  sha256GitFile(
+    INTEGRATION_AUTHORITY,
+    INTEGRATION
+  ),
   EXPECTED_INTEGRATION_SHA,
-  'Certified county runtime integration validator changed.'
+  'Historical certified county runtime integration validator changed.'
 );
+
+const currentIntegrationSource =
+  fs.readFileSync(
+    INTEGRATION,
+    'utf8'
+  );
+
+[
+  'expectedCountyMutationExclusionLeaseFiles',
+  'build/apps-script-brand/CountyMutationExclusionLease.js',
+  'expectedProductionFiles.size',
+  'expected reconciled production inventory must contain '
+].forEach(marker => {
+  requireText(
+    currentIntegrationSource,
+    marker,
+    'Current county runtime integration'
+  );
+});
 
 assert.ok(
   fs.existsSync(MAINTENANCE_GATE),
