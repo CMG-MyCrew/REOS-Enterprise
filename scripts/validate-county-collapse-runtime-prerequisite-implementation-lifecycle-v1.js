@@ -166,6 +166,36 @@ function sha256File(path) {
     .digest('hex');
 }
 
+function sha256GitFile(ref, path) {
+  const result =
+    cp.spawnSync(
+      'git',
+      [
+        'show',
+        ref + ':' + path
+      ],
+      {
+        encoding:
+          'utf8'
+      }
+    );
+
+  assert.strictEqual(
+    result.status,
+    0,
+    'Unable to read historical prerequisite artifact: ' +
+      path
+  );
+
+  return crypto
+    .createHash('sha256')
+    .update(
+      result.stdout,
+      'utf8'
+    )
+    .digest('hex');
+}
+
 function requireText(text, marker, label) {
   assert.ok(
     text.includes(marker),
@@ -257,15 +287,21 @@ EXPECTED_PROTECTED.forEach(
 );
 
 assert.strictEqual(
-  sha256File(MODULE),
+  sha256GitFile(
+    IMPLEMENTATION_AUTHORITY,
+    MODULE
+  ),
   EXPECTED_MODULE_SHA,
-  'Prerequisite runtime implementation changed.'
+  'Historical prerequisite runtime implementation changed.'
 );
 
 assert.strictEqual(
-  sha256File(HARNESS),
+  sha256GitFile(
+    IMPLEMENTATION_AUTHORITY,
+    HARNESS
+  ),
   EXPECTED_HARNESS_SHA,
-  'Prerequisite behavior harness changed.'
+  'Historical prerequisite behavior harness changed.'
 );
 
 assert.ok(
@@ -305,6 +341,9 @@ const moduleSource =
   'COUNTY_COLLAPSE_OPERATION_INTENT_CHUNKS',
   'prerequisitesReadyForExecutorImplementation',
   'collapseExecutionAuthorityGranted',
+  'var additionalEditors =',
+  'var additionalViewers =',
+  'userEmail_(user) !==',
   'false'
 ].forEach(marker => {
   requireText(
