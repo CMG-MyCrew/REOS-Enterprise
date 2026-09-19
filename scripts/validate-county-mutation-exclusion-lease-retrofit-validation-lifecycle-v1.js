@@ -8,6 +8,9 @@ const cp = require('node:child_process');
 
 const BASE = '33b9feb19ce4feafd352a90fb108206a41e0d630';
 
+const COMPATIBILITY_BASE =
+  '212bd5b56ec8fda87e437467d774bfa206e75726';
+
 const HISTORICAL =
   'scripts/validate-county-mutation-exclusion-lease-validation-lifecycle-v1.js';
 
@@ -26,6 +29,9 @@ const LEASE =
 const RUNTIME_HARNESS =
   'scripts/validate-county-mutation-exclusion-lease-v1.js';
 
+const COMPATIBILITY_RUNTIME_HARNESS =
+  'scripts/validate-county-mutation-exclusion-lease-authority-compatibility-runtime-v1.js';
+
 const INTEGRATION =
   'scripts/validate-county-runtime-integration.js';
 
@@ -36,8 +42,10 @@ const EXECUTOR =
   'build/apps-script-brand/CountyCodeViolationCollapseExecutor.js';
 
 const EXPECTED_HISTORICAL_SHA = 'a33f351e25cbdbd7512c77e7ddcc511e38a4a9a93fcb40723c67eca5646d64a7';
-const EXPECTED_LEASE_SHA = '7bb81a035b8ed643a1eb02582a02cb7d17bcc43bdc4e0c71ab3da963b48473b4';
+const EXPECTED_HISTORICAL_LEASE_SHA = '7bb81a035b8ed643a1eb02582a02cb7d17bcc43bdc4e0c71ab3da963b48473b4';
+const EXPECTED_CURRENT_LEASE_SHA = 'f4e02ba1c8aef87075a87437673691b02d8a8587be2dd51280c9708b92954fdb';
 const EXPECTED_RUNTIME_HARNESS_SHA = '61d7c1bb6d55b3be147ffe4fd7c99f932d9a9d194e0cfe30d8875addcbd44ebb';
+const EXPECTED_COMPATIBILITY_RUNTIME_HARNESS_SHA = '4a8e18fc495869fd8bd47a66f89c3989720f162d3cbde07ad098ddb2029d938d';
 const EXPECTED_INTEGRATION_SHA = '931130f851bf31701e19cf1eceac7a5092233f34dec2884fcea48eb4ea578869';
 
 const WRITERS = [
@@ -115,6 +123,30 @@ function sha256File(path) {
     .digest('hex');
 }
 
+function sha256GitFile(ref, path) {
+  const result = cp.spawnSync(
+    'git',
+    [
+      'show',
+      ref + ':' + path
+    ],
+    {
+      encoding: 'utf8'
+    }
+  );
+
+  assert.strictEqual(
+    result.status,
+    0,
+    'Unable to read historical Git artifact: ' + path
+  );
+
+  return crypto
+    .createHash('sha256')
+    .update(result.stdout, 'utf8')
+    .digest('hex');
+}
+
 function git(args) {
   const result = cp.spawnSync(
     'git',
@@ -170,6 +202,7 @@ assert.strictEqual(
   WORKFLOW,
   LEASE,
   RUNTIME_HARNESS,
+  COMPATIBILITY_RUNTIME_HARNESS,
   INTEGRATION
 ].forEach(path => {
   assert.ok(
@@ -185,15 +218,30 @@ assert.strictEqual(
 );
 
 assert.strictEqual(
+  sha256GitFile(
+    COMPATIBILITY_BASE,
+    LEASE
+  ),
+  EXPECTED_HISTORICAL_LEASE_SHA,
+  'Historical runtime lease baseline changed.'
+);
+
+assert.strictEqual(
   sha256File(LEASE),
-  EXPECTED_LEASE_SHA,
-  'Certified runtime lease changed.'
+  EXPECTED_CURRENT_LEASE_SHA,
+  'Current compatibility runtime lease changed.'
 );
 
 assert.strictEqual(
   sha256File(RUNTIME_HARNESS),
   EXPECTED_RUNTIME_HARNESS_SHA,
   'Certified runtime harness changed.'
+);
+
+assert.strictEqual(
+  sha256File(COMPATIBILITY_RUNTIME_HARNESS),
+  EXPECTED_COMPATIBILITY_RUNTIME_HARNESS_SHA,
+  'Compatibility runtime harness changed.'
 );
 
 assert.strictEqual(
@@ -290,6 +338,41 @@ assert.strictEqual(
   runtimeHarnessSyntax.status,
   0,
   'Historical runtime harness syntax failed.'
+);
+
+const compatibilityHarnessSyntax =
+  cp.spawnSync(
+    process.execPath,
+    [
+      '--check',
+      COMPATIBILITY_RUNTIME_HARNESS
+    ],
+    {
+      encoding:
+        'utf8'
+    }
+  );
+
+if (compatibilityHarnessSyntax.stdout) {
+  process.stdout.write(
+    compatibilityHarnessSyntax.stdout
+  );
+}
+
+if (compatibilityHarnessSyntax.stderr) {
+  process.stderr.write(
+    compatibilityHarnessSyntax.stderr
+  );
+}
+
+assert.strictEqual(
+  compatibilityHarnessSyntax.status,
+  0,
+  'Compatibility runtime harness syntax failed.'
+);
+
+runNode(
+  COMPATIBILITY_RUNTIME_HARNESS
 );
 
 const expectedHarnesses =
@@ -404,7 +487,11 @@ console.log(
 );
 
 console.log(
-  'PASS: runtime lease remains certified; historical 50-case harness remains SHA-pinned and syntax-valid.'
+  'PASS: historical lease baseline and historical 50-case harness remain SHA-certified.'
+);
+
+console.log(
+  'PASS: current compatibility lease and compatibility runtime harness are SHA-certified.'
 );
 
 console.log(
