@@ -447,7 +447,8 @@ assert.strictEqual(
   'CountyCollapseRuntimePrerequisiteCertification.js',
   'validate-county-collapse-runtime-prerequisite-certification-v1.js',
   'expectedCountyCollapseRuntimePrerequisiteFiles',
-  'expected reconciled production inventory must contain 136 files'
+  'expectedProductionFiles.size',
+  'expected reconciled production inventory must contain '
 ].forEach(marker => {
   requireText(
     integration,
