@@ -32,6 +32,7 @@ jobs:
           node --check scripts/validate-county-code-violation-collapse-execution-preflight-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-contract-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-implementation-authorization-v1.js
+          node --check scripts/validate-county-code-violation-collapse-executor-implementation-authorization-v2.js
           node --check scripts/validate-county-code-violation-collapse-executor-maintenance-handoff-v1.js
           node --check scripts/validate-county-code-violation-collapse-postdelete-repeatability-contract-v1.js
           node --check build/apps-script-brand/CountyCodeViolationCollapseDirectKeepExecutionAuthority.js
@@ -94,8 +95,8 @@ jobs:
       - name: Validate collapse post-delete repeatability runtime
         run: node scripts/validate-county-code-violation-collapse-postdelete-repeatability-runtime-v1.js
 
-      - name: Validate collapse post-delete repeatability implementation lifecycle
-        run: node scripts/validate-county-code-violation-collapse-postdelete-repeatability-implementation-lifecycle-v1.js
+      - name: Validate collapse executor successor implementation authorization v2
+        run: node scripts/validate-county-code-violation-collapse-executor-implementation-authorization-v2.js
 
       - name: Validate collapse maintenance implementation lifecycle
         run: node scripts/validate-county-code-violation-collapse-maintenance-implementation-lifecycle-v1.js
