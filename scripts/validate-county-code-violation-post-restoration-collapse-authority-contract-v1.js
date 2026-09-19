@@ -1,229 +1,319 @@
 'use strict';
 
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
+const assert =
+  require('assert');
 
-const root = path.resolve(__dirname, '..');
+const fs =
+  require('fs');
 
-const docPath = path.join(
-  root,
-  'docs/county-code-violation-post-restoration-collapse-authority-v1.md'
-);
+const path =
+  require('path');
 
-const workflowPath = path.join(
-  root,
-  '.github/workflows/county-collapse-offline.yml'
-);
-
-const authorityPath = path.join(
-  root,
-  'build/apps-script-brand/CountyCodeViolationCollapseOnlyEvidenceAuthority.js'
-);
-
-const fullRowPath = path.join(
-  root,
-  'build/apps-script-brand/CountyCodeViolationCollapseFullRowEvidence.js'
-);
-
-const winnerPath = path.join(
-  root,
-  'build/apps-script-brand/CountyCodeViolationCollapseWinnerPlan.js'
-);
-
-const preflightPath = path.join(
-  root,
-  'build/apps-script-brand/CountyCodeViolationCollapseExecutionPreflight.js'
-);
-
-const leasePath = path.join(
-  root,
-  'build/apps-script-brand/CountyMutationExclusionLease.js'
-);
-
-for (const file of [
-  docPath,
-  workflowPath,
-  authorityPath,
-  fullRowPath,
-  winnerPath,
-  preflightPath,
-  leasePath
-]) {
-  assert.ok(
-    fs.existsSync(file),
-    'Required file missing: ' + file
+const root =
+  path.resolve(
+    __dirname,
+    '..'
   );
-}
 
-const doc = fs.readFileSync(docPath, 'utf8');
-const workflow = fs.readFileSync(workflowPath, 'utf8');
-
-function requires(fragment) {
-  assert.ok(
-    doc.includes(fragment),
-    'Design contract missing: ' + fragment
+const DOC =
+  path.join(
+    root,
+    'docs/county-code-violation-post-restoration-collapse-authority-v1.md'
   );
-}
+
+const AUTHORITY =
+  path.join(
+    root,
+    'build/apps-script-brand/CountyCodeViolationCollapseOnlyEvidenceAuthority.js'
+  );
+
+const FULLROW =
+  path.join(
+    root,
+    'build/apps-script-brand/CountyCodeViolationCollapseFullRowEvidence.js'
+  );
+
+const WINNER =
+  path.join(
+    root,
+    'build/apps-script-brand/CountyCodeViolationCollapseWinnerPlan.js'
+  );
+
+const PREFLIGHT =
+  path.join(
+    root,
+    'build/apps-script-brand/CountyCodeViolationCollapseExecutionPreflight.js'
+  );
+
+const LEASE =
+  path.join(
+    root,
+    'build/apps-script-brand/CountyMutationExclusionLease.js'
+  );
+
+const GROUP3 =
+  path.join(
+    root,
+    'build/apps-script-brand/CountyCodeViolationGroup3PostRestorationEvidence.js'
+  );
+
+const OLD_AUTHORITY =
+  '87ec06c98009dec42f5cfa52ecdeeaf6167d9c67d13dc0ca1eb353acf05964ee';
+
+const NEW_AUTHORITY =
+  '8993da9619a9203182189cb8746eedf286a279b84db9342a53d9eb33de057ce7';
+
+const OLD_FINGERPRINT =
+  '848f517a03bbfc51e500a1b86a826dc1c9e1e12988a32f3a1c030ad3913624c9';
+
+const NEW_FINGERPRINT =
+  '9259978446e1423cf7d97414df62468734e64fbf68fcccd8936079e91e86a9ce';
+
+const doc =
+  fs.readFileSync(
+    DOC,
+    'utf8'
+  );
+
+const authority =
+  fs.readFileSync(
+    AUTHORITY,
+    'utf8'
+  );
+
+const fullrow =
+  fs.readFileSync(
+    FULLROW,
+    'utf8'
+  );
+
+const winner =
+  fs.readFileSync(
+    WINNER,
+    'utf8'
+  );
+
+const preflight =
+  fs.readFileSync(
+    PREFLIGHT,
+    'utf8'
+  );
+
+const lease =
+  fs.readFileSync(
+    LEASE,
+    'utf8'
+  );
+
+const group3 =
+  fs.readFileSync(
+    GROUP3,
+    'utf8'
+  );
 
 [
   'POST_RESTORATION_COLLAPSE_AUTHORITY_V1',
-
   'POST_RESTORATION_GROUP_COUNT=21',
   'POST_RESTORATION_ROW_COUNT=44',
-
   'POST_RESTORATION_ELIGIBLE_GROUP_COUNT=20',
   'POST_RESTORATION_ELIGIBLE_ROW_COUNT=42',
-
   'POST_RESTORATION_DIRECT_KEEP_GROUP_COUNT=14',
   'POST_RESTORATION_OBSERVATION_MERGE_GROUP_COUNT=6',
   'POST_RESTORATION_DELETE_CANDIDATE_ROW_COUNT=22',
-
   'POST_RESTORATION_BLOCKED_GROUP_COUNT=1',
   'POST_RESTORATION_CONFLICT_BLOCKED_GROUP=1',
   'POST_RESTORATION_REFERENCE_BLOCKED_GROUP=NONE',
-
-  'DL-20260820181647-4170',
-  'ZIL-20260820193920-1756',
-
-  'row 767',
-  'row 771',
-  'row 38 / column 13',
-
   'requested ID count: `44`',
   'zero downstream references',
-
   'Group numbers must not be renumbered',
-
-  'CountyCodeViolationCollapseOnlyEvidenceAuthority.js',
-  'CountyCodeViolationCollapseFullRowEvidence.js',
-  'CountyCodeViolationCollapseWinnerPlan.js',
-  'CountyCodeViolationCollapseExecutionPreflight.js',
-  'CountyMutationExclusionLease.js',
-
-  '87ec06c98009dec42f5cfa52ecdeeaf6167d9c67d13dc0ca1eb353acf05964ee',
-  '848f517a03bbfc51e500a1b86a826dc1c9e1e12988a32f3a1c030ad3913624c9',
-
-  'must not merely replace the two constants',
-  'historical CLOSED',
-  'historical expired',
-  'active, unexpired historical-authority lease',
-
-  'GROUP3_REEXECUTION_REQUIRED=false',
-  'GROUP3_REEXECUTION_AUTHORITY_GRANTED=false',
-
-  'COLLAPSE_EXECUTION_READY=false',
-  'COLLAPSE_EXECUTION_AUTHORITY_GRANTED=false',
-
-  'SCHEDULER_REINSTALL_AUTHORITY_GRANTED=false',
-
-  'POST_RESTORATION_COLLAPSE_AUTHORITY_DESIGN_ONLY=true',
-  'POST_RESTORATION_COLLAPSE_IMPLEMENTATION_PRESENT=false',
-  'PRODUCTION_DATA_MUTATION_AUTHORITY_GRANTED=false',
-  'COLLAPSE_AUTHORITY_GRANTED=false',
-  'WINNER_SELECTION_AUTHORITY_GRANTED=false',
-  'DELETE_AUTHORITY_GRANTED=false',
-  'PHYSICAL_DELETE_AUTHORITY_GRANTED=false',
-  'REFERENCE_REWRITE_AUTHORITY_GRANTED=false',
-  'SCHEDULER_MUTATION_AUTHORITY_GRANTED=false',
-  'CHECKPOINT_MUTATION_AUTHORITY_GRANTED=false',
-  'CONNECTOR_EXECUTION_AUTHORITY_GRANTED=false',
-  'AUTOMATIC_OFFER_AUTHORITY_GRANTED=false'
-].forEach(requires);
-
-/*
- * Design-only means existing runtime authority MUST remain untouched
- * in this increment.
- */
-const authority = fs.readFileSync(authorityPath, 'utf8');
-const fullRow = fs.readFileSync(fullRowPath, 'utf8');
-const winner = fs.readFileSync(winnerPath, 'utf8');
-const preflight = fs.readFileSync(preflightPath, 'utf8');
-const lease = fs.readFileSync(leasePath, 'utf8');
+  'must not merely replace the two constants'
+].forEach(fragment => {
+  assert.ok(
+    doc.includes(
+      fragment
+    ),
+    'Design contract missing: ' +
+      fragment
+  );
+});
 
 assert.ok(
-  authority.includes('groupCount: 22'),
-  'Design increment unexpectedly changed runtime group count.'
+  authority.includes(
+    "var AUTHORITY_SHA256 = '" +
+      NEW_AUTHORITY +
+      "';"
+  )
 );
 
 assert.ok(
-  authority.includes('rowCount: 46'),
-  'Design increment unexpectedly changed runtime row count.'
+  authority.includes(
+    'groupCount: 21'
+  )
 );
 
 assert.ok(
-  fullRow.includes('var EXPECTED_GROUP_COUNT = 22;'),
-  'Design increment unexpectedly changed full-row group authority.'
+  authority.includes(
+    'rowCount: 44'
+  )
 );
 
-assert.ok(
-  fullRow.includes('var EXPECTED_ROW_COUNT = 46;'),
-  'Design increment unexpectedly changed full-row row authority.'
-);
-
-assert.ok(
-  winner.includes('var EXPECTED_GROUP_COUNT = 22;'),
-  'Design increment unexpectedly changed winner-plan group authority.'
-);
-
-assert.ok(
-  winner.includes('var EXPECTED_ROW_COUNT = 46;'),
-  'Design increment unexpectedly changed winner-plan row authority.'
-);
-
-assert.ok(
-  winner.includes('var REFERENCE_BLOCKED_GROUP = 3;'),
-  'Design increment unexpectedly changed Group 3 runtime classification.'
-);
-
-const oldAuthority =
-  '87ec06c98009dec42f5cfa52ecdeeaf6167d9c67d13dc0ca1eb353acf05964ee';
-
-const oldFingerprint =
-  '848f517a03bbfc51e500a1b86a826dc1c9e1e12988a32f3a1c030ad3913624c9';
-
-assert.ok(
-  preflight.includes(oldAuthority),
-  'Design increment unexpectedly changed preflight authority SHA.'
-);
-
-assert.ok(
-  preflight.includes(oldFingerprint),
-  'Design increment unexpectedly changed preflight winner fingerprint.'
-);
-
-assert.ok(
-  lease.includes(oldAuthority),
-  'Design increment unexpectedly changed lease authority SHA.'
-);
-
-assert.ok(
-  lease.includes(oldFingerprint),
-  'Design increment unexpectedly changed lease winner fingerprint.'
-);
-
-/*
- * CI registration is part of the design increment.
- */
-const validatorRel =
-  'scripts/validate-county-code-violation-post-restoration-collapse-authority-contract-v1.js';
-
-assert.ok(
-  workflow.includes(
-    'node --check ' + validatorRel
+assert.strictEqual(
+  authority.includes(
+    'DL-20260820181647-4170'
   ),
-  'Design validator syntax check is not registered in CI.'
+  false
+);
+
+assert.strictEqual(
+  authority.includes(
+    'ZIL-20260820193920-1756'
+  ),
+  false
 );
 
 assert.ok(
-  workflow.includes(
-    'run: node ' + validatorRel
+  fullrow.includes(
+    'var EXPECTED_GROUP_COUNT = 21;'
+  )
+);
+
+assert.ok(
+  fullrow.includes(
+    'var EXPECTED_ROW_COUNT = 44;'
+  )
+);
+
+assert.ok(
+  fullrow.includes(
+    NEW_AUTHORITY
+  )
+);
+
+assert.ok(
+  winner.includes(
+    'var EXPECTED_GROUP_COUNT = 21;'
+  )
+);
+
+assert.ok(
+  winner.includes(
+    'var EXPECTED_ROW_COUNT = 44;'
+  )
+);
+
+assert.ok(
+  winner.includes(
+    NEW_AUTHORITY
+  )
+);
+
+assert.strictEqual(
+  winner.includes(
+    'REFERENCE_BLOCKED_GROUP'
   ),
-  'Design validator execution is not registered in CI.'
+  false
+);
+
+assert.ok(
+  winner.includes(
+    'matchedIdCount'
+  )
+);
+
+assert.ok(
+  winner.includes(
+    'retainedMatchCount'
+  )
+);
+
+assert.ok(
+  preflight.includes(
+    NEW_AUTHORITY
+  )
+);
+
+assert.ok(
+  preflight.includes(
+    NEW_FINGERPRINT
+  )
+);
+
+assert.ok(
+  preflight.includes(
+    'CURRENT_AUTHORITY_LEASE_COMPATIBILITY_NOT_CERTIFIED'
+  )
+);
+
+assert.ok(
+  preflight.includes(
+    'CountyCodeViolationGroup3PostRestorationEvidence'
+  )
+);
+
+assert.ok(
+  group3.includes(
+    'READ_ONLY_GROUP3_POST_RESTORATION_EVIDENCE'
+  )
+);
+
+assert.ok(
+  lease.includes(
+    OLD_AUTHORITY
+  )
+);
+
+assert.ok(
+  lease.includes(
+    OLD_FINGERPRINT
+  )
+);
+
+assert.strictEqual(
+  lease.includes(
+    NEW_AUTHORITY
+  ),
+  false
+);
+
+assert.strictEqual(
+  lease.includes(
+    NEW_FINGERPRINT
+  ),
+  false
+);
+
+[
+  'winnerSelectionAuthorityGranted',
+  'collapseAuthorityGranted',
+  'deleteAuthorityGranted',
+  'productionDataMutationAuthorityGranted',
+  'automaticOfferAuthorityGranted'
+].forEach(token => {
+  assert.ok(
+    winner.includes(
+      token
+    )
+  );
+
+  assert.ok(
+    preflight.includes(
+      token
+    )
+  );
+});
+
+console.log(
+  'POST_RESTORATION_COLLAPSE_AUTHORITY_PHASE1_IMPLEMENTATION_VALIDATOR_PASS=true'
 );
 
 console.log(
-  'POST_RESTORATION_COLLAPSE_AUTHORITY_DESIGN_VALIDATOR_PASS=true'
+  'POST_RESTORATION_AUTHORITY_SHA256=' +
+  NEW_AUTHORITY
+);
+
+console.log(
+  'POST_RESTORATION_WINNER_FINGERPRINT_SHA256=' +
+  NEW_FINGERPRINT
 );
 
 console.log(
@@ -235,31 +325,23 @@ console.log(
 );
 
 console.log(
-  'POST_RESTORATION_ELIGIBLE_GROUP_COUNT=20'
-);
-
-console.log(
-  'POST_RESTORATION_ELIGIBLE_ROW_COUNT=42'
-);
-
-console.log(
-  'POST_RESTORATION_DELETE_CANDIDATE_ROW_COUNT=22'
-);
-
-console.log(
   'POST_RESTORATION_BLOCKED_GROUP_COUNT=1'
 );
 
 console.log(
-  'RUNTIME_IMPLEMENTATION_CHANGED=false'
+  'GROUP3_POST_RESTORATION_EVIDENCE_REQUIRED=true'
+);
+
+console.log(
+  'LEASE_RUNTIME_AUTHORITY_NOT_CHANGED=true'
+);
+
+console.log(
+  'COLLAPSE_EXECUTION_AUTHORITY_GRANTED=false'
 );
 
 console.log(
   'GROUP3_REEXECUTION_AUTHORITY_GRANTED=false'
-);
-
-console.log(
-  'PRODUCTION_DATA_MUTATION_AUTHORITY_GRANTED=false'
 );
 
 console.log(

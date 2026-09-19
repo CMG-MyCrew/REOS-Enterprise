@@ -1,8 +1,8 @@
 /**
  * REOS Enterprise - Code Violation Collapse Full-Row Evidence
  *
- * Read-only forensic export for the exact certified 22-group /
- * 46-row same-property durable-identity duplicate cohort.
+ * Read-only forensic export for the exact certified post-restoration
+ * 21-group / 44-row same-property durable-identity duplicate cohort.
  *
  * Caller-defined population authority is prohibited.
  *
@@ -19,11 +19,11 @@ REOS.CountyCodeViolationCollapseFullRowEvidence = (function () {
   var CONNECTOR = 'PA-PHILADELPHIA';
   var DATASET = 'code_violations';
 
-  var EXPECTED_GROUP_COUNT = 22;
-  var EXPECTED_ROW_COUNT = 46;
+  var EXPECTED_GROUP_COUNT = 21;
+  var EXPECTED_ROW_COUNT = 44;
 
   var EXPECTED_AUTHORITY_SHA256 =
-    '87ec06c98009dec42f5cfa52ecdeeaf6167d9c67d13dc0ca1eb353acf05964ee';
+    '8993da9619a9203182189cb8746eedf286a279b84db9342a53d9eb33de057ce7';
 
   function text_(value) {
     return String(

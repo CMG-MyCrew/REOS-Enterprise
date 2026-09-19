@@ -6,7 +6,7 @@
  * READ ONLY.
  *
  * This module derives a deterministic candidate winner plan from:
- *   1. the certified 22-group / 46-row collapse-only authority,
+ *   1. the certified post-restoration 21-group / 44-row collapse-only authority,
  *   2. independently verified current full-row evidence, and
  *   3. a complete downstream Distress Lead ID reference scan.
  *
@@ -18,10 +18,10 @@ var REOS = REOS || {};
 REOS.CountyCodeViolationCollapseWinnerPlan =
   (function () {
     var EXPECTED_AUTHORITY_SHA256 =
-      '87ec06c98009dec42f5cfa52ecdeeaf6167d9c67d13dc0ca1eb353acf05964ee';
+      '8993da9619a9203182189cb8746eedf286a279b84db9342a53d9eb33de057ce7';
 
-    var EXPECTED_GROUP_COUNT = 22;
-    var EXPECTED_ROW_COUNT = 46;
+    var EXPECTED_GROUP_COUNT = 21;
+    var EXPECTED_ROW_COUNT = 44;
 
     var EXPECTED_ELIGIBLE_GROUPS = 20;
     var EXPECTED_ELIGIBLE_ROWS = 42;
@@ -30,15 +30,6 @@ REOS.CountyCodeViolationCollapseWinnerPlan =
     var EXPECTED_DELETE_CANDIDATES = 22;
 
     var CONFLICT_BLOCKED_GROUP = 1;
-    var REFERENCE_BLOCKED_GROUP = 3;
-
-    var EXPECTED_REFERENCED_ID =
-      'ZIL-20260820193920-1756';
-
-    var EXPECTED_REFERENCE_SHEET =
-      'ZILLOW_GMAIL_IMPORTS';
-
-    var EXPECTED_REFERENCE_COLUMN = 13;
 
     var IDENTITY_FIELDS = {
       'Source': true,
@@ -490,41 +481,43 @@ REOS.CountyCodeViolationCollapseWinnerPlan =
       }
 
       if (
+        referenceAudit.matchesTruncated !== false ||
         Number(
           referenceAudit.matchedIdCount
-        ) !== 1 ||
+        ) !== 0 ||
         Number(
           referenceAudit.matchCount
-        ) !== 1 ||
+        ) !== 0 ||
+        Number(
+          referenceAudit.retainedMatchCount
+        ) !== 0 ||
         !Array.isArray(
           referenceAudit.matches
         ) ||
-        referenceAudit.matches.length !== 1
+        referenceAudit.matches.length !== 0 ||
+        !Array.isArray(
+          referenceAudit.unmatchedIds
+        ) ||
+        referenceAudit.unmatchedIds.length !==
+          EXPECTED_ROW_COUNT ||
+        !Array.isArray(
+          referenceAudit.requestedIds
+        ) ||
+        JSON.stringify(
+          referenceAudit.requestedIds
+        ) !==
+          JSON.stringify(
+            requestedIds
+          ) ||
+        JSON.stringify(
+          referenceAudit.unmatchedIds
+        ) !==
+          JSON.stringify(
+            requestedIds
+          )
       ) {
         throw new Error(
-          'Collapse cohort downstream reference surface drift.'
-        );
-      }
-
-      var reference =
-        referenceAudit.matches[0];
-
-      if (
-        text_(
-          reference.distressLeadId
-        ) !==
-          EXPECTED_REFERENCED_ID ||
-        text_(
-          reference.sheet
-        ) !==
-          EXPECTED_REFERENCE_SHEET ||
-        Number(
-          reference.columnNumber
-        ) !==
-          EXPECTED_REFERENCE_COLUMN
-      ) {
-        throw new Error(
-          'Reference-constrained collapse group drift.'
+          'Post-restoration collapse cohort downstream reference drift.'
         );
       }
 
@@ -691,73 +684,6 @@ REOS.CountyCodeViolationCollapseWinnerPlan =
                 conflictFields,
               referenceConstrained:
                 false
-            });
-
-            return;
-          }
-
-          if (
-            groupNumber ===
-            REFERENCE_BLOCKED_GROUP
-          ) {
-            var oneSidedFields =
-              exactFields_(
-                business.oneSided
-              );
-
-            var expectedOneSided = [
-              'Status',
-              'Tax Interest',
-              'Tax Penalty',
-              'Tax Principal'
-            ];
-
-            if (
-              business.conflicts.length !== 0 ||
-              JSON.stringify(
-                oneSidedFields
-              ) !==
-              JSON.stringify(
-                expectedOneSided
-              )
-            ) {
-              throw new Error(
-                'Group 3 merge-blocked condition drift.'
-              );
-            }
-
-            var group3Ids =
-              members.map(
-                function (member) {
-                  return member
-                    .distressLeadId;
-                }
-              );
-
-            if (
-              group3Ids.indexOf(
-                EXPECTED_REFERENCED_ID
-              ) === -1
-            ) {
-              throw new Error(
-                'Group 3 referenced member drift.'
-              );
-            }
-
-            blocked.push({
-              groupNumber:
-                groupNumber,
-              violationNumber:
-                members[0]
-                  .violationNumber,
-              reason:
-                'REFERENCE_CONSTRAINED_MERGE_REQUIRED',
-              referenceConstrained:
-                true,
-              referencedDistressLeadId:
-                EXPECTED_REFERENCED_ID,
-              oneSidedFields:
-                oneSidedFields
             });
 
             return;
@@ -976,9 +902,8 @@ REOS.CountyCodeViolationCollapseWinnerPlan =
       }
 
       if (
-        blocked.length !== 2 ||
-        blocked[0].groupNumber !== 1 ||
-        blocked[1].groupNumber !== 3
+        blocked.length !== 1 ||
+        blocked[0].groupNumber !== 1
       ) {
         throw new Error(
           'Blocked collapse group membership drift.'
@@ -991,13 +916,21 @@ REOS.CountyCodeViolationCollapseWinnerPlan =
             authoritySha256:
               metadata
                 .authoritySha256,
-            reference: {
-              distressLeadId:
-                EXPECTED_REFERENCED_ID,
-              sheet:
-                EXPECTED_REFERENCE_SHEET,
-              columnNumber:
-                EXPECTED_REFERENCE_COLUMN
+            referenceAudit: {
+              requestedIdCount:
+                EXPECTED_ROW_COUNT,
+              matchedIdCount:
+                0,
+              matchCount:
+                0,
+              retainedMatchCount:
+                0,
+              scanComplete:
+                true,
+              truncated:
+                false,
+              matchesTruncated:
+                false
             },
             plans:
               plans,
@@ -1055,20 +988,20 @@ REOS.CountyCodeViolationCollapseWinnerPlan =
           blocked,
 
         referenceAudit: {
+          requestedIdCount:
+            EXPECTED_ROW_COUNT,
           scanComplete:
             true,
           truncated:
             false,
+          matchesTruncated:
+            false,
           matchedIdCount:
-            1,
+            0,
           matchCount:
-            1,
-          referencedDistressLeadId:
-            EXPECTED_REFERENCED_ID,
-          sheet:
-            EXPECTED_REFERENCE_SHEET,
-          columnNumber:
-            EXPECTED_REFERENCE_COLUMN
+            0,
+          retainedMatchCount:
+            0
         },
 
         winnerSelectionAuthorityGranted:

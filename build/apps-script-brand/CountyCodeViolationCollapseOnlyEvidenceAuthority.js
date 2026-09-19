@@ -1,8 +1,8 @@
 /**
  * REOS Enterprise - Code Violation Collapse-Only Evidence Authority
  *
- * Exact read-only authority catalog derived from preserved Gate 2B
- * collapse-only group evidence.
+ * Exact read-only post-restoration authority catalog derived from preserved
+ * Gate 2B collapse-only evidence after certified Group 3 restoration.
  *
  * Source evidence SHA-256:
  * 762abd7c1ffebec3e1e15a205a93b6ef4d564ccf8020d08fd315ccb4a9c49e49
@@ -14,7 +14,7 @@ var REOS = REOS || {};
 
 REOS.CountyCodeViolationCollapseOnlyEvidenceAuthority = (function () {
   var SOURCE_EVIDENCE_SHA256 = '762abd7c1ffebec3e1e15a205a93b6ef4d564ccf8020d08fd315ccb4a9c49e49';
-  var AUTHORITY_SHA256 = '87ec06c98009dec42f5cfa52ecdeeaf6167d9c67d13dc0ca1eb353acf05964ee';
+  var AUTHORITY_SHA256 = '8993da9619a9203182189cb8746eedf286a279b84db9342a53d9eb33de057ce7';
 
   var RECORDS = [
   {
@@ -40,17 +40,6 @@ REOS.CountyCodeViolationCollapseOnlyEvidenceAuthority = (function () {
     "proposedDurableKey": "pa-philadelphia|code_violations|vi-2026-045339"
   },
   {
-    "groupNumber": 3,
-    "rowNumber": 767,
-    "distressLeadId": "DL-20260820181647-4170",
-    "sourceRecordId": "28",
-    "violationNumber": "VI-2026-045359",
-    "parcelId": "",
-    "canonicalPropertyKey": "property|address|pa|philadelphia|19102-1404|127 n mole st",
-    "legacyObservationKey": "pa-philadelphia|code_violations|28",
-    "proposedDurableKey": "pa-philadelphia|code_violations|vi-2026-045359"
-  },
-  {
     "groupNumber": 1,
     "rowNumber": 768,
     "distressLeadId": "DL-20260820181649-9792",
@@ -71,17 +60,6 @@ REOS.CountyCodeViolationCollapseOnlyEvidenceAuthority = (function () {
     "canonicalPropertyKey": "property|address|pa|philadelphia|19150-2404|8030 forrest ave",
     "legacyObservationKey": "pa-philadelphia|code_violations|23",
     "proposedDurableKey": "pa-philadelphia|code_violations|vi-2026-045339"
-  },
-  {
-    "groupNumber": 3,
-    "rowNumber": 771,
-    "distressLeadId": "ZIL-20260820193920-1756",
-    "sourceRecordId": "28",
-    "violationNumber": "VI-2026-045359",
-    "parcelId": "",
-    "canonicalPropertyKey": "property|address|pa|philadelphia|19102-1404|127 n mole st",
-    "legacyObservationKey": "pa-philadelphia|code_violations|28",
-    "proposedDurableKey": "pa-philadelphia|code_violations|vi-2026-045359"
   },
   {
     "groupNumber": 4,
@@ -535,8 +513,8 @@ REOS.CountyCodeViolationCollapseOnlyEvidenceAuthority = (function () {
     return Object.freeze({
       sourceEvidenceSha256: SOURCE_EVIDENCE_SHA256,
       authoritySha256: AUTHORITY_SHA256,
-      groupCount: 22,
-      rowCount: 46,
+      groupCount: 21,
+      rowCount: 44,
       collapseAuthorityGranted: false,
       winnerSelectionAuthorityGranted: false,
       deleteAuthorityGranted: false,
