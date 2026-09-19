@@ -212,8 +212,17 @@ class FakeSpreadsheet {
         OWNER
       );
 
-    this.editors = [];
-    this.viewers = [];
+    /*
+     * Live Apps Script can return the owner through both hierarchical
+     * access-list methods even when Drive has no additional permissions.
+     */
+    this.editors = [
+      this.owner
+    ];
+
+    this.viewers = [
+      this.owner
+    ];
 
     this.sheets = [
       new FakeSheet(
@@ -484,6 +493,7 @@ function environment() {
           state.openCalls >= 2
         ) {
           state.workbook.viewers = [
+            state.workbook.owner,
             new FakeUser(
               'late-viewer@example.com'
             )
@@ -998,6 +1008,7 @@ pass(
 expectFailure(
   env => {
     env.state.workbook.editors = [
+      env.state.workbook.owner,
       new FakeUser(
         'editor@example.com'
       )
@@ -1014,6 +1025,7 @@ pass(
 expectFailure(
   env => {
     env.state.workbook.viewers = [
+      env.state.workbook.owner,
       new FakeUser(
         'viewer@example.com'
       )
