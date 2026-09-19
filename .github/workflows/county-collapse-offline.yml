@@ -34,6 +34,11 @@ jobs:
           node --check scripts/validate-county-code-violation-collapse-executor-implementation-authorization-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-maintenance-handoff-v1.js
           node --check scripts/validate-county-code-violation-collapse-postdelete-repeatability-contract-v1.js
+          node --check build/apps-script-brand/CountyCodeViolationCollapseDirectKeepExecutionAuthority.js
+          node --check build/apps-script-brand/CountyCodeViolationCollapseResidualEvidence.js
+          node --check build/apps-script-brand/CountyCodeViolationCollapseExecutionPreflightV2.js
+          node --check scripts/validate-county-code-violation-collapse-postdelete-repeatability-runtime-v1.js
+          node --check scripts/validate-county-code-violation-collapse-postdelete-repeatability-implementation-lifecycle-v1.js
           node --check scripts/validate-county-code-violation-collapse-maintenance-quiescence-contract-v1.js
           node --check scripts/validate-county-code-violation-collapse-execution-boundary-v2.js
           node --check build/apps-script-brand/CountyCodeViolationCollapseMaintenanceGate.js
@@ -86,14 +91,14 @@ jobs:
       - name: Validate collapse executor contract
         run: node scripts/validate-county-code-violation-collapse-executor-contract-v1.js
 
-      - name: Validate collapse post-delete repeatability contract
-        run: node scripts/validate-county-code-violation-collapse-postdelete-repeatability-contract-v1.js
+      - name: Validate collapse post-delete repeatability runtime
+        run: node scripts/validate-county-code-violation-collapse-postdelete-repeatability-runtime-v1.js
+
+      - name: Validate collapse post-delete repeatability implementation lifecycle
+        run: node scripts/validate-county-code-violation-collapse-postdelete-repeatability-implementation-lifecycle-v1.js
 
       - name: Validate collapse maintenance implementation lifecycle
         run: node scripts/validate-county-code-violation-collapse-maintenance-implementation-lifecycle-v1.js
-
-      - name: Validate collapse runtime prerequisite implementation lifecycle
-        run: node scripts/validate-county-collapse-runtime-prerequisite-implementation-lifecycle-v1.js
 
       - name: Validate collapse orphan-binding recovery contract
         run: node scripts/validate-county-collapse-operation-intent-orphan-binding-recovery-contract-v1.js

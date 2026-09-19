@@ -2616,6 +2616,57 @@ REOS.CountyCollapseOperationIntentStore = (function () {
   }
 
   /*
+   * Deterministic read-only operation-ID enumeration.
+   *
+   * Enumeration is discovery only. It never classifies an operation as
+   * successful and never grants delete/retry/recreation authority.
+   * Consumers must pass every returned ID through strict read()/recover().
+   */
+  function listOperationIds() {
+    var storage =
+      openStorage_();
+
+    var ids = {};
+
+    [
+      {
+        sheet:
+          storage.eventSheet,
+        headers:
+          EVENT_HEADERS_,
+        label:
+          'Event'
+      },
+      {
+        sheet:
+          storage.chunkSheet,
+        headers:
+          CHUNK_HEADERS_,
+        label:
+          'Chunk'
+      }
+    ].forEach(function (source) {
+      readSheetRows_(
+        source.sheet,
+        source.headers,
+        source.label
+      ).forEach(function (row) {
+        var operationId =
+          requireSafeCellText_(
+            row.values[0],
+            'Operation ID'
+          );
+
+        ids[operationId] = true;
+      });
+    });
+
+    return Object.keys(ids)
+      .sort();
+  }
+
+
+  /*
    * Strict read path. Any malformed journal material throws.
    * No sheet write method is reachable from this function.
    */
@@ -2856,6 +2907,8 @@ REOS.CountyCollapseOperationIntentStore = (function () {
       read,
     recover:
       recover,
+    listOperationIds:
+      listOperationIds,
     metadata:
       metadata
   };

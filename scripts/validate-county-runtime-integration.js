@@ -641,6 +641,25 @@ const expectedCodeViolationCollapseOperationIntentFiles = new Set([
 ]);
 
 /*
+ * Post-delete repeatability contributes exactly three additional read-only
+ * production modules:
+ *
+ * - immutable direct-keep execution authority;
+ * - current residual evidence;
+ * - successor execution preflight.
+ *
+ * The existing operation-intent journal is extended in place with one
+ * read-only enumeration method and therefore does not add a fourth production
+ * file. This surface grants no executor, physical-delete, scheduler,
+ * checkpoint, connector, deployment, MAO, or automatic-offer authority.
+ */
+const expectedCodeViolationCollapseRepeatabilityFiles = new Set([
+  'build/apps-script-brand/CountyCodeViolationCollapseDirectKeepExecutionAuthority.js',
+  'build/apps-script-brand/CountyCodeViolationCollapseResidualEvidence.js',
+  'build/apps-script-brand/CountyCodeViolationCollapseExecutionPreflightV2.js'
+]);
+
+/*
  * Observation-preservation durable evidence storage contributes exactly
  * one additional production Apps Script module.
  *
@@ -735,6 +754,7 @@ const expectedProductionFiles = new Set([
   ...expectedCodeViolationPostRollingFiles,
   ...expectedCodeViolationCollapseDiagnosticFiles,
   ...expectedCodeViolationCollapseOperationIntentFiles,
+  ...expectedCodeViolationCollapseRepeatabilityFiles,
   ...expectedCodeViolationCollapsePreservationStoreFiles,
   ...expectedCountyMutationExclusionLeaseFiles,
   ...expectedCodeViolationCollapseMaintenanceGateFiles,
@@ -947,6 +967,27 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCodeViolationCollapseRepeatabilityFiles.size,
+  3,
+  'expected collapse post-delete repeatability inventory must contain exactly 3 files'
+);
+
+[
+  'build/apps-script-brand/CountyCodeViolationCollapseDirectKeepExecutionAuthority.js',
+  'build/apps-script-brand/CountyCodeViolationCollapseResidualEvidence.js',
+  'build/apps-script-brand/CountyCodeViolationCollapseExecutionPreflightV2.js'
+].forEach(file => {
+  assert.ok(
+    expectedCodeViolationCollapseRepeatabilityFiles.has(file),
+    'collapse post-delete repeatability production file missing: ' + file
+  );
+});
+
+pass(
+  'collapse post-delete repeatability surface is exactly three explicitly allowlisted authority-free additive files'
+);
+
+assert.equal(
   expectedCodeViolationCollapsePreservationStoreFiles.size,
   1,
   'expected collapse observation-preservation store production inventory must contain exactly 1 file'
@@ -1048,8 +1089,8 @@ assert.ok(
 
 assert.equal(
   expectedProductionFiles.size,
-  137,
-  'expected reconciled production inventory must contain 137 files'
+  140,
+  'expected reconciled production inventory must contain 140 files'
 );
 
 assert.equal(
