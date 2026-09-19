@@ -219,6 +219,8 @@ let triggers = [];
 let triggerSeq = 0;
 let lockAvailable = true;
 let adminCalls = 0;
+let leaseGuardCalls = 0;
+let leaseGuardWriterIds = [];
 let syncCalls = [];
 let failingDataset = '';
 
@@ -333,6 +335,35 @@ const context = {
     Security: {
       requireAdmin() {
         adminCalls++;
+      }
+    },
+
+    CountyMutationExclusionLease: {
+      assertWriterAllowed(options) {
+        leaseGuardCalls++;
+
+        if (
+          !options ||
+          Object.keys(options).length !== 1 ||
+          options.writerId !==
+            'COUNTY_PRODUCTION_SCHEDULER'
+        ) {
+          throw new Error(
+            'Unexpected county scheduler writer-guard request.'
+          );
+        }
+
+        leaseGuardWriterIds.push(
+          options.writerId
+        );
+
+        return {
+          ok: true,
+          allowed: true,
+          writerId:
+            'COUNTY_PRODUCTION_SCHEDULER',
+          blockedByLease: false
+        };
       }
     },
 
@@ -950,6 +981,18 @@ assert(
 assert(
   adminCalls >= 5,
   'scheduler install/remove/status surface is admin-protected'
+);
+
+assert(
+  leaseGuardCalls > 0 &&
+  leaseGuardWriterIds.length ===
+    leaseGuardCalls &&
+  leaseGuardWriterIds.every(
+    writerId =>
+      writerId ===
+      'COUNTY_PRODUCTION_SCHEDULER'
+  ),
+  'scheduler mutation paths resolve the exact mutation-exclusion writer guard'
 );
 
 console.log();
