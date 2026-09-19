@@ -40,6 +40,9 @@ jobs:
           node --check build/apps-script-brand/CountyCollapseRuntimePrerequisiteCertification.js
           node --check scripts/validate-county-collapse-runtime-prerequisite-certification-v1.js
           node --check scripts/validate-county-collapse-runtime-prerequisite-implementation-lifecycle-v1.js
+          node --check build/apps-script-brand/CountyCollapseOperationIntentOrphanBindingRecovery.js
+          node --check scripts/validate-county-collapse-operation-intent-orphan-binding-recovery-contract-v1.js
+          node --check scripts/validate-county-collapse-operation-intent-orphan-binding-recovery-v1.js
           node --check scripts/validate-county-mutation-exclusion-lease-contract-v1.js
           node --check scripts/validate-county-mutation-exclusion-lease-implementation-contract-v1.js
           node --check scripts/validate-county-mutation-exclusion-lease-validation-lifecycle-v1.js
@@ -85,6 +88,12 @@ jobs:
 
       - name: Validate collapse runtime prerequisite implementation lifecycle
         run: node scripts/validate-county-collapse-runtime-prerequisite-implementation-lifecycle-v1.js
+
+      - name: Validate collapse orphan-binding recovery contract
+        run: node scripts/validate-county-collapse-operation-intent-orphan-binding-recovery-contract-v1.js
+
+      - name: Validate collapse orphan-binding recovery implementation
+        run: node scripts/validate-county-collapse-operation-intent-orphan-binding-recovery-v1.js
 
       - name: Validate county mutation-exclusion lease retrofit lifecycle
         run: node scripts/validate-county-mutation-exclusion-lease-retrofit-validation-lifecycle-v1.js
