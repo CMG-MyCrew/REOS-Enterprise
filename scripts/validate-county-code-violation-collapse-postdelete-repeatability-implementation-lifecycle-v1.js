@@ -52,6 +52,9 @@ const RUNTIME_PREREQ_LIFECYCLE =
 const MAINT_LIFECYCLE =
   'scripts/validate-county-code-violation-collapse-maintenance-implementation-lifecycle-v1.js';
 
+const PRESERVATION_IMPL_VALIDATOR =
+  'scripts/validate-county-collapse-observation-preservation-implementation-contract-v1.js';
+
 const FULLROW =
   'build/apps-script-brand/CountyCodeViolationCollapseFullRowEvidence.js';
 
@@ -120,6 +123,7 @@ const EXPECTED_SCOPE = [
   PREFLIGHT_V2,
   RUNTIME_HARNESS,
   SELF,
+  PRESERVATION_IMPL_VALIDATOR,
   INTEGRATION
 ].sort();
 
@@ -244,6 +248,7 @@ assert.strictEqual(
   PREFLIGHT_V2,
   RUNTIME_HARNESS,
   SELF,
+  PRESERVATION_IMPL_VALIDATOR,
   RUNTIME_PREREQ_LIFECYCLE,
   MAINT_LIFECYCLE,
   FULLROW,
@@ -461,6 +466,14 @@ assert.strictEqual(
   'Operation-intent store harness must remain syntax-checked and active exactly once.'
 );
 
+assert.strictEqual(
+  workflow.split(
+    PRESERVATION_IMPL_VALIDATOR
+  ).length - 1,
+  2,
+  'Observation-preservation implementation validator must remain syntax-checked and active exactly once.'
+);
+
 [
   AUTHORITY,
   RESIDUAL,
@@ -546,7 +559,7 @@ assert.deepStrictEqual(
     effectiveScope
   ).sort(),
   EXPECTED_SCOPE,
-  'Repeatability implementation increment must remain exactly eight files.'
+  'Repeatability implementation increment must remain exactly nine files.'
 );
 
 assert.strictEqual(
@@ -561,6 +574,10 @@ assert.strictEqual(
 
 runNode(
   INTENT_HARNESS
+);
+
+runNode(
+  PRESERVATION_IMPL_VALIDATOR
 );
 
 runNode(
@@ -581,6 +598,10 @@ console.log(
 
 console.log(
   'PASS: intent journal gains only deterministic read-only operation-ID enumeration.'
+);
+
+console.log(
+  'PASS: observation-preservation implementation validation accepts only the historical or exact repeatability intent-store generation.'
 );
 
 console.log(

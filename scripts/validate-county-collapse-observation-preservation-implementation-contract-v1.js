@@ -17,6 +17,9 @@ const DB_SHA =
 const OP_STORE_SHA =
   '00c7ee96dfeee3401444374b3d7a03e905e2928143c92de91cff612e5a782abf';
 
+const OP_STORE_REPEATABILITY_SHA =
+  '037de0188ea10340015d7030cdc364731e460db326f156cc8bf7725976bdbbce';
+
 const PRESERVATION_CONTRACT_SHA =
   'ed0142bf040c52eee5ef0c95113791e36667d1fb9965ced8906b71379f134f12';
 
@@ -40,6 +43,9 @@ const SELF =
 
 const WORKFLOW =
   '.github/workflows/county-collapse-offline.yml';
+
+const REPEATABILITY_LIFECYCLE =
+  'scripts/validate-county-code-violation-collapse-postdelete-repeatability-implementation-lifecycle-v1.js';
 
 const PATCH_VALIDATOR =
   'scripts/validate-database-physical-row-patch-exact.js';
@@ -134,11 +140,31 @@ if (!patchImplemented) {
   );
 }
 
-assert.strictEqual(
-  sha(opStore),
-  OP_STORE_SHA,
-  'Operation-intent store drifted before preservation implementation.'
+const opStoreSha =
+  sha(opStore);
+
+assert.ok(
+  opStoreSha === OP_STORE_SHA ||
+  opStoreSha === OP_STORE_REPEATABILITY_SHA,
+  'Operation-intent store drifted beyond the certified preservation / repeatability lifecycle.'
 );
+
+if (
+  opStoreSha ===
+  OP_STORE_REPEATABILITY_SHA
+) {
+  requireText(
+    opStore,
+    'function listOperationIds()',
+    'Repeatability read-only operation-ID enumeration'
+  );
+
+  requireText(
+    opStore,
+    'listOperationIds:',
+    'Repeatability read-only operation-ID public API'
+  );
+}
 
 assert.strictEqual(
   sha(preservationContract),
@@ -461,6 +487,11 @@ const allowedCiRemediationTrackedChanges = [
   WORKFLOW
 ].sort();
 
+const allowedRepeatabilitySuccessorTrackedChanges = [
+  SELF,
+  REPEATABILITY_LIFECYCLE
+].sort();
+
 const allowedPatchImplementationTrackedChanges = [
   DB,
   SELF,
@@ -484,6 +515,12 @@ const ciRemediationAuthoringLifecycle =
     allowedCiRemediationTrackedChanges
   );
 
+const repeatabilitySuccessorAuthoringLifecycle =
+  JSON.stringify(trackedChanges) ===
+  JSON.stringify(
+    allowedRepeatabilitySuccessorTrackedChanges
+  );
+
 const patchImplementationAuthoringLifecycle =
   JSON.stringify(trackedChanges) ===
   JSON.stringify(
@@ -493,6 +530,7 @@ const patchImplementationAuthoringLifecycle =
 assert.ok(
   cleanTrackedLifecycle ||
   ciRemediationAuthoringLifecycle ||
+  repeatabilitySuccessorAuthoringLifecycle ||
   storeIntegrationRemediationAuthoringLifecycle ||
   patchImplementationAuthoringLifecycle,
   'Unexpected tracked design/CI scope: ' +
