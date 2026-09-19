@@ -167,6 +167,8 @@ const COMPONENT_VALIDATORS = [
   'validate-code-violations-gate1-recovery-maintenance-gate.js',
   'validate-county-code-violation-collapse-maintenance-gate-v1.js',
   'validate-county-collapse-runtime-prerequisite-certification-v1.js',
+  'validate-county-collapse-operation-intent-orphan-binding-recovery-contract-v1.js',
+  'validate-county-collapse-operation-intent-orphan-binding-recovery-v1.js',
   'validate-code-violations-gate1-recovery-executor.js',
   'validate-county-identity-source-reconciliation.js',
   'validate-county-identity-repair-evidence-export.js',
@@ -690,6 +692,20 @@ const expectedCountyCollapseRuntimePrerequisiteFiles = new Set([
 ]);
 
 /*
+ * Incident-bounded operation-intent orphan binding recovery contributes
+ * exactly one additional production Apps Script module.
+ *
+ * This allowlist grants authority only to adopt the exact certified orphan
+ * workbook through one Script Property binding. It grants no workbook
+ * creation/edit/delete, county-data mutation, collapse execution, physical
+ * delete, scheduler, checkpoint, connector, lease-open/close, MAO, or
+ * automatic-offer authority.
+ */
+const expectedCountyCollapseOrphanBindingRecoveryFiles = new Set([
+  'build/apps-script-brand/CountyCollapseOperationIntentOrphanBindingRecovery.js'
+]);
+
+/*
  * Group 3 Zillow restoration contributes exactly four production modules:
  *
  * - one authority-only restoration contract;
@@ -723,6 +739,7 @@ const expectedProductionFiles = new Set([
   ...expectedCountyMutationExclusionLeaseFiles,
   ...expectedCodeViolationCollapseMaintenanceGateFiles,
   ...expectedCountyCollapseRuntimePrerequisiteFiles,
+  ...expectedCountyCollapseOrphanBindingRecoveryFiles,
   ...expectedCodeViolationGroup3ZillowRestorationFiles
 ]);
 
@@ -982,6 +999,19 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCountyCollapseOrphanBindingRecoveryFiles.size,
+  1,
+  'expected collapse orphan-binding recovery inventory must contain exactly 1 file'
+);
+
+assert.ok(
+  expectedCountyCollapseOrphanBindingRecoveryFiles.has(
+    'build/apps-script-brand/CountyCollapseOperationIntentOrphanBindingRecovery.js'
+  ),
+  'CountyCollapseOperationIntentOrphanBindingRecovery.js must be the exact incident-bounded orphan adoption surface'
+);
+
+assert.equal(
   expectedCodeViolationGroup3ZillowRestorationFiles.size,
   4,
   'expected Group 3 Zillow restoration production inventory must contain exactly 4 files'
@@ -1018,8 +1048,8 @@ assert.ok(
 
 assert.equal(
   expectedProductionFiles.size,
-  136,
-  'expected reconciled production inventory must contain 136 files'
+  137,
+  'expected reconciled production inventory must contain 137 files'
 );
 
 assert.equal(
@@ -1161,6 +1191,20 @@ expectedCountyCollapseRuntimePrerequisiteFiles.forEach(file => {
 
 pass(
   'collapse runtime-prerequisite surface is exactly one explicitly allowlisted bounded additive file'
+);
+
+expectedCountyCollapseOrphanBindingRecoveryFiles.forEach(file => {
+  assert.ok(
+    diffEntries.some(entry =>
+      entry.file === file &&
+      entry.status === 'A'
+    ),
+    `expected collapse orphan-binding recovery production file missing from baseline diff: ${file}`
+  );
+});
+
+pass(
+  'collapse orphan-binding recovery surface is exactly one explicitly allowlisted incident-bounded additive file'
 );
 
 expectedPreservationFiles.forEach(file => {
