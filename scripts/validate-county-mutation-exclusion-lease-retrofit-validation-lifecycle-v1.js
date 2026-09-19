@@ -46,7 +46,8 @@ const EXPECTED_HISTORICAL_LEASE_SHA = '7bb81a035b8ed643a1eb02582a02cb7d17bcc43bd
 const EXPECTED_CURRENT_LEASE_SHA = 'f4e02ba1c8aef87075a87437673691b02d8a8587be2dd51280c9708b92954fdb';
 const EXPECTED_RUNTIME_HARNESS_SHA = '61d7c1bb6d55b3be147ffe4fd7c99f932d9a9d194e0cfe30d8875addcbd44ebb';
 const EXPECTED_COMPATIBILITY_RUNTIME_HARNESS_SHA = '4a8e18fc495869fd8bd47a66f89c3989720f162d3cbde07ad098ddb2029d938d';
-const EXPECTED_INTEGRATION_SHA = '931130f851bf31701e19cf1eceac7a5092233f34dec2884fcea48eb4ea578869';
+const EXPECTED_INTEGRATION_SHA = '3da43b284411af72b7ad588eeff39d3f1de96df62956f93b9d69ef530b9b0153';
+const EXPECTED_MAINTENANCE_GATE_SHA = '051b204aa8e13af617e1dd84a3d964094502915554d2fe38299ca2e25623fb5f';
 
 const WRITERS = [
   {
@@ -251,8 +252,61 @@ assert.strictEqual(
 );
 
 assert.ok(
-  !fs.existsSync(MAINTENANCE_GATE),
-  'Collapse maintenance gate remains prohibited during writer retrofit.'
+  fs.existsSync(MAINTENANCE_GATE),
+  'Certified collapse maintenance gate must be present after maintenance implementation.'
+);
+
+assert.strictEqual(
+  sha256File(MAINTENANCE_GATE),
+  EXPECTED_MAINTENANCE_GATE_SHA,
+  'Certified collapse maintenance gate changed.'
+);
+
+const maintenanceGateSource =
+  fs.readFileSync(
+    MAINTENANCE_GATE,
+    'utf8'
+  );
+
+requireText(
+  maintenanceGateSource,
+  'REOS.CountyCodeViolationCollapseMaintenanceGate',
+  'Certified collapse maintenance facade'
+);
+
+requireText(
+  maintenanceGateSource,
+  'REOS.CountyMutationExclusionLease',
+  'Certified shared exclusion owner'
+);
+
+requireText(
+  maintenanceGateSource,
+  'DURABLE_STATE_OWNER',
+  'Maintenance durable-state ownership'
+);
+
+requireText(
+  maintenanceGateSource,
+  'collapseExecutionAuthorityGranted',
+  'Maintenance authority-free result surface'
+);
+
+assert.strictEqual(
+  maintenanceGateSource.includes(
+    'PropertiesService'
+  ),
+  false,
+  'Collapse maintenance facade must not create an independent persistence store.'
+);
+
+assert.strictEqual(
+  /function\s+reosCountyCodeViolationCollapseMaintenance/
+    .test(
+      maintenanceGateSource
+    ),
+  false,
+  'Public collapse-maintenance RPC remains prohibited.'
 );
 
 assert.ok(
@@ -499,7 +553,7 @@ console.log(
 );
 
 console.log(
-  'PASS: collapse maintenance gate and collapse executor remain absent.'
+  'PASS: certified collapse maintenance gate is present and authority-free; collapse executor remains absent.'
 );
 
 console.log('validation_stage=' + stage);
