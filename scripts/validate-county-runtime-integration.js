@@ -195,6 +195,8 @@ const COMPONENT_VALIDATORS = [
   'validate-philadelphia-probate-public-notice-feed.js',
   'validate-zillow-production-gmail-connector-state-diagnostic-v1.js',
   'validate-zillow-production-gmail-fail-closed-trigger-installer-v1.js',
+  'validate-county-code-violation-collapse-executor-runtime-v1.js',
+  'validate-county-code-violation-collapse-executor-implementation-lifecycle-v1.js',
   'validate-county-runtime-bridge.js'
 ];
 
@@ -698,6 +700,21 @@ const expectedCodeViolationCollapseMaintenanceGateFiles = new Set([
 ]);
 
 /*
+ * Direct-keep collapse executor implementation contributes exactly two
+ * bounded production modules:
+ *
+ * - transient maintenance-capability transport;
+ * - direct-keep one-candidate executor.
+ *
+ * Production execution remains blocked by the separately certified
+ * successor preflight until blocker retirement is independently certified.
+ */
+const expectedCodeViolationCollapseExecutorImplementationFiles = new Set([
+  'build/apps-script-brand/CountyCodeViolationCollapseMaintenanceOperator.js',
+  'build/apps-script-brand/CountyCodeViolationCollapseExecutor.js'
+]);
+
+/*
  * Collapse runtime-prerequisite certification contributes exactly one bounded
  * production operator module.
  *
@@ -758,6 +775,7 @@ const expectedProductionFiles = new Set([
   ...expectedCodeViolationCollapsePreservationStoreFiles,
   ...expectedCountyMutationExclusionLeaseFiles,
   ...expectedCodeViolationCollapseMaintenanceGateFiles,
+  ...expectedCodeViolationCollapseExecutorImplementationFiles,
   ...expectedCountyCollapseRuntimePrerequisiteFiles,
   ...expectedCountyCollapseOrphanBindingRecoveryFiles,
   ...expectedCodeViolationGroup3ZillowRestorationFiles
@@ -1027,6 +1045,26 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCodeViolationCollapseExecutorImplementationFiles.size,
+  2,
+  'expected collapse executor implementation inventory must contain exactly 2 files'
+);
+
+[
+  'build/apps-script-brand/CountyCodeViolationCollapseMaintenanceOperator.js',
+  'build/apps-script-brand/CountyCodeViolationCollapseExecutor.js'
+].forEach(file => {
+  assert.ok(
+    expectedCodeViolationCollapseExecutorImplementationFiles.has(file),
+    'collapse executor implementation production file missing: ' + file
+  );
+});
+
+pass(
+  'direct-keep executor implementation surface is exactly two explicitly allowlisted bounded production files'
+);
+
+assert.equal(
   expectedCountyCollapseRuntimePrerequisiteFiles.size,
   1,
   'expected collapse runtime-prerequisite production inventory must contain exactly 1 file'
@@ -1089,8 +1127,8 @@ assert.ok(
 
 assert.equal(
   expectedProductionFiles.size,
-  140,
-  'expected reconciled production inventory must contain 140 files'
+  142,
+  'expected reconciled production inventory must contain 142 files'
 );
 
 assert.equal(
@@ -1218,6 +1256,20 @@ expectedCodeViolationCollapseMaintenanceGateFiles.forEach(file => {
 
 pass(
   'collapse maintenance readiness surface is exactly one explicitly allowlisted authority-free additive file'
+);
+
+expectedCodeViolationCollapseExecutorImplementationFiles.forEach(file => {
+  assert.ok(
+    diffEntries.some(entry =>
+      entry.file === file &&
+      entry.status === 'A'
+    ),
+    `expected collapse executor implementation file missing from baseline diff: ${file}`
+  );
+});
+
+pass(
+  'direct-keep executor and maintenance-operator production modules are explicit additive files'
 );
 
 expectedCountyCollapseRuntimePrerequisiteFiles.forEach(file => {

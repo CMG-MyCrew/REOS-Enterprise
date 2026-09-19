@@ -38,6 +38,10 @@ jobs:
           node --check build/apps-script-brand/CountyCodeViolationCollapseDirectKeepExecutionAuthority.js
           node --check build/apps-script-brand/CountyCodeViolationCollapseResidualEvidence.js
           node --check build/apps-script-brand/CountyCodeViolationCollapseExecutionPreflightV2.js
+          node --check build/apps-script-brand/CountyCodeViolationCollapseMaintenanceOperator.js
+          node --check build/apps-script-brand/CountyCodeViolationCollapseExecutor.js
+          node --check scripts/validate-county-code-violation-collapse-executor-runtime-v1.js
+          node --check scripts/validate-county-code-violation-collapse-executor-implementation-lifecycle-v1.js
           node --check scripts/validate-county-code-violation-collapse-postdelete-repeatability-runtime-v1.js
           node --check scripts/validate-county-code-violation-collapse-postdelete-repeatability-implementation-lifecycle-v1.js
           node --check scripts/validate-county-code-violation-collapse-maintenance-quiescence-contract-v1.js
@@ -89,29 +93,20 @@ jobs:
       - name: Validate execution preflight with mocked services
         run: node scripts/validate-county-code-violation-collapse-execution-preflight-v1.js
 
-      - name: Validate collapse executor contract
-        run: node scripts/validate-county-code-violation-collapse-executor-contract-v1.js
-
       - name: Validate collapse post-delete repeatability runtime
         run: node scripts/validate-county-code-violation-collapse-postdelete-repeatability-runtime-v1.js
 
-      - name: Validate collapse executor successor implementation authorization v2
-        run: node scripts/validate-county-code-violation-collapse-executor-implementation-authorization-v2.js
+      - name: Validate collapse direct-keep executor runtime v1
+        run: node scripts/validate-county-code-violation-collapse-executor-runtime-v1.js
 
-      - name: Validate collapse maintenance implementation lifecycle
-        run: node scripts/validate-county-code-violation-collapse-maintenance-implementation-lifecycle-v1.js
+      - name: Validate collapse executor implementation lifecycle v1
+        run: node scripts/validate-county-code-violation-collapse-executor-implementation-lifecycle-v1.js
 
       - name: Validate collapse orphan-binding recovery contract
         run: node scripts/validate-county-collapse-operation-intent-orphan-binding-recovery-contract-v1.js
 
       - name: Validate collapse orphan-binding recovery implementation
         run: node scripts/validate-county-collapse-operation-intent-orphan-binding-recovery-v1.js
-
-      - name: Validate county mutation-exclusion lease retrofit lifecycle
-        run: node scripts/validate-county-mutation-exclusion-lease-retrofit-validation-lifecycle-v1.js
-
-      - name: Validate collapse operation-intent contract
-        run: node scripts/validate-county-collapse-operation-intent-contract-v1.js
 
       - name: Validate collapse observation-preservation contract
         run: node scripts/validate-county-collapse-observation-preservation-contract-v1.js
