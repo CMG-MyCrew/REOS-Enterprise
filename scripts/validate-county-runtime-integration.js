@@ -166,6 +166,7 @@ const COMPONENT_VALIDATORS = [
   'validate-code-violations-gate1-recovery-preflight.js',
   'validate-code-violations-gate1-recovery-maintenance-gate.js',
   'validate-county-code-violation-collapse-maintenance-gate-v1.js',
+  'validate-county-collapse-runtime-prerequisite-certification-v1.js',
   'validate-code-violations-gate1-recovery-executor.js',
   'validate-county-identity-source-reconciliation.js',
   'validate-county-identity-repair-evidence-export.js',
@@ -676,6 +677,19 @@ const expectedCodeViolationCollapseMaintenanceGateFiles = new Set([
 ]);
 
 /*
+ * Collapse runtime-prerequisite certification contributes exactly one bounded
+ * production operator module.
+ *
+ * It exposes read-only prerequisite status and one-time creation/binding of the
+ * dedicated operation-intent workbook only. It grants no collapse execution,
+ * physical-delete, county-data, scheduler, checkpoint, connector, MAO, or
+ * automatic-offer authority.
+ */
+const expectedCountyCollapseRuntimePrerequisiteFiles = new Set([
+  'build/apps-script-brand/CountyCollapseRuntimePrerequisiteCertification.js'
+]);
+
+/*
  * Group 3 Zillow restoration contributes exactly four production modules:
  *
  * - one authority-only restoration contract;
@@ -708,6 +722,7 @@ const expectedProductionFiles = new Set([
   ...expectedCodeViolationCollapsePreservationStoreFiles,
   ...expectedCountyMutationExclusionLeaseFiles,
   ...expectedCodeViolationCollapseMaintenanceGateFiles,
+  ...expectedCountyCollapseRuntimePrerequisiteFiles,
   ...expectedCodeViolationGroup3ZillowRestorationFiles
 ]);
 
@@ -954,6 +969,19 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCountyCollapseRuntimePrerequisiteFiles.size,
+  1,
+  'expected collapse runtime-prerequisite production inventory must contain exactly 1 file'
+);
+
+assert.ok(
+  expectedCountyCollapseRuntimePrerequisiteFiles.has(
+    'build/apps-script-brand/CountyCollapseRuntimePrerequisiteCertification.js'
+  ),
+  'CountyCollapseRuntimePrerequisiteCertification.js must be the bounded authority-free prerequisite operator surface'
+);
+
+assert.equal(
   expectedCodeViolationGroup3ZillowRestorationFiles.size,
   4,
   'expected Group 3 Zillow restoration production inventory must contain exactly 4 files'
@@ -990,8 +1018,8 @@ assert.ok(
 
 assert.equal(
   expectedProductionFiles.size,
-  135,
-  'expected reconciled production inventory must contain 135 files'
+  136,
+  'expected reconciled production inventory must contain 136 files'
 );
 
 assert.equal(
@@ -1119,6 +1147,20 @@ expectedCodeViolationCollapseMaintenanceGateFiles.forEach(file => {
 
 pass(
   'collapse maintenance readiness surface is exactly one explicitly allowlisted authority-free additive file'
+);
+
+expectedCountyCollapseRuntimePrerequisiteFiles.forEach(file => {
+  assert.ok(
+    diffEntries.some(entry =>
+      entry.file === file &&
+      entry.status === 'A'
+    ),
+    `expected collapse runtime-prerequisite production file missing from baseline diff: ${file}`
+  );
+});
+
+pass(
+  'collapse runtime-prerequisite surface is exactly one explicitly allowlisted bounded additive file'
 );
 
 expectedPreservationFiles.forEach(file => {

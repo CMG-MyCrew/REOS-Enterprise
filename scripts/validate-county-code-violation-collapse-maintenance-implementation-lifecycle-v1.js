@@ -52,6 +52,12 @@ const PREFLIGHT =
 const EXECUTOR =
   'build/apps-script-brand/CountyCodeViolationCollapseExecutor.js';
 
+const RUNTIME_PREREQUISITE_MODULE =
+  'build/apps-script-brand/CountyCollapseRuntimePrerequisiteCertification.js';
+
+const RUNTIME_PREREQUISITE_HARNESS =
+  'scripts/validate-county-collapse-runtime-prerequisite-certification-v1.js';
+
 const INTEGRATION =
   'scripts/validate-county-runtime-integration.js';
 
@@ -190,6 +196,8 @@ assert.strictEqual(
   LEASE_COMPAT_VALIDATOR,
   LEASE_COMPAT_HARNESS,
   PREFLIGHT,
+  RUNTIME_PREREQUISITE_MODULE,
+  RUNTIME_PREREQUISITE_HARNESS,
   INTEGRATION,
   WORKFLOW
 ].forEach(path => {
@@ -436,7 +444,10 @@ assert.strictEqual(
   'CountyCodeViolationCollapseMaintenanceGate.js',
   'validate-county-code-violation-collapse-maintenance-gate-v1.js',
   'expectedCodeViolationCollapseMaintenanceGateFiles',
-  'expected reconciled production inventory must contain 135 files'
+  'CountyCollapseRuntimePrerequisiteCertification.js',
+  'validate-county-collapse-runtime-prerequisite-certification-v1.js',
+  'expectedCountyCollapseRuntimePrerequisiteFiles',
+  'expected reconciled production inventory must contain 136 files'
 ].forEach(marker => {
   requireText(
     integration,
@@ -471,6 +482,10 @@ console.log(
 
 console.log(
   'PASS: both collapse execution blockers remain intact.'
+);
+
+console.log(
+  'PASS: bounded runtime-prerequisite operator surface is additive and authority-free.'
 );
 
 console.log(
