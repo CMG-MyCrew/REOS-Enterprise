@@ -79,6 +79,9 @@ const EXECUTOR_CONTRACT =
 const EXECUTOR =
   'build/apps-script-brand/CountyCodeViolationCollapseExecutor.js';
 
+const EXPECTED_HISTORICAL_PREFLIGHT_SHA =
+  'f5c6181b9e5de72cb9ab1c3479940b426576778826d02c474331419b485b9bc8';
+
 const EXPECTED_MODULE_SHA =
   '7076616cd8c86bddac7d7ce57183312113a1bd4ac7d90401d84450e8a4557644';
 
@@ -117,10 +120,6 @@ const EXPECTED_PROTECTED = new Map([
   [
     INTENT_HARNESS,
     'f320bf816eb1491db1f0bfda80ff5b6edbf3dff3fcfd91ef89767e9a3d489233'
-  ],
-  [
-    PREFLIGHT,
-    'f5c6181b9e5de72cb9ab1c3479940b426576778826d02c474331419b485b9bc8'
   ],
   [
     WINNER,
@@ -288,6 +287,15 @@ EXPECTED_PROTECTED.forEach(
 
 assert.strictEqual(
   sha256GitFile(
+    BASE,
+    PREFLIGHT
+  ),
+  EXPECTED_HISTORICAL_PREFLIGHT_SHA,
+  'Historical collapse execution preflight changed at prerequisite lifecycle base.'
+);
+
+assert.strictEqual(
+  sha256GitFile(
     IMPLEMENTATION_AUTHORITY,
     MODULE
   ),
@@ -315,16 +323,19 @@ const preflight =
     'utf8'
   );
 
-[
-  'CURRENT_AUTHORITY_LEASE_COMPATIBILITY_NOT_CERTIFIED',
-  'CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE'
-].forEach(marker => {
-  requireText(
-    preflight,
-    marker,
-    'Preserved preflight blocker'
-  );
-});
+requireText(
+  preflight,
+  'CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE',
+  'Preserved preflight blocker'
+);
+
+assert.strictEqual(
+  preflight.includes(
+    'CURRENT_AUTHORITY_LEASE_COMPATIBILITY_NOT_CERTIFIED'
+  ),
+  false,
+  'Retired lease-compatibility blocker must not remain in current preflight.'
+);
 
 const moduleSource =
   fs.readFileSync(
@@ -530,7 +541,7 @@ console.log(
 );
 
 console.log(
-  'PASS: lease, maintenance, intent store, winner, preflight, v2 and executor contract remain byte-exact.'
+  'PASS: lease, maintenance, intent store, winner, v2 and executor contract remain byte-exact; historical preflight remains pinned at prerequisite base.'
 );
 
 console.log(
@@ -538,7 +549,7 @@ console.log(
 );
 
 console.log(
-  'PASS: collapse executor remains absent and both preflight blockers remain intact.'
+  'PASS: collapse executor remains absent; executor blocker remains and lease-compatibility blocker is retired.'
 );
 
 console.log(

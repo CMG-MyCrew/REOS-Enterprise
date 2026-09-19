@@ -22,7 +22,7 @@ const FILE =
   );
 
 const EXPECTED_SOURCE_SHA =
-  'f5c6181b9e5de72cb9ab1c3479940b426576778826d02c474331419b485b9bc8';
+  'baa7e61dd573d79ee616b13685048330f65da4f23d9efed9f00644cffc0bde53';
 
 const AUTHORITY_SHA =
   '8993da9619a9203182189cb8746eedf286a279b84db9342a53d9eb33de057ce7';
@@ -48,6 +48,22 @@ assert.strictEqual(
     .update(source)
     .digest('hex'),
   EXPECTED_SOURCE_SHA
+);
+
+assert.strictEqual(
+  source.includes(
+    'CURRENT_AUTHORITY_LEASE_COMPATIBILITY_NOT_CERTIFIED'
+  ),
+  false,
+  'retired lease-compatibility blocker must not remain in current preflight'
+);
+
+assert.strictEqual(
+  source.includes(
+    'CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE'
+  ),
+  true,
+  'certified executor blocker must remain in current preflight'
 );
 
 for (const pattern of [
@@ -458,8 +474,7 @@ assert.deepStrictEqual(
     )
   ),
   [
-    'CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE',
-    'CURRENT_AUTHORITY_LEASE_COMPATIBILITY_NOT_CERTIFIED'
+    'CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE'
   ]
 );
 
@@ -678,7 +693,15 @@ console.log(
 );
 
 console.log(
-  'LEASE_COMPATIBILITY_BLOCKER_PRESENT=true'
+  'LEASE_COMPATIBILITY_BLOCKER_PRESENT=false'
+);
+
+console.log(
+  'LEASE_COMPATIBILITY_BLOCKER_RETIRED=true'
+);
+
+console.log(
+  'CERTIFIED_COLLAPSE_EXECUTOR_BLOCKER_PRESENT=true'
 );
 
 console.log(
