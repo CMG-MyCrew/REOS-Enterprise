@@ -13,7 +13,7 @@ const AUTH =
   'build/apps-script-brand/CountyCodeViolationCollapseOnlyEvidenceAuthority.js';
 
 const EXPECTED_AUTHORITY_SHA =
-  '87ec06c98009dec42f5cfa52ecdeeaf6167d9c67d13dc0ca1eb353acf05964ee';
+  '8993da9619a9203182189cb8746eedf286a279b84db9342a53d9eb33de057ce7';
 
 console.log(
   '=== COUNTY CODE VIOLATION COLLAPSE WINNER PLAN V1 ==='
@@ -128,28 +128,28 @@ assert.strictEqual(
 
 assert.strictEqual(
   records.length,
-  46
+  44
 );
 
 assert.strictEqual(
   metadata.groupCount,
-  22
+  21
 );
 
 assert.strictEqual(
   metadata.rowCount,
-  46
+  44
 );
 
 console.log(
-  'PASS: exact 22-group / 46-row certified authority loaded'
+  'PASS: exact post-restoration 21-group / 44-row certified authority loaded'
 );
 
 /*
  * Build deterministic synthetic full-row evidence from the certified
  * population.
  *
- * Groups 1 and 3 intentionally reproduce the two proven blockers.
+ * Group 1 intentionally reproduces the sole proven business-value blocker.
  * Groups 17-22 intentionally put the latest observation on the later
  * physical row.
  */
@@ -167,7 +167,7 @@ records.forEach(record => {
 
 assert.strictEqual(
   byGroup.size,
-  22
+  21
 );
 
 for (const members of byGroup.values()) {
@@ -381,40 +381,6 @@ for (
             : 66.83;
       }
 
-      /*
-       * Group 3 = complementary data split plus external reference.
-       */
-      if (groupNumber === 3) {
-        if (
-          record.distressLeadId ===
-          'ZIL-20260820193920-1756'
-        ) {
-          values.Status =
-            'New';
-
-          values['Tax Principal'] =
-            '';
-
-          values['Tax Interest'] =
-            '';
-
-          values['Tax Penalty'] =
-            '';
-        } else {
-          values.Status =
-            '';
-
-          values['Tax Principal'] =
-            795.45;
-
-          values['Tax Interest'] =
-            76.83;
-
-          values['Tax Penalty'] =
-            51.63;
-        }
-      }
-
       fullRows.push({
         groupNumber:
           record.groupNumber,
@@ -457,7 +423,7 @@ for (
 
 assert.strictEqual(
   fullRows.length,
-  46
+  44
 );
 
 const allIds =
@@ -466,11 +432,23 @@ const allIds =
       record.distressLeadId
   );
 
-const referenceId =
-  'ZIL-20260820193920-1756';
+assert.strictEqual(
+  allIds.length,
+  44
+);
 
-assert.ok(
-  allIds.includes(referenceId)
+assert.strictEqual(
+  allIds.includes(
+    'DL-20260820181647-4170'
+  ),
+  false
+);
+
+assert.strictEqual(
+  allIds.includes(
+    'ZIL-20260820193920-1756'
+  ),
+  false
 );
 
 const referenceResult = {
@@ -481,13 +459,13 @@ const referenceResult = {
   requestedIds:
     allIds.slice(),
   requestedIdCount:
-    46,
+    44,
   matchedIdCount:
-    1,
+    0,
   matchCount:
-    1,
+    0,
   retainedMatchCount:
-    1,
+    0,
   scanComplete:
     true,
   matchesTruncated:
@@ -499,19 +477,8 @@ const referenceResult = {
   referenceSurface:
     'CELL_VALUES_ONLY',
   unmatchedIds:
-    allIds.filter(
-      id => id !== referenceId
-    ),
-  matches: [
-    {
-      columnNumber: 13,
-      rowNumber: 38,
-      distressLeadId:
-        referenceId,
-      sheet:
-        'ZILLOW_GMAIL_IMPORTS'
-    }
-  ],
+    allIds.slice(),
+  matches: [],
   repairAuthorityGranted:
     false,
   migrationAuthorityGranted:
@@ -529,11 +496,11 @@ const fullEvidenceResult = {
   sourceEvidenceSha256:
     metadata.sourceEvidenceSha256,
   certifiedGroupCount:
-    22,
+    21,
   certifiedRowCount:
-    46,
+    44,
   returnedRowCount:
-    46,
+    44,
   rows:
     fullRows,
   productionDataMutationAuthorityGranted:
@@ -602,14 +569,14 @@ const context = {
 
         assert.strictEqual(
           options.distressLeadIds.length,
-          46
+          44
         );
 
         assert.strictEqual(
           new Set(
             options.distressLeadIds
           ).size,
-          46
+          44
         );
 
         return JSON.parse(
@@ -899,13 +866,13 @@ context.REOS
     });
 
     drift.matchedIdCount =
-      2;
+      1;
 
     drift.matchCount =
-      2;
+      1;
 
     drift.retainedMatchCount =
-      2;
+      1;
 
     return drift;
   };
@@ -985,11 +952,11 @@ context.REOS
     drift.rows =
       drift.rows.slice(
         0,
-        45
+        43
       );
 
     drift.returnedRowCount =
-      45;
+      43;
 
     return drift;
   };
@@ -1000,7 +967,7 @@ assert.throws(
       .reosCountyCodeViolationCollapseWinnerPlan(
         {}
       ),
-  /46|population|row|evidence|drift/i
+  /44|population|row|evidence|drift/i
 );
 
 context.REOS
@@ -1040,29 +1007,65 @@ console.log(
 );
 
 /*
- * Group 3 must remain the sole reference-constrained group.
+ * Historical Group 3 must remain absent from the duplicate cohort.
  */
-const group3 =
-  records.filter(
-    record =>
-      record.groupNumber === 3
-  );
-
 assert.strictEqual(
-  group3.length,
-  2
+  records.some(
+    record =>
+      Number(record.groupNumber) === 3
+  ),
+  false
 );
 
-assert.ok(
-  group3.some(
-    record =>
-      record.distressLeadId ===
-      referenceId
-  )
+assert.strictEqual(
+  result.blockedGroupCount,
+  1
+);
+
+assert.deepStrictEqual(
+  JSON.parse(
+    JSON.stringify(
+      result.blockedGroups.map(
+        entry =>
+          Number(entry.groupNumber)
+      )
+    )
+  ),
+  [1]
+);
+
+assert.strictEqual(
+  result.referenceAudit.requestedIdCount,
+  44
+);
+
+assert.strictEqual(
+  result.referenceAudit.matchedIdCount,
+  0
+);
+
+assert.strictEqual(
+  result.referenceAudit.matchCount,
+  0
+);
+
+assert.strictEqual(
+  result.referenceAudit.retainedMatchCount,
+  0
+);
+
+assert.strictEqual(
+  result.referenceAudit.matchesTruncated,
+  false
 );
 
 console.log(
-  'PASS: group 3 reference fixture remains blocked'
+  'PASS: historical Group 3 is absent and zero downstream references are certified'
+);
+
+console.log(
+  'POST_RESTORATION_WINNER_FINGERPRINT_SHA256=' +
+  result.planFingerprintSha256
 );
 
 console.log('');

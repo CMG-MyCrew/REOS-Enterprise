@@ -33,20 +33,19 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
       'READ_ONLY_CODE_VIOLATION_COLLAPSE_WINNER_PLAN';
 
     var EXPECTED_WINNER_PLAN_FINGERPRINT =
-      '848f517a03bbfc51e500a1b86a826dc1c9e1e12988a32f3a1c030ad3913624c9';
+      '9259978446e1423cf7d97414df62468734e64fbf68fcccd8936079e91e86a9ce';
 
     var EXPECTED_AUTHORITY_SHA256 =
-      '87ec06c98009dec42f5cfa52ecdeeaf6167d9c67d13dc0ca1eb353acf05964ee';
+      '8993da9619a9203182189cb8746eedf286a279b84db9342a53d9eb33de057ce7';
 
     var EXPECTED_ELIGIBLE_GROUPS = 20;
     var EXPECTED_ELIGIBLE_ROWS = 42;
     var EXPECTED_DIRECT_KEEP_GROUPS = 14;
     var EXPECTED_OBSERVATION_MERGE_GROUPS = 6;
     var EXPECTED_DELETE_CANDIDATES = 22;
-    var EXPECTED_BLOCKED_GROUPS = 2;
+    var EXPECTED_BLOCKED_GROUPS = 1;
 
     var CONFLICT_BLOCKED_GROUP = 1;
-    var REFERENCE_BLOCKED_GROUP = 3;
 
     var COUNTY_SCHEDULER_HANDLER =
       'reosCountyProductionSchedulerRun';
@@ -100,6 +99,15 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
           .buildPlan ===
           'function',
         'Certified collapse winner plan is required.'
+      );
+
+      assert_(
+        REOS.CountyCodeViolationGroup3PostRestorationEvidence &&
+        typeof REOS
+          .CountyCodeViolationGroup3PostRestorationEvidence
+          .read ===
+          'function',
+        'Certified Group 3 post-restoration evidence is required.'
       );
 
       assert_(
@@ -258,6 +266,89 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
     }
 
 
+    function assertGroup3PostRestorationEvidence_() {
+      var evidence =
+        REOS
+          .CountyCodeViolationGroup3PostRestorationEvidence
+          .read({});
+
+      assert_(
+        evidence &&
+        evidence.ok === true &&
+        evidence.readOnly === true &&
+        evidence.schedulerFrozen === true &&
+        evidence.checkpointFrozen === true &&
+        evidence.evidenceStable === true &&
+        evidence.group3AlreadyRestored === true &&
+        evidence.group3ReexecutionRequired === false,
+        'Group 3 post-restoration evidence changed.'
+      );
+
+      assert_(
+        evidence.countySurvivor &&
+        Number(
+          evidence.countySurvivor.rowNumber
+        ) === 767 &&
+        text_(
+          evidence.countySurvivor.distressLeadId
+        ) ===
+          'DL-20260820181647-4170',
+        'Group 3 county survivor evidence changed.'
+      );
+
+      assert_(
+        evidence.zillowRestoration &&
+        Number(
+          evidence.zillowRestoration.rowNumber
+        ) === 771 &&
+        text_(
+          evidence.zillowRestoration.distressLeadId
+        ) ===
+          'ZIL-20260820193920-1756',
+        'Group 3 Zillow restoration evidence changed.'
+      );
+
+      assert_(
+        evidence.downstreamReference &&
+        Number(
+          evidence.downstreamReference.rowNumber
+        ) === 38 &&
+        Number(
+          evidence.downstreamReference.columnNumber
+        ) === 13 &&
+        text_(
+          evidence.downstreamReference.distressLeadId
+        ) ===
+          'ZIL-20260820193920-1756',
+        'Group 3 downstream-reference evidence changed.'
+      );
+
+      [
+        'productionDataMutationAuthorityGranted',
+        'collapseAuthorityGranted',
+        'winnerSelectionAuthorityGranted',
+        'deleteAuthorityGranted',
+        'physicalDeleteAuthorityGranted',
+        'repairAuthorityGranted',
+        'migrationAuthorityGranted',
+        'referenceRewriteAuthorityGranted',
+        'schedulerMutationAuthorityGranted',
+        'checkpointMutationAuthorityGranted',
+        'connectorExecutionAuthorityGranted',
+        'group3ReexecutionAuthorityGranted',
+        'automaticOfferAuthorityGranted'
+      ].forEach(function (field) {
+        assert_(
+          evidence[field] === false,
+          'Group 3 evidence unexpectedly grants authority: ' +
+            field
+        );
+      });
+
+      return evidence;
+    }
+
+
     function assertWinnerPlan_() {
       var plan =
         REOS
@@ -349,10 +440,10 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
         ) ===
           -1 &&
         eligibleNumbers.indexOf(
-          REFERENCE_BLOCKED_GROUP
+          3
         ) ===
           -1,
-        'Blocked collapse group entered eligible winner plan.'
+        'Blocked or removed historical collapse group entered eligible winner plan.'
       );
 
       var blockedNumbers =
@@ -367,12 +458,10 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
           });
 
       assert_(
-        blockedNumbers.length === 2 &&
+        blockedNumbers.length === 1 &&
         blockedNumbers[0] ===
-          CONFLICT_BLOCKED_GROUP &&
-        blockedNumbers[1] ===
-          REFERENCE_BLOCKED_GROUP,
-        'Expected blocked collapse groups changed.'
+          CONFLICT_BLOCKED_GROUP,
+        'Expected blocked collapse group changed.'
       );
 
       assertNoAuthority_(plan);
@@ -420,6 +509,9 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
       var checkpointBefore =
         frozenCheckpoint_();
 
+      var group3Evidence =
+        assertGroup3PostRestorationEvidence_();
+
       var winnerPlan =
         assertWinnerPlan_();
 
@@ -451,7 +543,8 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
        * Primitive availability is not execution authority.
        */
       var blockers = [
-        'CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE'
+        'CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE',
+        'CURRENT_AUTHORITY_LEASE_COMPATIBILITY_NOT_CERTIFIED'
       ];
 
       return Object.freeze({
@@ -497,7 +590,7 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
           CONFLICT_BLOCKED_GROUP,
 
         referenceBlockedGroup:
-          REFERENCE_BLOCKED_GROUP,
+          null,
 
         schedulerBefore:
           schedulerBefore,
@@ -519,6 +612,19 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
 
         winnerPlanCertified:
           true,
+
+        group3PostRestorationEvidenceCertified:
+          true,
+
+        group3CountySurvivorDistressLeadId:
+          group3Evidence
+            .countySurvivor
+            .distressLeadId,
+
+        group3ZillowDistressLeadId:
+          group3Evidence
+            .zillowRestoration
+            .distressLeadId,
 
         physicalDeletePrimitiveAvailable:
           true,
@@ -557,6 +663,9 @@ REOS.CountyCodeViolationCollapseExecutionPreflight =
           false,
 
         schedulerAuthorityGranted:
+          false,
+
+        group3ReexecutionAuthorityGranted:
           false,
 
         automaticOfferAuthorityGranted:

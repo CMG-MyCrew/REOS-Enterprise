@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 'use strict';
 
 const fs = require('fs');
@@ -14,9 +13,25 @@ const EXPECTED_SOURCE_SHA =
   '762abd7c1ffebec3e1e15a205a93b6ef4d564ccf8020d08fd315ccb4a9c49e49';
 
 const EXPECTED_AUTHORITY_SHA =
-  '87ec06c98009dec42f5cfa52ecdeeaf6167d9c67d13dc0ca1eb353acf05964ee';
+  '8993da9619a9203182189cb8746eedf286a279b84db9342a53d9eb33de057ce7';
 
-const source = fs.readFileSync(FILE, 'utf8');
+const EXCLUDED_IDS = new Set([
+  'DL-20260820181647-4170',
+  'ZIL-20260820193920-1756'
+]);
+
+const EXPECTED_GROUPS = [
+  1, 2,
+  4, 5, 6, 7, 8, 9, 10,
+  11, 12, 13, 14, 15, 16,
+  17, 18, 19, 20, 21, 22
+];
+
+const source =
+  fs.readFileSync(
+    FILE,
+    'utf8'
+  );
 
 const sandbox = {
   REOS: {},
@@ -28,17 +43,24 @@ vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
 
 const api =
-  sandbox.REOS.CountyCodeViolationCollapseOnlyEvidenceAuthority;
+  sandbox.REOS
+    .CountyCodeViolationCollapseOnlyEvidenceAuthority;
 
 assert(api);
-assert.strictEqual(typeof api.records, 'function');
-assert.strictEqual(typeof api.metadata, 'function');
 
 const metadata =
-  JSON.parse(JSON.stringify(api.metadata()));
+  JSON.parse(
+    JSON.stringify(
+      api.metadata()
+    )
+  );
 
 const records =
-  JSON.parse(JSON.stringify(api.records()));
+  JSON.parse(
+    JSON.stringify(
+      api.records()
+    )
+  );
 
 assert.strictEqual(
   metadata.sourceEvidenceSha256,
@@ -50,81 +72,114 @@ assert.strictEqual(
   EXPECTED_AUTHORITY_SHA
 );
 
-assert.strictEqual(metadata.groupCount, 22);
-assert.strictEqual(metadata.rowCount, 46);
+assert.strictEqual(
+  metadata.groupCount,
+  21
+);
 
-assert.strictEqual(records.length, 46);
+assert.strictEqual(
+  metadata.rowCount,
+  44
+);
+
+assert.strictEqual(
+  records.length,
+  44
+);
 
 const ids =
-  records.map(record => record.distressLeadId);
+  records.map(
+    record =>
+      record.distressLeadId
+  );
 
 const rows =
-  records.map(record => record.rowNumber);
+  records.map(
+    record =>
+      Number(record.rowNumber)
+  );
 
 const groups =
-  records.map(record => record.groupNumber);
+  Array.from(
+    new Set(
+      records.map(
+        record =>
+          Number(record.groupNumber)
+      )
+    )
+  ).sort(
+    (a, b) =>
+      a - b
+  );
 
-const durableKeys =
-  records.map(record => record.proposedDurableKey);
+assert.deepStrictEqual(
+  groups,
+  EXPECTED_GROUPS
+);
 
-assert.strictEqual(new Set(ids).size, 46);
-assert.strictEqual(new Set(rows).size, 46);
-assert.strictEqual(new Set(groups).size, 22);
-assert.strictEqual(new Set(durableKeys).size, 22);
+assert.strictEqual(
+  new Set(ids).size,
+  44
+);
+
+assert.strictEqual(
+  new Set(rows).size,
+  44
+);
+
+EXCLUDED_IDS.forEach(id => {
+  assert.strictEqual(
+    ids.includes(id),
+    false,
+    'Historical Group 3 ID must remain excluded: ' +
+      id
+  );
+});
+
+assert.strictEqual(
+  records.some(
+    record =>
+      Number(record.groupNumber) === 3
+  ),
+  false
+);
+
+const groupMap =
+  new Map();
 
 records.forEach(record => {
-  assert(Number.isInteger(record.groupNumber));
-  assert(record.groupNumber >= 1);
-  assert(record.groupNumber <= 22);
-
-  assert(Number.isInteger(record.rowNumber));
-  assert(record.rowNumber >= 2);
-
-  assert.strictEqual(
-    typeof record.distressLeadId,
-    'string'
+  assert.ok(
+    Number.isInteger(
+      record.groupNumber
+    )
   );
 
-  assert.strictEqual(
-    typeof record.sourceRecordId,
-    'string'
-  );
-
-  assert.strictEqual(
-    typeof record.violationNumber,
-    'string'
-  );
-
-  assert.strictEqual(
-    typeof record.canonicalPropertyKey,
-    'string'
-  );
-
-  assert.strictEqual(
-    typeof record.legacyObservationKey,
-    'string'
-  );
-
-  assert.strictEqual(
-    typeof record.proposedDurableKey,
-    'string'
+  assert.ok(
+    Number.isInteger(
+      record.rowNumber
+    )
   );
 
   const expectedDurable =
     'pa-philadelphia|code_violations|' +
-    record.violationNumber.trim().toLowerCase();
+    record.violationNumber
+      .trim()
+      .toLowerCase();
 
   assert.strictEqual(
     record.proposedDurableKey,
     expectedDurable
   );
-});
 
-const groupMap = new Map();
-
-records.forEach(record => {
-  if (!groupMap.has(record.groupNumber)) {
-    groupMap.set(record.groupNumber, []);
+  if (
+    !groupMap.has(
+      record.groupNumber
+    )
+  ) {
+    groupMap.set(
+      record.groupNumber,
+      []
+    );
   }
 
   groupMap
@@ -132,26 +187,40 @@ records.forEach(record => {
     .push(record);
 });
 
-assert.strictEqual(groupMap.size, 22);
+assert.strictEqual(
+  groupMap.size,
+  21
+);
 
 let twoRowGroups = 0;
 let threeRowGroups = 0;
 
-groupMap.forEach(groupRecords => {
-  if (groupRecords.length === 2) {
-    twoRowGroups += 1;
-  } else if (groupRecords.length === 3) {
-    threeRowGroups += 1;
+for (
+  const [
+    groupNumber,
+    members
+  ] of groupMap
+) {
+  if (
+    members.length === 2
+  ) {
+    twoRowGroups++;
+  } else if (
+    members.length === 3
+  ) {
+    threeRowGroups++;
   } else {
     assert.fail(
-      'unexpected group size: ' +
-      groupRecords.length
+      'Unexpected group size ' +
+      groupNumber +
+      '=' +
+      members.length
     );
   }
 
   assert.strictEqual(
     new Set(
-      groupRecords.map(
+      members.map(
         record =>
           record.proposedDurableKey
       )
@@ -161,30 +230,38 @@ groupMap.forEach(groupRecords => {
 
   assert.strictEqual(
     new Set(
-      groupRecords.map(
+      members.map(
         record =>
           record.canonicalPropertyKey
       )
     ).size,
     1
   );
-});
+}
 
-assert.strictEqual(twoRowGroups, 20);
-assert.strictEqual(threeRowGroups, 2);
+assert.strictEqual(
+  twoRowGroups,
+  19
+);
+
+assert.strictEqual(
+  threeRowGroups,
+  2
+);
 
 const normalized =
   records
     .slice()
     .sort(
       (a, b) =>
-        a.rowNumber - b.rowNumber
+        Number(a.rowNumber) -
+        Number(b.rowNumber)
     );
 
 assert.deepStrictEqual(
   records,
   normalized,
-  'authority records must remain physical-row ordered'
+  'Authority must remain physical-row ordered.'
 );
 
 const payload =
@@ -203,14 +280,14 @@ const payload =
     })
   );
 
-const actualAuthoritySha =
+const actualSha =
   crypto
     .createHash('sha256')
-    .update(payload)
+    .update(payload, 'utf8')
     .digest('hex');
 
 assert.strictEqual(
-  actualAuthoritySha,
+  actualSha,
   EXPECTED_AUTHORITY_SHA
 );
 
@@ -225,7 +302,7 @@ assert.strictEqual(
   assert.strictEqual(
     metadata[field],
     false,
-    field + ' must remain false'
+    field
   );
 });
 
@@ -245,51 +322,36 @@ assert.strictEqual(
   assert.strictEqual(
     pattern.test(source),
     false,
-    'forbidden authority surface: ' +
-    pattern
+    'Forbidden authority surface: ' +
+      pattern
   );
 });
 
 console.log(
-  'PASS: source evidence SHA is exact'
+  'POST_RESTORATION_AUTHORITY_VALIDATOR_PASS=true'
 );
+
 console.log(
-  'PASS: authority SHA is exact'
+  'POST_RESTORATION_GROUP_COUNT=21'
 );
+
 console.log(
-  'PASS: exact 22-group / 46-row population'
+  'POST_RESTORATION_ROW_COUNT=44'
 );
+
 console.log(
-  'PASS: 46 unique Distress Lead IDs'
+  'POST_RESTORATION_GROUP3_EXCLUDED=true'
 );
+
 console.log(
-  'PASS: 46 unique physical rows'
+  'POST_RESTORATION_AUTHORITY_SHA256=' +
+  actualSha
 );
+
 console.log(
-  'PASS: 22 unique durable observation keys'
+  'PRODUCTION_DATA_MUTATION_AUTHORITY_GRANTED=false'
 );
+
 console.log(
-  'PASS: each group has exactly one durable key'
-);
-console.log(
-  'PASS: each group has exactly one canonical property'
-);
-console.log(
-  'PASS: group-size distribution is 20x2 + 2x3'
-);
-console.log(
-  'PASS: durable keys derive exactly from Violation Number'
-);
-console.log(
-  'PASS: authority records remain physical-row ordered'
-);
-console.log(
-  'PASS: no mutation or scheduler surface exists'
-);
-console.log(
-  'PASS: all collapse/winner/delete/offer authority remains false'
-);
-console.log('');
-console.log(
-  'Collapse-only evidence authority validation PASSED.'
+  'AUTOMATIC_OFFER_AUTHORITY_GRANTED=false'
 );

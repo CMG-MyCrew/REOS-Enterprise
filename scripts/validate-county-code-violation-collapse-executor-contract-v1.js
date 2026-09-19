@@ -381,7 +381,6 @@ assert.ok(
   'EXPECTED_OBSERVATION_MERGE_GROUPS = 6',
   'EXPECTED_DELETE_CANDIDATES = 22',
   'CONFLICT_BLOCKED_GROUP = 1',
-  'REFERENCE_BLOCKED_GROUP = 3',
   'MERGE_LATEST_OBSERVATION_THEN_COLLAPSE',
   'KEEP_WINNER_AND_COLLAPSE'
 ].forEach(token => {
@@ -390,6 +389,27 @@ assert.ok(
     'Certified winner-plan baseline token missing: ' + token
   );
 });
+
+assert.ok(
+  winnerPlan.includes(
+    '8993da9619a9203182189cb8746eedf286a279b84db9342a53d9eb33de057ce7'
+  ),
+  'Current post-restoration winner-plan authority SHA must be present.'
+);
+
+assert.ok(
+  !winnerPlan.includes(
+    'REFERENCE_BLOCKED_GROUP = 3'
+  ),
+  'Historical Group 3 may not remain blocked in the current post-restoration winner plan.'
+);
+
+assert.ok(
+  preflight.includes(
+    'CURRENT_AUTHORITY_LEASE_COMPATIBILITY_NOT_CERTIFIED'
+  ),
+  'Current preflight must remain blocked until lease compatibility is separately certified.'
+);
 
 assert.ok(
   database.includes(
@@ -518,7 +538,7 @@ console.log(
 );
 
 console.log(
-  'PASS: groups 1 and 3 remain blocked.'
+  'PASS: historical executor contract remains immutable while current post-restoration winner authority blocks only Group 1.'
 );
 
 console.log(
