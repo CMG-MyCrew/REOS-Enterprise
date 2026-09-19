@@ -42,11 +42,17 @@ REOS.CountyMutationExclusionLease = (function () {
   var LOCK_WAIT_MS =
     1000;
 
-  var WINNER_FINGERPRINT =
+  var HISTORICAL_WINNER_FINGERPRINT =
     '848f517a03bbfc51e500a1b86a826dc1c9e1e12988a32f3a1c030ad3913624c9';
 
-  var AUTHORITY_SHA =
+  var HISTORICAL_AUTHORITY_SHA =
     '87ec06c98009dec42f5cfa52ecdeeaf6167d9c67d13dc0ca1eb353acf05964ee';
+
+  var CURRENT_WINNER_FINGERPRINT =
+    '9259978446e1423cf7d97414df62468734e64fbf68fcccd8936079e91e86a9ce';
+
+  var CURRENT_AUTHORITY_SHA =
+    '8993da9619a9203182189cb8746eedf286a279b84db9342a53d9eb33de057ce7';
 
   var CHECKPOINT_CYCLE =
     'COUNTY-20260902222607805';
@@ -736,9 +742,14 @@ REOS.CountyMutationExclusionLease = (function () {
     }
 
     if (
-      state
+      typeof state
         .winnerPlanFingerprintSha256 !==
-        WINNER_FINGERPRINT
+        'string' ||
+      !/^[0-9a-f]{64}$/
+        .test(
+          state
+            .winnerPlanFingerprintSha256
+        )
     ) {
       fail_(
         'Persisted winner-plan fingerprint is invalid.'
@@ -746,9 +757,14 @@ REOS.CountyMutationExclusionLease = (function () {
     }
 
     if (
-      state
+      typeof state
         .collapseAuthoritySha256 !==
-        AUTHORITY_SHA
+        'string' ||
+      !/^[0-9a-f]{64}$/
+        .test(
+          state
+            .collapseAuthoritySha256
+        )
     ) {
       fail_(
         'Persisted collapse authority SHA is invalid.'
@@ -855,6 +871,32 @@ REOS.CountyMutationExclusionLease = (function () {
     return state;
   }
 
+  function authorityGeneration_(state) {
+    if (
+      state
+        .winnerPlanFingerprintSha256 ===
+        CURRENT_WINNER_FINGERPRINT &&
+      state
+        .collapseAuthoritySha256 ===
+        CURRENT_AUTHORITY_SHA
+    ) {
+      return 'CURRENT';
+    }
+
+    if (
+      state
+        .winnerPlanFingerprintSha256 ===
+        HISTORICAL_WINNER_FINGERPRINT &&
+      state
+        .collapseAuthoritySha256 ===
+        HISTORICAL_AUTHORITY_SHA
+    ) {
+      return 'HISTORICAL';
+    }
+
+    return 'UNKNOWN';
+  }
+
   function inspectState_(props) {
     var raw =
       props.getProperty(
@@ -890,9 +932,33 @@ REOS.CountyMutationExclusionLease = (function () {
         state
       );
 
+      var authorityGeneration =
+        authorityGeneration_(
+          state
+        );
+
+      if (
+        authorityGeneration ===
+        'UNKNOWN'
+      ) {
+        return {
+          kind:
+            'MALFORMED',
+
+          authorityGeneration:
+            'UNKNOWN',
+
+          error:
+            'Persisted lease authority pair is unknown.'
+        };
+      }
+
       return {
         kind:
           'VALID',
+
+        authorityGeneration:
+          authorityGeneration,
 
         state:
           state
@@ -973,20 +1039,20 @@ REOS.CountyMutationExclusionLease = (function () {
     if (
       options
         .expectedWinnerPlanFingerprintSha256 !==
-        WINNER_FINGERPRINT
+        CURRENT_WINNER_FINGERPRINT
     ) {
       fail_(
-        'Winner-plan fingerprint does not match certified authority.'
+        'Winner-plan fingerprint does not match current certified authority.'
       );
     }
 
     if (
       options
         .expectedAuthoritySha256 !==
-        AUTHORITY_SHA
+        CURRENT_AUTHORITY_SHA
     ) {
       fail_(
-        'Collapse authority SHA does not match certified authority.'
+        'Collapse authority SHA does not match current certified authority.'
       );
     }
   }
@@ -1026,6 +1092,11 @@ REOS.CountyMutationExclusionLease = (function () {
     state
   ) {
     return {
+      authorityGeneration:
+        authorityGeneration_(
+          state
+        ),
+
       leaseId:
         state.leaseId,
 
@@ -1222,10 +1293,10 @@ REOS.CountyMutationExclusionLease = (function () {
             ),
 
           winnerPlanFingerprintSha256:
-            WINNER_FINGERPRINT,
+            CURRENT_WINNER_FINGERPRINT,
 
           collapseAuthoritySha256:
-            AUTHORITY_SHA,
+            CURRENT_AUTHORITY_SHA,
 
           checkpoint:
             checkpoint,
@@ -1289,6 +1360,9 @@ REOS.CountyMutationExclusionLease = (function () {
 
           opened:
             true,
+
+          authorityGeneration:
+            'CURRENT',
 
           leaseId:
             leaseId,
@@ -1357,6 +1431,17 @@ REOS.CountyMutationExclusionLease = (function () {
           props
         )
       );
+
+    if (
+      authorityGeneration_(
+        state
+      ) !==
+        'CURRENT'
+    ) {
+      fail_(
+        'Only CURRENT authority lease may satisfy owner readiness.'
+      );
+    }
 
     if (
       state.status !==
@@ -1547,6 +1632,11 @@ REOS.CountyMutationExclusionLease = (function () {
         leaseState:
           'CLOSED',
 
+        authorityGeneration:
+          authorityGeneration_(
+            state
+          ),
+
         blockedByLease:
           false
       });
@@ -1570,6 +1660,11 @@ REOS.CountyMutationExclusionLease = (function () {
 
         leaseState:
           'EXPIRED',
+
+        authorityGeneration:
+          authorityGeneration_(
+            state
+          ),
 
         blockedByLease:
           false
@@ -1622,6 +1717,11 @@ REOS.CountyMutationExclusionLease = (function () {
 
         state:
           'MALFORMED',
+
+        authorityGeneration:
+          inspected
+            .authorityGeneration ||
+          '',
 
         settled:
           false,
@@ -1863,7 +1963,13 @@ REOS.CountyMutationExclusionLease = (function () {
             state.leaseTokenSha256 ||
           verified
             .ownerMaintenanceGateId !==
-            state.ownerMaintenanceGateId
+            state.ownerMaintenanceGateId ||
+          verified
+            .winnerPlanFingerprintSha256 !==
+            state.winnerPlanFingerprintSha256 ||
+          verified
+            .collapseAuthoritySha256 !==
+            state.collapseAuthoritySha256
         ) {
           fail_(
             'Durable CLOSED-state verification failed.'
@@ -1876,6 +1982,11 @@ REOS.CountyMutationExclusionLease = (function () {
 
           closed:
             true,
+
+          authorityGeneration:
+            authorityGeneration_(
+              verified
+            ),
 
           leaseId:
             verified.leaseId,

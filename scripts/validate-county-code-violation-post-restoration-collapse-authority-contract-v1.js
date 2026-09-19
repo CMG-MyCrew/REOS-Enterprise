@@ -268,18 +268,40 @@ assert.ok(
   )
 );
 
-assert.strictEqual(
+assert.ok(
   lease.includes(
     NEW_AUTHORITY
-  ),
-  false
+  )
 );
 
-assert.strictEqual(
+assert.ok(
   lease.includes(
     NEW_FINGERPRINT
-  ),
-  false
+  )
+);
+
+assert.ok(
+  lease.includes(
+    'HISTORICAL'
+  )
+);
+
+assert.ok(
+  lease.includes(
+    'CURRENT'
+  )
+);
+
+assert.ok(
+  lease.includes(
+    'UNKNOWN'
+  )
+);
+
+assert.ok(
+  lease.includes(
+    'Only CURRENT authority lease may satisfy owner readiness.'
+  )
 );
 
 [
@@ -333,7 +355,7 @@ console.log(
 );
 
 console.log(
-  'LEASE_RUNTIME_AUTHORITY_NOT_CHANGED=true'
+  'LEASE_RUNTIME_AUTHORITY_COMPATIBILITY_PRESENT=true'
 );
 
 console.log(
