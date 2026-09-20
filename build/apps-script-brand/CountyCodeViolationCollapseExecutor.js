@@ -1962,3 +1962,15 @@ REOS.CountyCodeViolationCollapseExecutor =
       execute
   });
 })();
+
+function reosCountyCodeViolationCollapseExecute(request) {
+  if (arguments.length !== 1) {
+    throw new Error(
+      'Collapse executor RPC requires exactly one request.'
+    );
+  }
+
+  return REOS
+    .CountyCodeViolationCollapseExecutor
+    .execute(request);
+}

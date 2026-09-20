@@ -47,6 +47,7 @@ jobs:
           node --check scripts/validate-county-code-violation-collapse-executor-blocker-retirement-runtime-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-blocker-retirement-implementation-lifecycle-v1.js
           node --check scripts/validate-county-code-violation-collapse-successor-preflight-rpc-entrypoint-v1.js
+          node --check scripts/validate-county-code-violation-collapse-executor-rpc-entrypoint-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-safety-correction-authorization-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-safety-correction-runtime-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-safety-correction-implementation-lifecycle-v1.js
@@ -217,8 +218,27 @@ jobs:
             node scripts/validate-county-code-violation-collapse-executor-blocker-retirement-implementation-lifecycle-v1.js
           )
 
-      - name: Validate successor preflight RPC entrypoint v1
-        run: node scripts/validate-county-code-violation-collapse-successor-preflight-rpc-entrypoint-v1.js
+      - name: Validate certified successor preflight RPC entrypoint v1
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" 397e66b141dd07d11fd280c1c5c0b91a6bfd5a9b
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "397e66b141dd07d11fd280c1c5c0b91a6bfd5a9b"
+            test "$(git rev-parse 'HEAD^{tree}')" = "1305138b26d54cde2472486000deede0123e101f"
+            node scripts/validate-county-code-violation-collapse-successor-preflight-rpc-entrypoint-v1.js
+          )
+
+      - name: Validate collapse executor RPC entrypoint v1
+        run: node scripts/validate-county-code-violation-collapse-executor-rpc-entrypoint-v1.js
 
       - name: Validate certified collapse executor safety-correction authorization v1
         run: |
@@ -239,8 +259,24 @@ jobs:
             node scripts/validate-county-code-violation-collapse-executor-safety-correction-authorization-v1.js
           )
 
-      - name: Validate collapse executor safety-correction runtime v1
-        run: node scripts/validate-county-code-violation-collapse-executor-safety-correction-runtime-v1.js
+      - name: Validate certified collapse executor safety-correction runtime v1
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" 397e66b141dd07d11fd280c1c5c0b91a6bfd5a9b
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "397e66b141dd07d11fd280c1c5c0b91a6bfd5a9b"
+            test "$(git rev-parse 'HEAD^{tree}')" = "1305138b26d54cde2472486000deede0123e101f"
+            node scripts/validate-county-code-violation-collapse-executor-safety-correction-runtime-v1.js
+          )
 
       - name: Validate certified collapse executor safety-correction implementation lifecycle v1
         run: |
