@@ -198,8 +198,24 @@ jobs:
       - name: Validate collapse executor blocker-retirement runtime v1
         run: node scripts/validate-county-code-violation-collapse-executor-blocker-retirement-runtime-v1.js
 
-      - name: Validate collapse executor blocker-retirement implementation lifecycle v1
-        run: node scripts/validate-county-code-violation-collapse-executor-blocker-retirement-implementation-lifecycle-v1.js
+      - name: Validate certified collapse executor blocker-retirement implementation lifecycle v1
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" 327258b0616f9cdc709168c1865674cdbb473025
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "327258b0616f9cdc709168c1865674cdbb473025"
+            test "$(git rev-parse 'HEAD^{tree}')" = "2873066de3fd9ec82d1cc56eadb3dd7b9a66ecd0"
+            node scripts/validate-county-code-violation-collapse-executor-blocker-retirement-implementation-lifecycle-v1.js
+          )
 
       - name: Validate successor preflight RPC entrypoint v1
         run: node scripts/validate-county-code-violation-collapse-successor-preflight-rpc-entrypoint-v1.js

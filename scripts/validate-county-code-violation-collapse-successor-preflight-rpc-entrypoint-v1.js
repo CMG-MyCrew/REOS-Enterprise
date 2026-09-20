@@ -37,13 +37,20 @@ const MAINTENANCE =
 const PREREQ =
   'build/apps-script-brand/CountyCollapseRuntimePrerequisiteCertification.js';
 
+const INTEGRATION =
+  'scripts/validate-county-runtime-integration.js';
+
+const RETIREMENT_LIFECYCLE =
+  'scripts/validate-county-code-violation-collapse-executor-blocker-retirement-implementation-lifecycle-v1.js';
+
 const RPC =
   'reosCountyCodeViolationCollapseExecutionPreflightV2';
 
 const EXPECTED_SCOPE = [
   SOURCE,
   SELF,
-  WORKFLOW
+  WORKFLOW,
+  INTEGRATION
 ].sort();
 
 const WRAPPER =
@@ -124,7 +131,9 @@ assert.equal(
   HISTORICAL,
   EXECUTOR,
   MAINTENANCE,
-  PREREQ
+  PREREQ,
+  INTEGRATION,
+  RETIREMENT_LIFECYCLE
 ].forEach(path => {
   assert.ok(
     fs.existsSync(path),
@@ -136,7 +145,8 @@ assert.equal(
   HISTORICAL,
   EXECUTOR,
   MAINTENANCE,
-  PREREQ
+  PREREQ,
+  RETIREMENT_LIFECYCLE
 ].forEach(path => {
   assert.equal(
     git([
@@ -247,6 +257,12 @@ const workflow =
     'utf8'
   );
 
+const integration =
+  fs.readFileSync(
+    INTEGRATION,
+    'utf8'
+  );
+
 assert.ok(
   workflow.includes(
     'node --check ' + SELF
@@ -260,6 +276,40 @@ assert.ok(
   ),
   'Workflow execution registration missing.'
 );
+
+assert.equal(
+  workflow.includes(
+    'run: node ' + RETIREMENT_LIFECYCLE
+  ),
+  false,
+  'Certified PR #214 lifecycle must not execute directly.'
+);
+
+[
+  'Validate certified collapse executor blocker-retirement implementation lifecycle v1',
+  'git worktree add --detach "$wt" ' + BASE,
+  'test "$(git rev-parse HEAD)" = "' + BASE + '"',
+  'test "$(git rev-parse \'HEAD^{tree}\')" = "' + BASE_TREE + '"',
+  'node ' + RETIREMENT_LIFECYCLE
+].forEach(marker => {
+  assert.ok(
+    workflow.includes(marker),
+    'Certified PR #214 workflow replay missing: ' + marker
+  );
+});
+
+[
+  'CERTIFIED_EXECUTOR_BLOCKER_RETIREMENT_IMPLEMENTATION_LIFECYCLE_VALIDATOR',
+  'CERTIFIED_EXECUTOR_BLOCKER_RETIREMENT_IMPLEMENTATION_REPLAY_SHA',
+  'CERTIFIED_EXECUTOR_BLOCKER_RETIREMENT_IMPLEMENTATION_REPLAY_TREE',
+  "'" + BASE + "'",
+  "'" + BASE_TREE + "'"
+].forEach(marker => {
+  assert.ok(
+    integration.includes(marker),
+    'County integration PR #214 replay missing: ' + marker
+  );
+});
 
 const effective =
   new Set();
@@ -295,7 +345,7 @@ const effective =
 assert.deepEqual(
   Array.from(effective).sort(),
   EXPECTED_SCOPE,
-  'Candidate scope must be exactly three files.'
+  'Candidate scope must be exactly four files.'
 );
 
 assert.equal(
@@ -321,7 +371,7 @@ console.log(
 );
 
 console.log(
-  'PASS: candidate scope is exactly three files.'
+  'PASS: candidate scope is exactly four files.'
 );
 
 console.log(
@@ -341,7 +391,7 @@ console.log(
 );
 
 console.log(
-  'CANDIDATE_SCOPE_FILE_COUNT=3'
+  'CANDIDATE_SCOPE_FILE_COUNT=4'
 );
 
 console.log(
