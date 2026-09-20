@@ -8,8 +8,9 @@
  * This successor preflight uses immutable direct-keep authority plus current
  * residual evidence instead of reusing original physical row positions.
  *
- * The certified executor blocker remains mandatory. This module never returns
- * collapseExecutionReady=true and grants no mutation authority.
+ * The certified executor availability blocker has been retired. Readiness is
+ * derived only from the remaining fail-closed execution blockers; this module
+ * still grants no mutation authority.
  */
 var REOS = REOS || {};
 
@@ -329,9 +330,7 @@ REOS.CountyCodeViolationCollapseExecutionPreflightV2 =
         'County scheduler state changed during successor preflight.'
       );
 
-      var blockers = [
-        'CERTIFIED_COLLAPSE_EXECUTOR_UNAVAILABLE'
-      ];
+      var blockers = [];
 
       if (
         residual.executionBlocked ===
@@ -389,7 +388,7 @@ REOS.CountyCodeViolationCollapseExecutionPreflightV2 =
           blockers,
 
         collapseExecutionReady:
-          false,
+          blockers.length === 0,
 
         executionAuthorityGranted:
           false,
