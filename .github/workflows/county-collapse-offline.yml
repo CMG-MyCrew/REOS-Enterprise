@@ -43,6 +43,7 @@ jobs:
           node --check scripts/validate-county-code-violation-collapse-executor-runtime-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-implementation-lifecycle-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-blocker-retirement-contract-v1.js
+          node --check scripts/validate-county-code-violation-collapse-executor-blocker-retirement-successor-authorization-v2.js
           node --check scripts/validate-county-code-violation-collapse-executor-safety-correction-authorization-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-safety-correction-runtime-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-safety-correction-implementation-lifecycle-v1.js
@@ -97,8 +98,24 @@ jobs:
       - name: Validate execution preflight with mocked services
         run: node scripts/validate-county-code-violation-collapse-execution-preflight-v1.js
 
-      - name: Validate collapse post-delete repeatability runtime
-        run: node scripts/validate-county-code-violation-collapse-postdelete-repeatability-runtime-v1.js
+      - name: Validate certified collapse post-delete repeatability runtime
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" daefe8f081cb48e6f9f0433c05a267d9d553966d
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "daefe8f081cb48e6f9f0433c05a267d9d553966d"
+            test "$(git rev-parse 'HEAD^{tree}')" = "df4fc612ba4b62e05c262f26958fada74416de0c"
+            node scripts/validate-county-code-violation-collapse-postdelete-repeatability-runtime-v1.js
+          )
 
       - name: Validate certified collapse direct-keep executor runtime v1
         run: |
@@ -156,6 +173,9 @@ jobs:
             node scripts/validate-county-code-violation-collapse-executor-blocker-retirement-contract-v1.js
           )
 
+      - name: Validate collapse executor blocker-retirement successor authorization v2
+        run: node scripts/validate-county-code-violation-collapse-executor-blocker-retirement-successor-authorization-v2.js
+
       - name: Validate certified collapse executor safety-correction authorization v1
         run: |
           root="$(mktemp -d)"
@@ -178,8 +198,24 @@ jobs:
       - name: Validate collapse executor safety-correction runtime v1
         run: node scripts/validate-county-code-violation-collapse-executor-safety-correction-runtime-v1.js
 
-      - name: Validate collapse executor safety-correction implementation lifecycle v1
-        run: node scripts/validate-county-code-violation-collapse-executor-safety-correction-implementation-lifecycle-v1.js
+      - name: Validate certified collapse executor safety-correction implementation lifecycle v1
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" daefe8f081cb48e6f9f0433c05a267d9d553966d
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "daefe8f081cb48e6f9f0433c05a267d9d553966d"
+            test "$(git rev-parse 'HEAD^{tree}')" = "df4fc612ba4b62e05c262f26958fada74416de0c"
+            node scripts/validate-county-code-violation-collapse-executor-safety-correction-implementation-lifecycle-v1.js
+          )
 
       - name: Validate collapse orphan-binding recovery contract
         run: node scripts/validate-county-collapse-operation-intent-orphan-binding-recovery-contract-v1.js
@@ -238,5 +274,21 @@ jobs:
       - name: Validate Group 3 Zillow restoration operator entrypoint
         run: node scripts/validate-county-code-violation-group3-zillow-restoration-operator-entrypoint-v1.js
 
-      - name: Validate county runtime integration
-        run: node scripts/validate-county-runtime-integration.js
+      - name: Validate certified county runtime integration at PR 212
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" daefe8f081cb48e6f9f0433c05a267d9d553966d
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "daefe8f081cb48e6f9f0433c05a267d9d553966d"
+            test "$(git rev-parse 'HEAD^{tree}')" = "df4fc612ba4b62e05c262f26958fada74416de0c"
+            node scripts/validate-county-runtime-integration.js
+          )
