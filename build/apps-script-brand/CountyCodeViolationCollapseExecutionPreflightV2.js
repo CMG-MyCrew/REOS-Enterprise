@@ -422,3 +422,9 @@ REOS.CountyCodeViolationCollapseExecutionPreflightV2 =
         preflight
     });
   })();
+
+function reosCountyCodeViolationCollapseExecutionPreflightV2() {
+  return REOS
+    .CountyCodeViolationCollapseExecutionPreflightV2
+    .preflight({});
+}
