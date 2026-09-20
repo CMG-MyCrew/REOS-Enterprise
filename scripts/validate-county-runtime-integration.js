@@ -205,6 +205,15 @@ const COMPONENT_VALIDATORS = [
   'validate-county-runtime-bridge.js'
 ];
 
+const CERTIFIED_EXECUTOR_SAFETY_CORRECTION_RUNTIME_VALIDATOR =
+  'validate-county-code-violation-collapse-executor-safety-correction-runtime-v1.js';
+
+const CERTIFIED_EXECUTOR_SAFETY_CORRECTION_RUNTIME_REPLAY_SHA =
+  '397e66b141dd07d11fd280c1c5c0b91a6bfd5a9b';
+
+const CERTIFIED_EXECUTOR_SAFETY_CORRECTION_RUNTIME_REPLAY_TREE =
+  '1305138b26d54cde2472486000deede0123e101f';
+
 const CERTIFIED_EXECUTOR_IMPLEMENTATION_LIFECYCLE_VALIDATOR =
   'validate-county-code-violation-collapse-executor-implementation-lifecycle-v1.js';
 
@@ -1445,6 +1454,15 @@ function runComponentCertification(fileName) {
   var replayTree = '';
 
   if (
+    fileName ===
+      CERTIFIED_EXECUTOR_SAFETY_CORRECTION_RUNTIME_VALIDATOR
+  ) {
+    replaySha =
+      CERTIFIED_EXECUTOR_SAFETY_CORRECTION_RUNTIME_REPLAY_SHA;
+
+    replayTree =
+      CERTIFIED_EXECUTOR_SAFETY_CORRECTION_RUNTIME_REPLAY_TREE;
+  } else if (
     fileName ===
       CERTIFIED_EXECUTOR_IMPLEMENTATION_LIFECYCLE_VALIDATOR
   ) {
