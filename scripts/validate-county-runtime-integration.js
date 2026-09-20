@@ -200,6 +200,8 @@ const COMPONENT_VALIDATORS = [
   'validate-county-code-violation-collapse-executor-safety-correction-runtime-v1.js',
   'validate-county-code-violation-collapse-executor-implementation-lifecycle-v1.js',
   'validate-county-code-violation-collapse-executor-safety-correction-implementation-lifecycle-v1.js',
+  'validate-county-code-violation-collapse-executor-blocker-retirement-runtime-v1.js',
+  'validate-county-code-violation-collapse-executor-blocker-retirement-implementation-lifecycle-v1.js',
   'validate-county-runtime-bridge.js'
 ];
 
@@ -220,6 +222,15 @@ const CERTIFIED_EXECUTOR_RUNTIME_REPLAY_SHA =
 
 const CERTIFIED_EXECUTOR_RUNTIME_REPLAY_TREE =
   '78db590eeae0c2fc64da4d4be29896e1f4980159';
+
+const CERTIFIED_EXECUTOR_SAFETY_CORRECTION_IMPLEMENTATION_LIFECYCLE_VALIDATOR =
+  'validate-county-code-violation-collapse-executor-safety-correction-implementation-lifecycle-v1.js';
+
+const CERTIFIED_EXECUTOR_SAFETY_CORRECTION_IMPLEMENTATION_REPLAY_SHA =
+  'daefe8f081cb48e6f9f0433c05a267d9d553966d';
+
+const CERTIFIED_EXECUTOR_SAFETY_CORRECTION_IMPLEMENTATION_REPLAY_TREE =
+  'df4fc612ba4b62e05c262f26958fada74416de0c';
 
 function pass(message) {
   console.log(`PASS: ${message}`);
@@ -1442,6 +1453,15 @@ function runComponentCertification(fileName) {
 
     replayTree =
       CERTIFIED_EXECUTOR_RUNTIME_REPLAY_TREE;
+  } else if (
+    fileName ===
+      CERTIFIED_EXECUTOR_SAFETY_CORRECTION_IMPLEMENTATION_LIFECYCLE_VALIDATOR
+  ) {
+    replaySha =
+      CERTIFIED_EXECUTOR_SAFETY_CORRECTION_IMPLEMENTATION_REPLAY_SHA;
+
+    replayTree =
+      CERTIFIED_EXECUTOR_SAFETY_CORRECTION_IMPLEMENTATION_REPLAY_TREE;
   }
 
   if (!replaySha) {

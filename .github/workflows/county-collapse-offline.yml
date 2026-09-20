@@ -44,6 +44,8 @@ jobs:
           node --check scripts/validate-county-code-violation-collapse-executor-implementation-lifecycle-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-blocker-retirement-contract-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-blocker-retirement-successor-authorization-v2.js
+          node --check scripts/validate-county-code-violation-collapse-executor-blocker-retirement-runtime-v1.js
+          node --check scripts/validate-county-code-violation-collapse-executor-blocker-retirement-implementation-lifecycle-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-safety-correction-authorization-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-safety-correction-runtime-v1.js
           node --check scripts/validate-county-code-violation-collapse-executor-safety-correction-implementation-lifecycle-v1.js
@@ -173,8 +175,30 @@ jobs:
             node scripts/validate-county-code-violation-collapse-executor-blocker-retirement-contract-v1.js
           )
 
-      - name: Validate collapse executor blocker-retirement successor authorization v2
-        run: node scripts/validate-county-code-violation-collapse-executor-blocker-retirement-successor-authorization-v2.js
+      - name: Validate certified collapse executor blocker-retirement successor authorization v2
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" 3989fdddb4c46db6ead43794149f6b450e111b48
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "3989fdddb4c46db6ead43794149f6b450e111b48"
+            test "$(git rev-parse 'HEAD^{tree}')" = "36d460e4b8ff9c5e0b3b113b15fafb0c3cab3062"
+            node scripts/validate-county-code-violation-collapse-executor-blocker-retirement-successor-authorization-v2.js
+          )
+
+      - name: Validate collapse executor blocker-retirement runtime v1
+        run: node scripts/validate-county-code-violation-collapse-executor-blocker-retirement-runtime-v1.js
+
+      - name: Validate collapse executor blocker-retirement implementation lifecycle v1
+        run: node scripts/validate-county-code-violation-collapse-executor-blocker-retirement-implementation-lifecycle-v1.js
 
       - name: Validate certified collapse executor safety-correction authorization v1
         run: |
@@ -274,21 +298,5 @@ jobs:
       - name: Validate Group 3 Zillow restoration operator entrypoint
         run: node scripts/validate-county-code-violation-group3-zillow-restoration-operator-entrypoint-v1.js
 
-      - name: Validate certified county runtime integration at PR 212
-        run: |
-          root="$(mktemp -d)"
-          wt="$root/certified"
-          cleanup() {
-            git worktree remove --force "$wt" >/dev/null 2>&1 || true
-            rm -rf "$root"
-          }
-          trap cleanup EXIT
-
-          git worktree add --detach "$wt" daefe8f081cb48e6f9f0433c05a267d9d553966d
-
-          (
-            cd "$wt"
-            test "$(git rev-parse HEAD)" = "daefe8f081cb48e6f9f0433c05a267d9d553966d"
-            test "$(git rev-parse 'HEAD^{tree}')" = "df4fc612ba4b62e05c262f26958fada74416de0c"
-            node scripts/validate-county-runtime-integration.js
-          )
+      - name: Validate county runtime integration
+        run: node scripts/validate-county-runtime-integration.js
