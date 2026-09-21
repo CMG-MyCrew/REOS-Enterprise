@@ -1,6 +1,6 @@
 /**
  * REOS Enterprise
- * Group 2 stranded collapse-operation reconciliation v1
+ * Group 2 stranded collapse-operation reconciliation v2
  *
  * READ ONLY.
  *
@@ -19,7 +19,7 @@ REOS.CountyCollapseGroup2StrandedOperationReconciliation =
 (function () {
   'use strict';
 
-  var CONTRACT_VERSION_ = 1;
+  var CONTRACT_VERSION_ = 2;
 
   var OPERATION_ID_ =
     '6ab40e74-43e0-4ce4-a2ce-83ea6c4620e8';
@@ -55,9 +55,6 @@ REOS.CountyCollapseGroup2StrandedOperationReconciliation =
 
   var RECOVERY_CLASSIFICATION_ =
     'NO_DELETE_BARRIER_REQUIRES_LIVE_READ_ONLY_RECONCILIATION';
-
-  var RESIDUAL_BLOCKER_ =
-    'UNRESOLVED_COLLAPSE_OPERATION_HISTORY';
 
   function fail_(message) {
     throw new Error(
@@ -302,10 +299,10 @@ REOS.CountyCollapseGroup2StrandedOperationReconciliation =
       residual.winnerPlanFingerprintSha256 !==
         WINNER_PLAN_SHA256_ ||
       residual.executionBlocked !==
-        true
+        false
     ) {
       fail_(
-        'Current residual authority is not the incident-bound blocked state.'
+        'Current residual authority is not the incident-bound prepared-only state.'
       );
     }
 
@@ -315,17 +312,29 @@ REOS.CountyCollapseGroup2StrandedOperationReconciliation =
       'Residual operation IDs'
     );
 
-    exactSingleValue_(
-      residual.uncertainOperationIds,
-      OPERATION_ID_,
-      'Residual uncertain-operation IDs'
-    );
+    if (
+      !Array.isArray(
+        residual.uncertainOperationIds
+      ) ||
+      residual.uncertainOperationIds.length !==
+        0
+    ) {
+      fail_(
+        'Prepared-only residual must not be classified as uncertain operation history.'
+      );
+    }
 
-    exactSingleValue_(
-      residual.executionBlockers,
-      RESIDUAL_BLOCKER_,
-      'Residual execution blockers'
-    );
+    if (
+      !Array.isArray(
+        residual.executionBlockers
+      ) ||
+      residual.executionBlockers.length !==
+        0
+    ) {
+      fail_(
+        'Prepared-only residual must not expose residual execution blockers.'
+      );
+    }
 
     if (
       !Array.isArray(
@@ -512,7 +521,7 @@ REOS.CountyCollapseGroup2StrandedOperationReconciliation =
       ok: true,
 
       mode:
-        'READ_ONLY_GROUP2_STRANDED_OPERATION_RECONCILIATION',
+        'READ_ONLY_GROUP2_STRANDED_OPERATION_RECONCILIATION_V2',
 
       contractVersion:
         CONTRACT_VERSION_,
@@ -583,15 +592,21 @@ REOS.CountyCollapseGroup2StrandedOperationReconciliation =
         live.targetCurrentRowNumber,
 
       residualExecutionBlocked:
-        true,
+        false,
 
-      residualExecutionBlocker:
-        RESIDUAL_BLOCKER_,
+      residualExecutionBlockers:
+        [],
+
+      targetBoundPreparedOperationHistoryPresent:
+        true,
 
       liveReadOnlyReconciliationRequired:
         true,
 
       automaticRetryPermitted:
+        false,
+
+      executorRetryAuthorityGranted:
         false,
 
       rowRecreationPermitted:
@@ -636,12 +651,20 @@ REOS.CountyCollapseGroup2StrandedOperationReconciliation =
 })();
 
 
+
 function reosCountyCollapseGroup2StrandedOperationReconciliationStatus() {
+  throw new Error(
+    'Group 2 stranded-operation reconciliation V1 RPC is retired after its single production invocation. Use reosCountyCollapseGroup2StrandedOperationReconciliationStatusV2.'
+  );
+}
+
+
+function reosCountyCollapseGroup2StrandedOperationReconciliationStatusV2() {
   if (
     arguments.length !== 0
   ) {
     throw new Error(
-      'Group 2 stranded-operation reconciliation RPC takes no arguments.'
+      'Group 2 stranded-operation reconciliation V2 RPC takes no arguments.'
     );
   }
 
