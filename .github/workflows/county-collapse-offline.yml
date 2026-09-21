@@ -78,6 +78,8 @@ jobs:
           node --check scripts/validate-county-collapse-group2-stranded-operation-reconciliation-v2.js
           node --check scripts/validate-county-collapse-group2-prepared-operation-retirement-authorization-v1.js
           node --check scripts/validate-county-collapse-group2-post-terminal-reconciliation-authorization-v1.js
+          node --check build/apps-script-brand/CountyCollapseGroup2PostTerminalReconciliation.js
+          node --check scripts/validate-county-collapse-group2-post-terminal-reconciliation-v1.js
           node --check build/apps-script-brand/CountyCollapseGroup2PreparedOperationRetirement.js
           node --check scripts/validate-county-collapse-group2-prepared-operation-retirement-v1.js
           node --check build/apps-script-brand/Database.js
@@ -375,6 +377,9 @@ jobs:
       - name: Validate Group 2 post-terminal reconciliation authorization v1
         run: node scripts/validate-county-collapse-group2-post-terminal-reconciliation-authorization-v1.js
 
+      - name: Validate Group 2 post-terminal reconciliation v1
+        run: node scripts/validate-county-collapse-group2-post-terminal-reconciliation-v1.js
+
       - name: Validate certified Group 2 prepared-operation retirement v1
         run: |
           root="$(mktemp -d)"
@@ -436,21 +441,5 @@ jobs:
       - name: Validate Group 3 Zillow restoration operator entrypoint
         run: node scripts/validate-county-code-violation-group3-zillow-restoration-operator-entrypoint-v1.js
 
-      - name: Validate certified county runtime integration
-        run: |
-          root="$(mktemp -d)"
-          wt="$root/certified"
-          cleanup() {
-            git worktree remove --force "$wt" >/dev/null 2>&1 || true
-            rm -rf "$root"
-          }
-          trap cleanup EXIT
-
-          git worktree add --detach "$wt" f6bf77b026615b429e36bb89974d2e9068ab2588
-
-          (
-            cd "$wt"
-            test "$(git rev-parse HEAD)" = "f6bf77b026615b429e36bb89974d2e9068ab2588"
-            test "$(git rev-parse 'HEAD^{tree}')" = "d929ef97c33608df59d3b59f8528182a6e2f6b3b"
-            node scripts/validate-county-runtime-integration.js
-          )
+      - name: Validate county runtime integration
+        run: node scripts/validate-county-runtime-integration.js

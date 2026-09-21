@@ -172,6 +172,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-collapse-operation-intent-orphan-binding-recovery-v1.js',
   'validate-county-collapse-group2-stranded-operation-reconciliation-v2.js',
   'validate-county-collapse-group2-prepared-operation-retirement-v1.js',
+  'validate-county-collapse-group2-post-terminal-reconciliation-v1.js',
   'validate-code-violations-gate1-recovery-executor.js',
   'validate-county-identity-source-reconciliation.js',
   'validate-county-identity-repair-evidence-export.js',
@@ -251,6 +252,15 @@ const CERTIFIED_EXECUTOR_BLOCKER_RETIREMENT_IMPLEMENTATION_REPLAY_SHA =
 
 const CERTIFIED_EXECUTOR_BLOCKER_RETIREMENT_IMPLEMENTATION_REPLAY_TREE =
   '2873066de3fd9ec82d1cc56eadb3dd7b9a66ecd0';
+
+const CERTIFIED_GROUP2_PREPARED_OPERATION_RETIREMENT_VALIDATOR =
+  'validate-county-collapse-group2-prepared-operation-retirement-v1.js';
+
+const CERTIFIED_GROUP2_PREPARED_OPERATION_RETIREMENT_REPLAY_SHA =
+  'f6bf77b026615b429e36bb89974d2e9068ab2588';
+
+const CERTIFIED_GROUP2_PREPARED_OPERATION_RETIREMENT_REPLAY_TREE =
+  'd929ef97c33608df59d3b59f8528182a6e2f6b3b';
 
 function pass(message) {
   console.log(`PASS: ${message}`);
@@ -816,6 +826,17 @@ const expectedCountyCollapseGroup2PreparedOperationRetirementFiles = new Set([
 ]);
 
 /*
+ * Exact Group 2 post-terminal reconciliation contributes exactly one
+ * additive read-only incident evidence module.
+ *
+ * It grants no journal mutation, retry, executor, physical-delete,
+ * maintenance, scheduler, checkpoint, connector, MAO, or offer authority.
+ */
+const expectedCountyCollapseGroup2PostTerminalReconciliationFiles = new Set([
+  'build/apps-script-brand/CountyCollapseGroup2PostTerminalReconciliation.js'
+]);
+
+/*
  * Group 3 Zillow restoration contributes exactly four production modules:
  *
  * - one authority-only restoration contract;
@@ -854,6 +875,7 @@ const expectedProductionFiles = new Set([
   ...expectedCountyCollapseOrphanBindingRecoveryFiles,
   ...expectedCountyCollapseGroup2StrandedReconciliationFiles,
   ...expectedCountyCollapseGroup2PreparedOperationRetirementFiles,
+  ...expectedCountyCollapseGroup2PostTerminalReconciliationFiles,
   ...expectedCodeViolationGroup3ZillowRestorationFiles
 ]);
 
@@ -1201,6 +1223,23 @@ pass(
 );
 
 assert.equal(
+  expectedCountyCollapseGroup2PostTerminalReconciliationFiles.size,
+  1,
+  'expected Group 2 post-terminal reconciliation inventory must contain exactly 1 file'
+);
+
+assert.ok(
+  expectedCountyCollapseGroup2PostTerminalReconciliationFiles.has(
+    'build/apps-script-brand/CountyCollapseGroup2PostTerminalReconciliation.js'
+  ),
+  'Group 2 post-terminal reconciliation must be the exact additive read-only incident evidence surface'
+);
+
+pass(
+  'Group 2 post-terminal reconciliation is exactly one authority-free additive production file'
+);
+
+assert.equal(
   expectedCodeViolationGroup3ZillowRestorationFiles.size,
   4,
   'expected Group 3 Zillow restoration production inventory must contain exactly 4 files'
@@ -1237,8 +1276,8 @@ assert.ok(
 
 assert.equal(
   expectedProductionFiles.size,
-  144,
-  'expected reconciled production inventory must contain 144 files'
+  145,
+  'expected reconciled production inventory must contain 145 files'
 );
 
 assert.equal(
@@ -1558,6 +1597,15 @@ function runComponentCertification(fileName) {
 
     replayTree =
       CERTIFIED_EXECUTOR_BLOCKER_RETIREMENT_IMPLEMENTATION_REPLAY_TREE;
+  } else if (
+    fileName ===
+      CERTIFIED_GROUP2_PREPARED_OPERATION_RETIREMENT_VALIDATOR
+  ) {
+    replaySha =
+      CERTIFIED_GROUP2_PREPARED_OPERATION_RETIREMENT_REPLAY_SHA;
+
+    replayTree =
+      CERTIFIED_GROUP2_PREPARED_OPERATION_RETIREMENT_REPLAY_TREE;
   }
 
   if (!replaySha) {
