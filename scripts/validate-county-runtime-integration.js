@@ -171,6 +171,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-collapse-operation-intent-orphan-binding-recovery-contract-v1.js',
   'validate-county-collapse-operation-intent-orphan-binding-recovery-v1.js',
   'validate-county-collapse-group2-stranded-operation-reconciliation-v2.js',
+  'validate-county-collapse-group2-prepared-operation-retirement-v1.js',
   'validate-code-violations-gate1-recovery-executor.js',
   'validate-county-identity-source-reconciliation.js',
   'validate-county-identity-repair-evidence-export.js',
@@ -805,6 +806,16 @@ const expectedCountyCollapseGroup2StrandedReconciliationFiles = new Set([
 ]);
 
 /*
+ * Incident-bounded Group 2 prepared-operation retirement adds exactly
+ * one bounded journal-terminalization production module. It can append
+ * only the certified pre-barrier terminal and grants no physical-delete,
+ * executor-retry, scheduler, checkpoint, MAO, or automatic-offer authority.
+ */
+const expectedCountyCollapseGroup2PreparedOperationRetirementFiles = new Set([
+  'build/apps-script-brand/CountyCollapseGroup2PreparedOperationRetirement.js'
+]);
+
+/*
  * Group 3 Zillow restoration contributes exactly four production modules:
  *
  * - one authority-only restoration contract;
@@ -842,6 +853,7 @@ const expectedProductionFiles = new Set([
   ...expectedCountyCollapseRuntimePrerequisiteFiles,
   ...expectedCountyCollapseOrphanBindingRecoveryFiles,
   ...expectedCountyCollapseGroup2StrandedReconciliationFiles,
+  ...expectedCountyCollapseGroup2PreparedOperationRetirementFiles,
   ...expectedCodeViolationGroup3ZillowRestorationFiles
 ]);
 
@@ -1172,6 +1184,23 @@ pass(
 );
 
 assert.equal(
+  expectedCountyCollapseGroup2PreparedOperationRetirementFiles.size,
+  1,
+  'expected Group 2 prepared-operation retirement inventory must contain exactly 1 file'
+);
+
+assert.ok(
+  expectedCountyCollapseGroup2PreparedOperationRetirementFiles.has(
+    'build/apps-script-brand/CountyCollapseGroup2PreparedOperationRetirement.js'
+  ),
+  'Group 2 prepared-operation retirement must be the exact incident-bounded terminalization surface'
+);
+
+pass(
+  'Group 2 prepared-operation retirement is exactly one bounded additive production file'
+);
+
+assert.equal(
   expectedCodeViolationGroup3ZillowRestorationFiles.size,
   4,
   'expected Group 3 Zillow restoration production inventory must contain exactly 4 files'
@@ -1208,8 +1237,8 @@ assert.ok(
 
 assert.equal(
   expectedProductionFiles.size,
-  143,
-  'expected reconciled production inventory must contain 143 files'
+  144,
+  'expected reconciled production inventory must contain 144 files'
 );
 
 assert.equal(
