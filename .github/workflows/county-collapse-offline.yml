@@ -77,6 +77,8 @@ jobs:
           node --check build/apps-script-brand/CountyCollapseGroup2StrandedOperationReconciliation.js
           node --check scripts/validate-county-collapse-group2-stranded-operation-reconciliation-v2.js
           node --check scripts/validate-county-collapse-group2-prepared-operation-retirement-authorization-v1.js
+          node --check build/apps-script-brand/CountyCollapseGroup2PreparedOperationRetirement.js
+          node --check scripts/validate-county-collapse-group2-prepared-operation-retirement-v1.js
           node --check build/apps-script-brand/Database.js
           node --check scripts/validate-database-physical-row-patch-exact.js
           node --check scripts/validate-database-physical-row-replace-exact-contract-v1.js
@@ -350,8 +352,27 @@ jobs:
       - name: Validate Group 2 stranded operation read-only reconciliation v2
         run: node scripts/validate-county-collapse-group2-stranded-operation-reconciliation-v2.js
 
-      - name: Validate Group 2 prepared-operation retirement authorization v1
-        run: node scripts/validate-county-collapse-group2-prepared-operation-retirement-authorization-v1.js
+      - name: Validate certified Group 2 prepared-operation retirement authorization v1
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" 15d7b3a7af56806c2d147b27b28dab4b20492c65
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "15d7b3a7af56806c2d147b27b28dab4b20492c65"
+            test "$(git rev-parse 'HEAD^{tree}')" = "1cf40cdf1169aa448ab1ceb610348edffa4b3c55"
+            node scripts/validate-county-collapse-group2-prepared-operation-retirement-authorization-v1.js
+          )
+
+      - name: Validate Group 2 prepared-operation retirement v1
+        run: node scripts/validate-county-collapse-group2-prepared-operation-retirement-v1.js
 
       - name: Validate database lock-context revocation
         run: node scripts/validate-database-lock-context-revocation.js
