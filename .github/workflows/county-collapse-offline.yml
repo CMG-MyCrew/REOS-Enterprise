@@ -74,6 +74,8 @@ jobs:
           node --check scripts/validate-county-collapse-observation-preservation-contract-v1.js
           node --check scripts/validate-county-collapse-observation-preservation-implementation-contract-v1.js
           node --check scripts/validate-county-collapse-operation-intent-store-v1.js
+          node --check build/apps-script-brand/CountyCollapseGroup2StrandedOperationReconciliation.js
+          node --check scripts/validate-county-collapse-group2-stranded-operation-reconciliation-v1.js
           node --check build/apps-script-brand/Database.js
           node --check scripts/validate-database-physical-row-patch-exact.js
           node --check scripts/validate-database-physical-row-replace-exact-contract-v1.js
@@ -343,6 +345,9 @@ jobs:
 
       - name: Validate collapse operation-intent store
         run: node scripts/validate-county-collapse-operation-intent-store-v1.js
+
+      - name: Validate Group 2 stranded operation read-only reconciliation
+        run: node scripts/validate-county-collapse-group2-stranded-operation-reconciliation-v1.js
 
       - name: Validate database lock-context revocation
         run: node scripts/validate-database-lock-context-revocation.js

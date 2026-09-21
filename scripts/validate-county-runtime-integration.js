@@ -170,6 +170,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-collapse-runtime-prerequisite-certification-v1.js',
   'validate-county-collapse-operation-intent-orphan-binding-recovery-contract-v1.js',
   'validate-county-collapse-operation-intent-orphan-binding-recovery-v1.js',
+  'validate-county-collapse-group2-stranded-operation-reconciliation-v1.js',
   'validate-code-violations-gate1-recovery-executor.js',
   'validate-county-identity-source-reconciliation.js',
   'validate-county-identity-repair-evidence-export.js',
@@ -792,6 +793,18 @@ const expectedCountyCollapseOrphanBindingRecoveryFiles = new Set([
 ]);
 
 /*
+ * Incident-bounded Group 2 stranded-operation reconciliation contributes
+ * exactly one additive read-only production module.
+ *
+ * It reads only the exact known stranded operation plus current residual
+ * evidence and grants no retry, journal, delete, scheduler, checkpoint,
+ * maintenance, connector, MAO, offer, or county-data mutation authority.
+ */
+const expectedCountyCollapseGroup2StrandedReconciliationFiles = new Set([
+  'build/apps-script-brand/CountyCollapseGroup2StrandedOperationReconciliation.js'
+]);
+
+/*
  * Group 3 Zillow restoration contributes exactly four production modules:
  *
  * - one authority-only restoration contract;
@@ -828,6 +841,7 @@ const expectedProductionFiles = new Set([
   ...expectedCodeViolationCollapseExecutorImplementationFiles,
   ...expectedCountyCollapseRuntimePrerequisiteFiles,
   ...expectedCountyCollapseOrphanBindingRecoveryFiles,
+  ...expectedCountyCollapseGroup2StrandedReconciliationFiles,
   ...expectedCodeViolationGroup3ZillowRestorationFiles
 ]);
 
@@ -1141,6 +1155,23 @@ assert.ok(
 );
 
 assert.equal(
+  expectedCountyCollapseGroup2StrandedReconciliationFiles.size,
+  1,
+  'expected Group 2 stranded-operation reconciliation inventory must contain exactly 1 file'
+);
+
+assert.ok(
+  expectedCountyCollapseGroup2StrandedReconciliationFiles.has(
+    'build/apps-script-brand/CountyCollapseGroup2StrandedOperationReconciliation.js'
+  ),
+  'Group 2 stranded-operation reconciliation must be the exact additive read-only incident surface'
+);
+
+pass(
+  'Group 2 stranded-operation reconciliation is exactly one explicitly allowlisted authority-free additive file'
+);
+
+assert.equal(
   expectedCodeViolationGroup3ZillowRestorationFiles.size,
   4,
   'expected Group 3 Zillow restoration production inventory must contain exactly 4 files'
@@ -1177,8 +1208,8 @@ assert.ok(
 
 assert.equal(
   expectedProductionFiles.size,
-  142,
-  'expected reconciled production inventory must contain 142 files'
+  143,
+  'expected reconciled production inventory must contain 143 files'
 );
 
 assert.equal(
