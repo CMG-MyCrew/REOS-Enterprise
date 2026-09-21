@@ -709,9 +709,7 @@ REOS.CountyCollapseOperationIntentStore = (function () {
       text =
         Utilities
           .newBlob(bytes)
-          .getDataAsString(
-            Utilities.Charset.UTF_8
-          );
+          .getDataAsString();
     } catch (error) {
       fail_(
         'Chunk data is not valid UTF-8.'

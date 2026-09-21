@@ -385,6 +385,12 @@ function createHarness(options = {}) {
       newBlob(bytes) {
         return {
           getDataAsString() {
+            assert.strictEqual(
+              arguments.length,
+              0,
+              'Blob.getDataAsString must use UTF-8 default encoding.'
+            );
+
             return Buffer
               .from(
                 bytes.map(
@@ -1847,9 +1853,27 @@ test(
   }
 );
 
+/*
+ * 34
+ */
+test(
+  'base64 readback uses Blob UTF-8 default encoding',
+  () => {
+    assert.match(
+      storeSource,
+      /\.newBlob\(bytes\)\s*\.getDataAsString\(\);/
+    );
+
+    assert.doesNotMatch(
+      storeSource,
+      /\.getDataAsString\(\s*Utilities\.Charset\.UTF_8\s*\)/
+    );
+  }
+);
+
 assert.strictEqual(
   casesPassed,
-  33,
+  34,
   'Offline operation-intent store case count changed.'
 );
 
