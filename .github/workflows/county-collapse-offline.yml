@@ -237,8 +237,24 @@ jobs:
             node scripts/validate-county-code-violation-collapse-successor-preflight-rpc-entrypoint-v1.js
           )
 
-      - name: Validate collapse executor RPC entrypoint v1
-        run: node scripts/validate-county-code-violation-collapse-executor-rpc-entrypoint-v1.js
+      - name: Validate certified collapse executor RPC entrypoint v1
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" 6d3f3deb9dd823da3b3e4211488e570655252d03
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "6d3f3deb9dd823da3b3e4211488e570655252d03"
+            test "$(git rev-parse 'HEAD^{tree}')" = "a5cd0caa572b96b2ebbfbf9091fcaebf669a87da"
+            node scripts/validate-county-code-violation-collapse-executor-rpc-entrypoint-v1.js
+          )
 
       - name: Validate certified collapse executor safety-correction authorization v1
         run: |
@@ -306,8 +322,24 @@ jobs:
       - name: Validate collapse observation-preservation contract
         run: node scripts/validate-county-collapse-observation-preservation-contract-v1.js
 
-      - name: Validate collapse observation-preservation implementation contracts
-        run: node scripts/validate-county-collapse-observation-preservation-implementation-contract-v1.js
+      - name: Validate certified collapse observation-preservation implementation contracts
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" 6d3f3deb9dd823da3b3e4211488e570655252d03
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "6d3f3deb9dd823da3b3e4211488e570655252d03"
+            test "$(git rev-parse 'HEAD^{tree}')" = "a5cd0caa572b96b2ebbfbf9091fcaebf669a87da"
+            node scripts/validate-county-collapse-observation-preservation-implementation-contract-v1.js
+          )
 
       - name: Validate collapse operation-intent store
         run: node scripts/validate-county-collapse-operation-intent-store-v1.js
