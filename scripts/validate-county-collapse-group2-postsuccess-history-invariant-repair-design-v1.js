@@ -369,12 +369,39 @@ const stepAnchor =
   '      - name: Validate Group 2 executor-history exception v1\n' +
   '        run: node scripts/validate-county-collapse-group2-executor-history-exception-v1.js\n\n';
 
-const stepAddition =
-  stepAnchor +
+const certifiedHistoryStep =
+  '      - name: Validate certified Group 2 executor-history exception v1\n' +
+  '        run: |\n' +
+  '          root="$(mktemp -d)"\n' +
+  '          wt="$root/certified"\n' +
+  '          cleanup() {\n' +
+  '            git worktree remove --force "$wt" >/dev/null 2>&1 || true\n' +
+  '            rm -rf "$root"\n' +
+  '          }\n' +
+  '          trap cleanup EXIT\n\n' +
+  '          git worktree add --detach "$wt" ' +
+  BASE +
+  '\n\n' +
+  '          (\n' +
+  '            cd "$wt"\n' +
+  '            test "$(git rev-parse HEAD)" = "' +
+  BASE +
+  '"\n' +
+  '            test "$(git rev-parse \'HEAD^{tree}\')" = "' +
+  BASE_TREE +
+  '"\n' +
+  '            node scripts/validate-county-collapse-group2-executor-history-exception-v1.js\n' +
+  '          )\n\n';
+
+const designStep =
   '      - name: Validate Group 2 post-success history-invariant repair design v1\n' +
   '        run: node ' +
   SELF +
   '\n\n';
+
+const stepAddition =
+  certifiedHistoryStep +
+  designStep;
 
 assert.equal(
   countText(
@@ -400,7 +427,7 @@ expectedWorkflow =
 assert.equal(
   workflow,
   expectedWorkflow,
-  'Workflow changed outside exact design-validator registration.'
+  'Workflow changed outside exact historical lifecycle transition and design-validator registration.'
 );
 
 const effective =
