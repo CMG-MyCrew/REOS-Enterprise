@@ -82,6 +82,7 @@ jobs:
           node --check scripts/validate-county-collapse-group2-post-terminal-reconciliation-v1.js
           node --check scripts/validate-county-collapse-group2-executor-history-exception-authorization-v1.js
           node --check scripts/validate-county-collapse-group2-executor-history-exception-v1.js
+          node --check scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-design-v1.js
           node --check build/apps-script-brand/CountyCollapseGroup2PreparedOperationRetirement.js
           node --check scripts/validate-county-collapse-group2-prepared-operation-retirement-v1.js
           node --check build/apps-script-brand/Database.js
@@ -419,6 +420,9 @@ jobs:
 
       - name: Validate Group 2 executor-history exception v1
         run: node scripts/validate-county-collapse-group2-executor-history-exception-v1.js
+
+      - name: Validate Group 2 post-success history-invariant repair design v1
+        run: node scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-design-v1.js
 
       - name: Validate certified Group 2 prepared-operation retirement v1
         run: |
