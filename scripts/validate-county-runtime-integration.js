@@ -173,6 +173,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-collapse-group2-stranded-operation-reconciliation-v2.js',
   'validate-county-collapse-group2-prepared-operation-retirement-v1.js',
   'validate-county-collapse-group2-post-terminal-reconciliation-v1.js',
+  'validate-county-collapse-group2-executor-history-exception-v1.js',
   'validate-code-violations-gate1-recovery-executor.js',
   'validate-county-identity-source-reconciliation.js',
   'validate-county-identity-repair-evidence-export.js',

@@ -33,6 +33,41 @@ REOS.CountyCodeViolationCollapseExecutor =
   var CURRENT_AUTHORITY_SHA =
     '8993da9619a9203182189cb8746eedf286a279b84db9342a53d9eb33de057ce7';
 
+  var GROUP2_HISTORY_EXCEPTION_MARKER_ =
+    'GROUP2_CERTIFIED_POST_TERMINAL_HISTORY_EXCEPTION_V1';
+
+  var GROUP2_INCIDENT_OPERATION_ID_ =
+    '6ab40e74-43e0-4ce4-a2ce-83ea6c4620e8';
+
+  var GROUP2_INCIDENT_GROUP_NUMBER_ = 2;
+
+  var GROUP2_INCIDENT_WINNER_ID_ =
+    'DL-20260820181645-7130';
+
+  var GROUP2_INCIDENT_TARGET_ID_ =
+    'DL-20260820181652-6183';
+
+  var GROUP2_INCIDENT_OPERATION_CREATED_AT_ =
+    '2026-09-20T23:49:45.327Z';
+
+  var GROUP2_PREPARED_EVENT_SHA256_ =
+    '843f8367f1554c71600be6e3139ea166d9f276e6ffc8941a893dd1e197e06153';
+
+  var GROUP2_PREPARED_PAYLOAD_SHA256_ =
+    '9c985a4d0b9b1e404a4d8cdc7729feaa81a8afb895f6de3e2b0d31b2bb31651c';
+
+  var GROUP2_TERMINAL_EVENT_SHA256_ =
+    '2e809d3ec9b59522671b13c3d498939eb05347c1ac08749f21beda8e4b1e4f89';
+
+  var GROUP2_TERMINAL_PAYLOAD_SHA256_ =
+    '10b54de7c6e39bb058e96f44c679d3e5420054219e059a60a1bf348d7085dbe2';
+
+  var GROUP2_RECOVERY_CLASSIFICATION_ =
+    'PRECONDITION_FAILED_REQUIRES_LIVE_READ_ONLY_RECONCILIATION';
+
+  var GROUP2_POST_TERMINAL_MODE_ =
+    'READ_ONLY_GROUP2_POST_TERMINAL_RECONCILIATION_V1';
+
   var REQUEST_FIELDS = [
     'confirmExecution',
     'groupNumber',
@@ -694,9 +729,343 @@ REOS.CountyCodeViolationCollapseExecutor =
     };
   }
 
+  function certifiedGroup2HistoryExceptionRequest_(
+    request
+  ) {
+    return (
+      Number(
+        request.groupNumber
+      ) ===
+        GROUP2_INCIDENT_GROUP_NUMBER_ &&
+      text_(
+        request.expectedWinnerDistressLeadId
+      ) ===
+        GROUP2_INCIDENT_WINNER_ID_ &&
+      text_(
+        request.deleteDistressLeadId
+      ) ===
+        GROUP2_INCIDENT_TARGET_ID_
+    );
+  }
+
+  function assertCertifiedGroup2HistoryExceptionHistory_(
+    store,
+    operationId,
+    history,
+    request
+  ) {
+    if (
+      operationId !==
+        GROUP2_INCIDENT_OPERATION_ID_ ||
+      !certifiedGroup2HistoryExceptionRequest_(
+        request
+      ) ||
+      !history ||
+      history.found !== true ||
+      text_(
+        history.operationId
+      ) !==
+        GROUP2_INCIDENT_OPERATION_ID_ ||
+      !Array.isArray(
+        history.events
+      ) ||
+      history.events.length !== 2
+    ) {
+      fail_(
+        'Certified Group 2 history-exception durable history changed.'
+      );
+    }
+
+    var prepared =
+      history.events[0] &&
+      history.events[0].manifest;
+
+    var terminal =
+      history.events[1] &&
+      history.events[1].manifest;
+
+    if (
+      !prepared ||
+      !terminal
+    ) {
+      fail_(
+        'Certified Group 2 history-exception durable history is malformed.'
+      );
+    }
+
+    if (
+      text_(
+        prepared.operationId
+      ) !==
+        GROUP2_INCIDENT_OPERATION_ID_ ||
+      Number(
+        prepared.eventSequence
+      ) !== 1 ||
+      prepared.eventType !==
+        'INTENT_PREPARED' ||
+      Number(
+        prepared.operationIntentContractVersion
+      ) !== 1 ||
+      text_(
+        prepared.executorImplementationVersion
+      ) !== VERSION ||
+      Number(
+        prepared.groupNumber
+      ) !==
+        GROUP2_INCIDENT_GROUP_NUMBER_ ||
+      text_(
+        prepared.winnerDistressLeadId
+      ) !==
+        GROUP2_INCIDENT_WINNER_ID_ ||
+      text_(
+        prepared.targetDeleteDistressLeadId
+      ) !==
+        GROUP2_INCIDENT_TARGET_ID_ ||
+      text_(
+        prepared.payloadSha256
+      ) !==
+        GROUP2_PREPARED_PAYLOAD_SHA256_ ||
+      text_(
+        prepared.previousEventSha256
+      ) !==
+        'GENESIS' ||
+      text_(
+        prepared.eventSha256
+      ) !==
+        GROUP2_PREPARED_EVENT_SHA256_
+    ) {
+      fail_(
+        'Certified Group 2 prepared history evidence changed.'
+      );
+    }
+
+    if (
+      text_(
+        terminal.operationId
+      ) !==
+        GROUP2_INCIDENT_OPERATION_ID_ ||
+      Number(
+        terminal.eventSequence
+      ) !== 2 ||
+      terminal.eventType !==
+        'COLLAPSE_EXECUTOR_PRECONDITION_FAILED' ||
+      Number(
+        terminal.operationIntentContractVersion
+      ) !== 1 ||
+      text_(
+        terminal.executorImplementationVersion
+      ) !== VERSION ||
+      Number(
+        terminal.groupNumber
+      ) !==
+        GROUP2_INCIDENT_GROUP_NUMBER_ ||
+      text_(
+        terminal.winnerDistressLeadId
+      ) !==
+        GROUP2_INCIDENT_WINNER_ID_ ||
+      text_(
+        terminal.targetDeleteDistressLeadId
+      ) !==
+        GROUP2_INCIDENT_TARGET_ID_ ||
+      text_(
+        terminal.payloadSha256
+      ) !==
+        GROUP2_TERMINAL_PAYLOAD_SHA256_ ||
+      text_(
+        terminal.previousEventSha256
+      ) !==
+        GROUP2_PREPARED_EVENT_SHA256_ ||
+      text_(
+        terminal.eventSha256
+      ) !==
+        GROUP2_TERMINAL_EVENT_SHA256_
+    ) {
+      fail_(
+        'Certified Group 2 terminal history evidence changed.'
+      );
+    }
+
+    if (
+      typeof store.recover !==
+        'function'
+    ) {
+      fail_(
+        'Strict operation recovery is required for the certified Group 2 history exception.'
+      );
+    }
+
+    var recovery =
+      store.recover(
+        operationId
+      );
+
+    if (
+      !recovery ||
+      recovery.found !== true ||
+      text_(
+        recovery.operationId
+      ) !==
+        GROUP2_INCIDENT_OPERATION_ID_ ||
+      recovery.classification !==
+        GROUP2_RECOVERY_CLASSIFICATION_ ||
+      Number(
+        recovery.eventCount
+      ) !== 2 ||
+      recovery.automaticRetryPermitted !==
+        false ||
+      recovery.rowRecreationPermitted !==
+        false ||
+      recovery.journalMutationExecuted !==
+        false
+    ) {
+      fail_(
+        'Certified Group 2 history-exception recovery evidence changed.'
+      );
+    }
+  }
+
+  function assertFreshCertifiedGroup2HistoryExceptionEvidence_(
+    request
+  ) {
+    if (
+      !certifiedGroup2HistoryExceptionRequest_(
+        request
+      )
+    ) {
+      fail_(
+        'Certified Group 2 history-exception request identity changed.'
+      );
+    }
+
+    var reader =
+      REOS
+        .CountyCollapseGroup2PostTerminalReconciliation;
+
+    if (
+      !reader ||
+      typeof reader.status !==
+        'function'
+    ) {
+      fail_(
+        'Certified Group 2 post-terminal evidence reader is required.'
+      );
+    }
+
+    var evidence =
+      reader.status();
+
+    if (
+      !evidence ||
+      evidence.ok !== true ||
+      evidence.mode !==
+        GROUP2_POST_TERMINAL_MODE_ ||
+      Number(
+        evidence.contractVersion
+      ) !== 1 ||
+      text_(
+        evidence.operationId
+      ) !==
+        GROUP2_INCIDENT_OPERATION_ID_ ||
+      Number(
+        evidence.groupNumber
+      ) !==
+        GROUP2_INCIDENT_GROUP_NUMBER_ ||
+      text_(
+        evidence.winnerDistressLeadId
+      ) !==
+        GROUP2_INCIDENT_WINNER_ID_ ||
+      text_(
+        evidence.targetDeleteDistressLeadId
+      ) !==
+        GROUP2_INCIDENT_TARGET_ID_ ||
+      text_(
+        evidence.operationCreatedTimestampUtc
+      ) !==
+        GROUP2_INCIDENT_OPERATION_CREATED_AT_ ||
+      text_(
+        evidence.preparedEventSha256
+      ) !==
+        GROUP2_PREPARED_EVENT_SHA256_ ||
+      text_(
+        evidence.preparedPayloadSha256
+      ) !==
+        GROUP2_PREPARED_PAYLOAD_SHA256_ ||
+      text_(
+        evidence.terminalEventSha256
+      ) !==
+        GROUP2_TERMINAL_EVENT_SHA256_ ||
+      text_(
+        evidence.terminalPayloadSha256
+      ) !==
+        GROUP2_TERMINAL_PAYLOAD_SHA256_ ||
+      evidence.journalReadbackDecoded !==
+        true ||
+      Number(
+        evidence.journalEventCount
+      ) !== 2 ||
+      !same_(
+        evidence.journalEventTypes,
+        [
+          'INTENT_PREPARED',
+          'COLLAPSE_EXECUTOR_PRECONDITION_FAILED'
+        ]
+      ) ||
+      evidence.recoveryClassification !==
+        GROUP2_RECOVERY_CLASSIFICATION_ ||
+      evidence.winnerPresent !== true ||
+      evidence.targetPresent !== true ||
+      evidence.deleteBarrierPresent !==
+        false ||
+      evidence.verifiedDeletePresent !==
+        false ||
+      evidence.schedulerFrozen !== true ||
+      evidence.checkpointFrozen !== true ||
+      evidence.residualExecutionBlocked !==
+        false ||
+      evidence.postTerminalReconciliationComplete !==
+        true ||
+      evidence.executorHistoryExceptionEvidenceEligible !==
+        true ||
+      evidence.journalMutationExecuted !==
+        false ||
+      evidence.automaticRetryPermitted !==
+        false ||
+      evidence.executorRetryAuthorityGranted !==
+        false ||
+      evidence.executorHistoryExceptionImplementationAuthorityGranted !==
+        false ||
+      evidence.successorExecutionAuthorityGranted !==
+        false ||
+      evidence.collapseExecutionAuthorityGranted !==
+        false ||
+      evidence.physicalDeleteAuthorityGranted !==
+        false ||
+      evidence.productionDataMutationAuthorityGranted !==
+        false ||
+      evidence.maintenanceMutationAuthorityGranted !==
+        false ||
+      evidence.schedulerMutationAuthorityGranted !==
+        false ||
+      evidence.checkpointMutationAuthorityGranted !==
+        false ||
+      evidence.connectorExecutionAuthorityGranted !==
+        false ||
+      evidence.rowRecreationPermitted !==
+        false ||
+      evidence.automaticMaoAuthorityGranted !==
+        false ||
+      evidence.automaticOfferAuthorityGranted !==
+        false
+    ) {
+      fail_(
+        'Fresh certified Group 2 post-terminal evidence changed.'
+      );
+    }
+  }
+
   function assertNoTargetBoundOperationHistory_(
     store,
-    targetDeleteDistressLeadId
+    request
   ) {
     var operationIds =
       store.listOperationIds();
@@ -709,6 +1078,9 @@ REOS.CountyCodeViolationCollapseExecutor =
 
     var previousOperationId =
       '';
+
+    var certifiedIncidentExceptionApplied =
+      false;
 
     for (
       var index = 0;
@@ -756,15 +1128,50 @@ REOS.CountyCodeViolationCollapseExecutor =
         );
       }
 
-      if (
+      var targetBound =
         text_(
           history
             .events[0]
             .manifest
             .targetDeleteDistressLeadId
         ) ===
-        targetDeleteDistressLeadId
+        text_(
+          request.deleteDistressLeadId
+        );
+
+      if (
+        operationId ===
+          GROUP2_INCIDENT_OPERATION_ID_ &&
+        certifiedGroup2HistoryExceptionRequest_(
+          request
+        )
       ) {
+        if (
+          certifiedIncidentExceptionApplied
+        ) {
+          fail_(
+            'Existing durable operation history already binds requested delete candidate.'
+          );
+        }
+
+        assertCertifiedGroup2HistoryExceptionHistory_(
+          store,
+          operationId,
+          history,
+          request
+        );
+
+        assertFreshCertifiedGroup2HistoryExceptionEvidence_(
+          request
+        );
+
+        certifiedIncidentExceptionApplied =
+          true;
+
+        continue;
+      }
+
+      if (targetBound) {
         fail_(
           'Existing durable operation history already binds requested delete candidate.'
         );
@@ -1553,7 +1960,7 @@ REOS.CountyCodeViolationCollapseExecutor =
 
             assertNoTargetBoundOperationHistory_(
               store,
-              request.deleteDistressLeadId
+              request
             );
 
             var prepared =
