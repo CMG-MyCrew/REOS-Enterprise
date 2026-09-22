@@ -376,8 +376,24 @@ jobs:
             node scripts/validate-county-collapse-group2-prepared-operation-retirement-authorization-v1.js
           )
 
-      - name: Validate Group 2 post-terminal reconciliation authorization v1
-        run: node scripts/validate-county-collapse-group2-post-terminal-reconciliation-authorization-v1.js
+      - name: Validate certified Group 2 post-terminal reconciliation authorization v1
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" 82273d0ce3aa7f78a874cac07be9a6d46dcc2462
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "82273d0ce3aa7f78a874cac07be9a6d46dcc2462"
+            test "$(git rev-parse 'HEAD^{tree}')" = "b5e6272589d0d91de568618d2f12d9afa66d5661"
+            node scripts/validate-county-collapse-group2-post-terminal-reconciliation-authorization-v1.js
+          )
 
       - name: Validate Group 2 post-terminal reconciliation v1
         run: node scripts/validate-county-collapse-group2-post-terminal-reconciliation-v1.js
