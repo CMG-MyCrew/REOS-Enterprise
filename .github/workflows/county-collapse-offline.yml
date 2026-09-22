@@ -501,5 +501,21 @@ jobs:
       - name: Validate Group 3 Zillow restoration operator entrypoint
         run: node scripts/validate-county-code-violation-group3-zillow-restoration-operator-entrypoint-v1.js
 
-      - name: Validate county runtime integration
-        run: node scripts/validate-county-runtime-integration.js
+      - name: Validate certified county runtime integration
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" d79d640d587e8a4d104cc4631b2022609a63fd50
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "d79d640d587e8a4d104cc4631b2022609a63fd50"
+            test "$(git rev-parse 'HEAD^{tree}')" = "90d28afc06ae80006ce32810e3bf523665f191f8"
+            node scripts/validate-county-runtime-integration.js
+          )

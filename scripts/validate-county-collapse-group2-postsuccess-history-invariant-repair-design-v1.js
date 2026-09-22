@@ -403,6 +403,34 @@ const stepAddition =
   certifiedHistoryStep +
   designStep;
 
+const runtimeIntegrationAnchor =
+  '      - name: Validate county runtime integration\n' +
+  '        run: node scripts/validate-county-runtime-integration.js';
+
+const certifiedRuntimeIntegrationStep =
+  '      - name: Validate certified county runtime integration\n' +
+  '        run: |\n' +
+  '          root="$(mktemp -d)"\n' +
+  '          wt="$root/certified"\n' +
+  '          cleanup() {\n' +
+  '            git worktree remove --force "$wt" >/dev/null 2>&1 || true\n' +
+  '            rm -rf "$root"\n' +
+  '          }\n' +
+  '          trap cleanup EXIT\n\n' +
+  '          git worktree add --detach "$wt" ' +
+  BASE +
+  '\n\n' +
+  '          (\n' +
+  '            cd "$wt"\n' +
+  '            test "$(git rev-parse HEAD)" = "' +
+  BASE +
+  '"\n' +
+  '            test "$(git rev-parse \'HEAD^{tree}\')" = "' +
+  BASE_TREE +
+  '"\n' +
+  '            node scripts/validate-county-runtime-integration.js\n' +
+  '          )';
+
 assert.equal(
   countText(
     baseWorkflow,
@@ -425,9 +453,24 @@ expectedWorkflow =
   );
 
 assert.equal(
+  countText(
+    baseWorkflow,
+    runtimeIntegrationAnchor
+  ),
+  1,
+  'County runtime integration anchor changed.'
+);
+
+expectedWorkflow =
+  expectedWorkflow.replace(
+    runtimeIntegrationAnchor,
+    certifiedRuntimeIntegrationStep
+  );
+
+assert.equal(
   workflow,
   expectedWorkflow,
-  'Workflow changed outside exact historical lifecycle transition and design-validator registration.'
+  'Workflow changed outside exact historical/runtime-integration lifecycle transitions and design-validator registration.'
 );
 
 const effective =
