@@ -271,10 +271,37 @@ const stepAnchor =
   '      - name: Validate Group 2 post-success history-invariant repair v1\n' +
   '        run: node scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-v1.js\n\n';
 
-const stepAddition =
-  stepAnchor +
+const certifiedGroup2Step =
+  '      - name: Validate certified Group 2 post-success history-invariant repair v1\n' +
+  '        run: |\n' +
+  '          root="$(mktemp -d)"\n' +
+  '          wt="$root/certified"\n' +
+  '          cleanup() {\n' +
+  '            git worktree remove --force "$wt" >/dev/null 2>&1 || true\n' +
+  '            rm -rf "$root"\n' +
+  '          }\n' +
+  '          trap cleanup EXIT\n\n' +
+  '          git worktree add --detach "$wt" ' +
+  BASE +
+  '\n\n' +
+  '          (\n' +
+  '            cd "$wt"\n' +
+  '            test "$(git rev-parse HEAD)" = "' +
+  BASE +
+  '"\n' +
+  '            test "$(git rev-parse \'HEAD^{tree}\')" = "' +
+  BASE_TREE +
+  '"\n' +
+  '            node scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-v1.js\n' +
+  '          )\n\n';
+
+const group4DesignStep =
   '      - name: Validate Group 4 post-barrier timeout terminal-reconciliation design v1\n' +
   '        run: node scripts/validate-county-collapse-group4-postbarrier-timeout-terminal-reconciliation-design-v1.js\n\n';
+
+const stepAddition =
+  certifiedGroup2Step +
+  group4DesignStep;
 
 assert.equal(
   baseWorkflow
