@@ -83,6 +83,7 @@ jobs:
           node --check scripts/validate-county-collapse-group2-executor-history-exception-authorization-v1.js
           node --check scripts/validate-county-collapse-group2-executor-history-exception-v1.js
           node --check scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-design-v1.js
+          node --check scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-v1.js
           node --check build/apps-script-brand/CountyCollapseGroup2PreparedOperationRetirement.js
           node --check scripts/validate-county-collapse-group2-prepared-operation-retirement-v1.js
           node --check build/apps-script-brand/Database.js
@@ -437,8 +438,27 @@ jobs:
             node scripts/validate-county-collapse-group2-executor-history-exception-v1.js
           )
 
-      - name: Validate Group 2 post-success history-invariant repair design v1
-        run: node scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-design-v1.js
+      - name: Validate certified Group 2 post-success history-invariant repair design v1
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" 82d37a282098349dacd07d37bd9a6397e71bfaa0
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "82d37a282098349dacd07d37bd9a6397e71bfaa0"
+            test "$(git rev-parse 'HEAD^{tree}')" = "5dc6915644fb101baef601ecdb59bd82f58ddfea"
+            node scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-design-v1.js
+          )
+
+      - name: Validate Group 2 post-success history-invariant repair v1
+        run: node scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-v1.js
 
       - name: Validate certified Group 2 prepared-operation retirement v1
         run: |
