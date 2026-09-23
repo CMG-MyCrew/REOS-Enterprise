@@ -5,9 +5,12 @@
  *
  * READ ONLY.
  *
- * Missing certified IDs are accepted only when the exact immutable target is
- * backed by exactly one strict operation history whose terminal state and
- * recovery classification both prove COLLAPSE_DELETE_VERIFIED.
+ * Missing certified IDs require exactly one verified-success delete history.
+ *
+ * Every non-incident missing target also retains the exact-one total-history
+ * invariant. The exact certified Group 2 post-success incident is separately
+ * recognized only when its exact historical precondition-failed history and
+ * exactly one verified-success history form the exact two-history set.
  *
  * Current physical row numbers are evidence only.
  */
@@ -36,6 +39,32 @@ REOS.CountyCodeViolationCollapseResidualEvidence =
     var EXPECTED_CERTIFIED_GROUPS = 21;
     var EXPECTED_DIRECT_KEEP_GROUPS = 14;
     var EXPECTED_DIRECT_KEEP_DELETE_CANDIDATES = 16;
+
+    var GROUP2_POSTSUCCESS_GROUP_ = 2;
+
+    var GROUP2_POSTSUCCESS_WINNER_ =
+      'DL-20260820181645-7130';
+
+    var GROUP2_POSTSUCCESS_TARGET_ =
+      'DL-20260820181652-6183';
+
+    var GROUP2_POSTSUCCESS_HISTORICAL_OPERATION_ID_ =
+      '6ab40e74-43e0-4ce4-a2ce-83ea6c4620e8';
+
+    var GROUP2_POSTSUCCESS_PREPARED_EVENT_SHA256_ =
+      '843f8367f1554c71600be6e3139ea166d9f276e6ffc8941a893dd1e197e06153';
+
+    var GROUP2_POSTSUCCESS_PREPARED_PAYLOAD_SHA256_ =
+      '9c985a4d0b9b1e404a4d8cdc7729feaa81a8afb895f6de3e2b0d31b2bb31651c';
+
+    var GROUP2_POSTSUCCESS_TERMINAL_EVENT_SHA256_ =
+      '2e809d3ec9b59522671b13c3d498939eb05347c1ac08749f21beda8e4b1e4f89';
+
+    var GROUP2_POSTSUCCESS_TERMINAL_PAYLOAD_SHA256_ =
+      '10b54de7c6e39bb058e96f44c679d3e5420054219e059a60a1bf348d7085dbe2';
+
+    var GROUP2_POSTSUCCESS_HISTORICAL_RECOVERY_ =
+      'PRECONDITION_FAILED_REQUIRES_LIVE_READ_ONLY_RECONCILIATION';
 
     function text_(value) {
       return String(
@@ -67,6 +96,200 @@ REOS.CountyCodeViolationCollapseResidualEvidence =
           id
         );
       }
+    }
+
+    function assertExactGroup2HistoricalEvent_(
+      event,
+      sequence,
+      eventType,
+      eventSha256,
+      payloadSha256,
+      previousEventSha256
+    ) {
+      var manifest =
+        event &&
+        event.manifest;
+
+      if (
+        !manifest ||
+        text_(manifest.operationId) !==
+          GROUP2_POSTSUCCESS_HISTORICAL_OPERATION_ID_ ||
+        Number(manifest.eventSequence) !==
+          sequence ||
+        text_(manifest.eventType) !==
+          eventType ||
+        Number(manifest.groupNumber) !==
+          GROUP2_POSTSUCCESS_GROUP_ ||
+        text_(manifest.winnerDistressLeadId) !==
+          GROUP2_POSTSUCCESS_WINNER_ ||
+        text_(manifest.targetDeleteDistressLeadId) !==
+          GROUP2_POSTSUCCESS_TARGET_ ||
+        text_(manifest.eventSha256) !==
+          eventSha256 ||
+        text_(manifest.payloadSha256) !==
+          payloadSha256 ||
+        text_(manifest.previousEventSha256) !==
+          previousEventSha256
+      ) {
+        fail_(
+          'Certified Group 2 historical operation event drift.'
+        );
+      }
+    }
+
+    function assertExactGroup2HistoricalHistory_(
+      operationId,
+      history,
+      recovery
+    ) {
+      if (
+        text_(operationId) !==
+          GROUP2_POSTSUCCESS_HISTORICAL_OPERATION_ID_ ||
+        text_(history.operationId) !==
+          GROUP2_POSTSUCCESS_HISTORICAL_OPERATION_ID_ ||
+        Number(history.identity.groupNumber) !==
+          GROUP2_POSTSUCCESS_GROUP_ ||
+        text_(
+          history
+            .identity
+            .winnerDistressLeadId
+        ) !==
+          GROUP2_POSTSUCCESS_WINNER_ ||
+        text_(
+          history
+            .identity
+            .targetDeleteDistressLeadId
+        ) !==
+          GROUP2_POSTSUCCESS_TARGET_ ||
+        history.events.length !==
+          2
+      ) {
+        fail_(
+          'Certified Group 2 historical operation identity drift.'
+        );
+      }
+
+      assertExactGroup2HistoricalEvent_(
+        history.events[0],
+        1,
+        'INTENT_PREPARED',
+        GROUP2_POSTSUCCESS_PREPARED_EVENT_SHA256_,
+        GROUP2_POSTSUCCESS_PREPARED_PAYLOAD_SHA256_,
+        'GENESIS'
+      );
+
+      assertExactGroup2HistoricalEvent_(
+        history.events[1],
+        2,
+        'COLLAPSE_EXECUTOR_PRECONDITION_FAILED',
+        GROUP2_POSTSUCCESS_TERMINAL_EVENT_SHA256_,
+        GROUP2_POSTSUCCESS_TERMINAL_PAYLOAD_SHA256_,
+        GROUP2_POSTSUCCESS_PREPARED_EVENT_SHA256_
+      );
+
+      if (
+        !recovery ||
+        recovery.found !== true ||
+        text_(recovery.operationId) !==
+          GROUP2_POSTSUCCESS_HISTORICAL_OPERATION_ID_ ||
+        recovery.classification !==
+          GROUP2_POSTSUCCESS_HISTORICAL_RECOVERY_ ||
+        Number(recovery.eventCount) !==
+          2 ||
+        recovery.automaticRetryPermitted !==
+          false ||
+        recovery.rowRecreationPermitted !==
+          false ||
+        recovery.journalMutationExecuted !==
+          false
+      ) {
+        fail_(
+          'Certified Group 2 historical operation recovery drift.'
+        );
+      }
+
+      return {
+        operationId:
+          GROUP2_POSTSUCCESS_HISTORICAL_OPERATION_ID_,
+        targetDeleteDistressLeadId:
+          GROUP2_POSTSUCCESS_TARGET_
+      };
+    }
+
+    function isExactGroup2PostSuccessCandidate_(
+      id,
+      candidate
+    ) {
+      return (
+        text_(id) ===
+          GROUP2_POSTSUCCESS_TARGET_ &&
+        !!candidate &&
+        Number(candidate.groupNumber) ===
+          GROUP2_POSTSUCCESS_GROUP_ &&
+        text_(candidate.winnerDistressLeadId) ===
+          GROUP2_POSTSUCCESS_WINNER_
+      );
+    }
+
+    function assertExactGroup2PostSuccessHistorySet_(
+      id,
+      candidate,
+      verified,
+      historical,
+      boundCount,
+      uncertainCount
+    ) {
+      if (
+        !isExactGroup2PostSuccessCandidate_(
+          id,
+          candidate
+        )
+      ) {
+        fail_(
+          'Certified Group 2 post-success candidate authority drift.'
+        );
+      }
+
+      if (
+        Number(uncertainCount) !==
+          0
+      ) {
+        fail_(
+          'Certified Group 2 post-success target has uncertain operation history.'
+        );
+      }
+
+      if (
+        Number(boundCount) !==
+          2
+      ) {
+        fail_(
+          'Certified Group 2 post-success target does not bind exactly two strict operation histories.'
+        );
+      }
+
+      if (
+        !historical ||
+        historical.operationId !==
+          GROUP2_POSTSUCCESS_HISTORICAL_OPERATION_ID_
+      ) {
+        fail_(
+          'Certified Group 2 post-success target lacks exact historical operation.'
+        );
+      }
+
+      if (
+        !verified ||
+        !verified.operationId ||
+        verified.operationId ===
+          historical.operationId
+      ) {
+        fail_(
+          'Certified Group 2 verified-success operation must be distinct from historical operation.'
+        );
+      }
+
+      return true;
     }
 
     function requireDependencies_() {
@@ -565,6 +788,8 @@ REOS.CountyCodeViolationCollapseResidualEvidence =
 
       var verifiedByTarget = {};
       var boundOperationCount = {};
+      var historicalByTarget = {};
+      var uncertainOperationCountByTarget = {};
       var verifiedDeletes = [];
       var uncertainOperationIds = [];
 
@@ -615,6 +840,30 @@ REOS.CountyCodeViolationCollapseResidualEvidence =
                   targetId
                 ] || 0
               ) + 1;
+          }
+
+          if (
+            operationId ===
+              GROUP2_POSTSUCCESS_HISTORICAL_OPERATION_ID_
+          ) {
+            if (
+              historicalByTarget[
+                GROUP2_POSTSUCCESS_TARGET_
+              ]
+            ) {
+              fail_(
+                'Certified Group 2 historical operation is not unique.'
+              );
+            }
+
+            historicalByTarget[
+              GROUP2_POSTSUCCESS_TARGET_
+            ] =
+              assertExactGroup2HistoricalHistory_(
+                operationId,
+                history,
+                recovery
+              );
           }
 
           if (
@@ -716,6 +965,17 @@ REOS.CountyCodeViolationCollapseResidualEvidence =
             recovery.classification ===
               'UNCERTAIN_STORAGE_INVALID'
           ) {
+            if (targetId) {
+              uncertainOperationCountByTarget[
+                targetId
+              ] =
+                (
+                  uncertainOperationCountByTarget[
+                    targetId
+                  ] || 0
+                ) + 1;
+            }
+
             uncertainOperationIds
               .push(operationId);
 
@@ -771,8 +1031,22 @@ REOS.CountyCodeViolationCollapseResidualEvidence =
           }
 
           if (
+            isExactGroup2PostSuccessCandidate_(
+              id,
+              candidateAuthority[id]
+            )
+          ) {
+            assertExactGroup2PostSuccessHistorySet_(
+              id,
+              candidateAuthority[id],
+              verified,
+              historicalByTarget[id],
+              boundOperationCount[id] || 0,
+              uncertainOperationCountByTarget[id] || 0
+            );
+          } else if (
             boundOperationCount[id] !==
-            1
+              1
           ) {
             fail_(
               'Missing certified ID does not bind exactly one strict operation history: ' +
