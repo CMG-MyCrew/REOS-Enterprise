@@ -83,6 +83,7 @@ jobs:
           node --check scripts/validate-county-collapse-group2-executor-history-exception-authorization-v1.js
           node --check scripts/validate-county-collapse-group2-executor-history-exception-v1.js
           node --check scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-design-v1.js
+          node --check scripts/validate-county-collapse-group4-postbarrier-timeout-terminal-reconciliation-design-v1.js
           node --check scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-v1.js
           node --check build/apps-script-brand/CountyCollapseGroup2PreparedOperationRetirement.js
           node --check scripts/validate-county-collapse-group2-prepared-operation-retirement-v1.js
@@ -457,8 +458,27 @@ jobs:
             node scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-design-v1.js
           )
 
-      - name: Validate Group 2 post-success history-invariant repair v1
-        run: node scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-v1.js
+      - name: Validate certified Group 2 post-success history-invariant repair v1
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" ec0455b8c52d3a22acad71db6f062c1712418744
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "ec0455b8c52d3a22acad71db6f062c1712418744"
+            test "$(git rev-parse 'HEAD^{tree}')" = "111663af93a7cae9179c82cb09dae9e8bb0f462d"
+            node scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-v1.js
+          )
+
+      - name: Validate Group 4 post-barrier timeout terminal-reconciliation design v1
+        run: node scripts/validate-county-collapse-group4-postbarrier-timeout-terminal-reconciliation-design-v1.js
 
       - name: Validate certified Group 2 prepared-operation retirement v1
         run: |
