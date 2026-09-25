@@ -107,6 +107,10 @@ jobs:
           node --check build/apps-script-brand/CountyCodeViolationGroup3PostRestorationEvidence.js
           node --check scripts/validate-county-code-violation-group3-post-restoration-evidence-v1.js
           node --check scripts/validate-county-code-violation-group3-zillow-restoration-operator-entrypoint-v1.js
+          node --check build/apps-script-brand/AbsenteeOwnerEnrichmentCandidateDiscovery.js
+          node --check scripts/validate-absentee-owner-bounded-candidate-discovery-v1.js
+          node --check scripts/validate-absentee-owner-bounded-candidate-discovery-behavior-v1.js
+          node --check scripts/validate-absentee-owner-bounded-candidate-discovery-integration-v1.js
           node --check scripts/validate-county-runtime-integration.js
 
       - name: Validate post-restoration collapse authority design
@@ -578,6 +582,15 @@ jobs:
 
       - name: Validate Group 3 Zillow restoration operator entrypoint
         run: node scripts/validate-county-code-violation-group3-zillow-restoration-operator-entrypoint-v1.js
+
+      - name: Validate absentee-owner bounded candidate discovery static v1
+        run: node scripts/validate-absentee-owner-bounded-candidate-discovery-v1.js
+
+      - name: Validate absentee-owner bounded candidate discovery behavior v1
+        run: node scripts/validate-absentee-owner-bounded-candidate-discovery-behavior-v1.js
+
+      - name: Validate absentee-owner bounded candidate discovery integration v1
+        run: node scripts/validate-absentee-owner-bounded-candidate-discovery-integration-v1.js
 
       - name: Validate certified county runtime integration
         run: |

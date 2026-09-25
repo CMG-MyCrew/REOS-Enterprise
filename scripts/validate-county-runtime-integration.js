@@ -86,6 +86,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/AbsenteeOwnerEnrichmentExecutor.js',
   'build/apps-script-brand/AbsenteeOwnerEnrichmentCertificationEntrypoint.js',
   'build/apps-script-brand/AbsenteeOwnerEnrichmentExactRecordSelector.js',
+  'build/apps-script-brand/AbsenteeOwnerEnrichmentCandidateDiscovery.js',
   'build/apps-script-brand/ZillowProductionEvidence.js',
   'build/apps-script-brand/ZillowGmailConnectorStateDiagnostic.js',
   'build/apps-script-brand/ZillowGmailFailClosedTriggerInstaller.js',
@@ -200,6 +201,8 @@ const COMPONENT_VALIDATORS = [
   'validate-philadelphia-probate-public-notice-feed.js',
   'validate-zillow-production-gmail-connector-state-diagnostic-v1.js',
   'validate-zillow-production-gmail-fail-closed-trigger-installer-v1.js',
+  'validate-absentee-owner-bounded-candidate-discovery-v1.js',
+  'validate-absentee-owner-bounded-candidate-discovery-behavior-v1.js',
   'validate-county-code-violation-collapse-executor-runtime-v1.js',
   'validate-county-code-violation-collapse-executor-safety-correction-runtime-v1.js',
   'validate-county-code-violation-collapse-executor-implementation-lifecycle-v1.js',
@@ -253,6 +256,15 @@ const CERTIFIED_EXECUTOR_BLOCKER_RETIREMENT_IMPLEMENTATION_REPLAY_SHA =
 
 const CERTIFIED_EXECUTOR_BLOCKER_RETIREMENT_IMPLEMENTATION_REPLAY_TREE =
   '2873066de3fd9ec82d1cc56eadb3dd7b9a66ecd0';
+
+const CERTIFIED_GROUP2_EXECUTOR_HISTORY_EXCEPTION_VALIDATOR =
+  'validate-county-collapse-group2-executor-history-exception-v1.js';
+
+const CERTIFIED_GROUP2_EXECUTOR_HISTORY_EXCEPTION_REPLAY_SHA =
+  'd79d640d587e8a4d104cc4631b2022609a63fd50';
+
+const CERTIFIED_GROUP2_EXECUTOR_HISTORY_EXCEPTION_REPLAY_TREE =
+  '90d28afc06ae80006ce32810e3bf523665f191f8';
 
 const CERTIFIED_GROUP2_PREPARED_OPERATION_RETIREMENT_VALIDATOR =
   'validate-county-collapse-group2-prepared-operation-retirement-v1.js';
@@ -849,6 +861,21 @@ const expectedCountyCollapseGroup2PostTerminalReconciliationFiles = new Set([
  * physical-delete, reference-rewrite, scheduler, checkpoint, connector,
  * deployment, MAO, or automatic-offer authority.
  */
+/*
+ * Group 4 post-barrier timeout terminal reconciliation contributes exactly
+ * two production modules:
+ *
+ * - read-only post-barrier timeout evidence;
+ * - bounded terminal reconciliation.
+ *
+ * Keep these explicit so current runtime-integration inventory does not
+ * silently absorb unrelated future production additions.
+ */
+const expectedCountyCollapseGroup4PostBarrierTimeoutFiles = new Set([
+  'build/apps-script-brand/CountyCollapseGroup4PostBarrierTimeoutEvidence.js',
+  'build/apps-script-brand/CountyCollapseGroup4PostBarrierTimeoutTerminalReconciliation.js'
+]);
+
 const expectedCodeViolationGroup3ZillowRestorationFiles = new Set([
   'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationContract.js',
   'build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationExecutor.js',
@@ -877,6 +904,7 @@ const expectedProductionFiles = new Set([
   ...expectedCountyCollapseGroup2StrandedReconciliationFiles,
   ...expectedCountyCollapseGroup2PreparedOperationRetirementFiles,
   ...expectedCountyCollapseGroup2PostTerminalReconciliationFiles,
+  ...expectedCountyCollapseGroup4PostBarrierTimeoutFiles,
   ...expectedCodeViolationGroup3ZillowRestorationFiles
 ]);
 
@@ -1241,6 +1269,26 @@ pass(
 );
 
 assert.equal(
+  expectedCountyCollapseGroup4PostBarrierTimeoutFiles.size,
+  2,
+  'expected Group 4 post-barrier timeout production inventory must contain exactly 2 files'
+);
+
+[
+  'build/apps-script-brand/CountyCollapseGroup4PostBarrierTimeoutEvidence.js',
+  'build/apps-script-brand/CountyCollapseGroup4PostBarrierTimeoutTerminalReconciliation.js'
+].forEach(file => {
+  assert.ok(
+    expectedCountyCollapseGroup4PostBarrierTimeoutFiles.has(file),
+    'Group 4 post-barrier timeout production file missing: ' + file
+  );
+});
+
+pass(
+  'Group 4 post-barrier timeout terminal-reconciliation surface is exactly two explicitly allowlisted production files'
+);
+
+assert.equal(
   expectedCodeViolationGroup3ZillowRestorationFiles.size,
   4,
   'expected Group 3 Zillow restoration production inventory must contain exactly 4 files'
@@ -1277,8 +1325,8 @@ assert.ok(
 
 assert.equal(
   expectedProductionFiles.size,
-  145,
-  'expected reconciled production inventory must contain 145 files'
+  147,
+  'expected reconciled production inventory must contain 147 files'
 );
 
 assert.equal(
@@ -1450,6 +1498,20 @@ pass(
   'collapse orphan-binding recovery surface is exactly one explicitly allowlisted incident-bounded additive file'
 );
 
+expectedCountyCollapseGroup4PostBarrierTimeoutFiles.forEach(file => {
+  assert.ok(
+    diffEntries.some(entry =>
+      entry.file === file &&
+      entry.status === 'A'
+    ),
+    `expected Group 4 post-barrier timeout production file missing from baseline diff: ${file}`
+  );
+});
+
+pass(
+  'Group 4 post-barrier timeout production surface is exactly two additive files'
+);
+
 expectedPreservationFiles.forEach(file => {
   assert.ok(
     diffEntries.some(entry =>
@@ -1598,6 +1660,15 @@ function runComponentCertification(fileName) {
 
     replayTree =
       CERTIFIED_EXECUTOR_BLOCKER_RETIREMENT_IMPLEMENTATION_REPLAY_TREE;
+  } else if (
+    fileName ===
+      CERTIFIED_GROUP2_EXECUTOR_HISTORY_EXCEPTION_VALIDATOR
+  ) {
+    replaySha =
+      CERTIFIED_GROUP2_EXECUTOR_HISTORY_EXCEPTION_REPLAY_SHA;
+
+    replayTree =
+      CERTIFIED_GROUP2_EXECUTOR_HISTORY_EXCEPTION_REPLAY_TREE;
   } else if (
     fileName ===
       CERTIFIED_GROUP2_PREPARED_OPERATION_RETIREMENT_VALIDATOR
