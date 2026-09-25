@@ -499,8 +499,24 @@ jobs:
             node scripts/validate-county-collapse-group4-postbarrier-timeout-terminal-reconciliation-design-v1.js
           )
 
-      - name: Validate Group 4 post-barrier timeout terminal reconciliation v1
-        run: node scripts/validate-county-collapse-group4-postbarrier-timeout-terminal-reconciliation-v1.js
+      - name: Validate certified Group 4 post-barrier timeout terminal reconciliation v1
+        run: |
+          root="$(mktemp -d)"
+          wt="$root/certified"
+          cleanup() {
+            git worktree remove --force "$wt" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          git worktree add --detach "$wt" 1754f69baf5cce6a365e6a7f96caa1875240c07d
+
+          (
+            cd "$wt"
+            test "$(git rev-parse HEAD)" = "1754f69baf5cce6a365e6a7f96caa1875240c07d"
+            test "$(git rev-parse 'HEAD^{tree}')" = "9e27fc6c209d1d85af91e75035e99b7996d3631f"
+            node scripts/validate-county-collapse-group4-postbarrier-timeout-terminal-reconciliation-v1.js
+          )
 
       - name: Validate certified Group 2 prepared-operation retirement v1
         run: |
