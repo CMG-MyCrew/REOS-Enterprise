@@ -119,6 +119,10 @@ jobs:
           node --check scripts/validate-absentee-owner-owner-evidence-comparison-v1.js
           node --check scripts/validate-absentee-owner-owner-evidence-comparison-behavior-v1.js
           node --check scripts/validate-absentee-owner-owner-evidence-comparison-integration-v1.js
+          node --check build/apps-script-brand/AbsenteeOwnerClassification.js
+          node --check scripts/validate-absentee-owner-classification-v1.js
+          node --check scripts/validate-absentee-owner-classification-behavior-v1.js
+          node --check scripts/validate-absentee-owner-classification-integration-v1.js
           node --check scripts/validate-county-runtime-integration.js
 
       - name: Validate post-restoration collapse authority design
@@ -617,6 +621,15 @@ jobs:
 
       - name: Validate absentee-owner owner evidence comparison integration v1
         run: node scripts/validate-absentee-owner-owner-evidence-comparison-integration-v1.js
+
+      - name: Validate absentee-owner classification static v1
+        run: node scripts/validate-absentee-owner-classification-v1.js
+
+      - name: Validate absentee-owner classification behavior v1
+        run: node scripts/validate-absentee-owner-classification-behavior-v1.js
+
+      - name: Validate absentee-owner classification integration v1
+        run: node scripts/validate-absentee-owner-classification-integration-v1.js
 
       - name: Validate certified county runtime integration
         run: |

@@ -193,8 +193,8 @@ stepMarkers.forEach(marker => {
 });
 
 /*
- * The reconciled current validator has 69 component validators after
- * adding the comparison static/behavior certifications.
+ * The reconciled current validator has 71 component validators after
+ * adding classification static/behavior certifications.
  */
 const componentStart =
   runtime.indexOf(
@@ -226,8 +226,8 @@ const componentEntries =
 
 assert.equal(
   componentEntries.length,
-  69,
-  'current component validator inventory must contain exactly 69 validators'
+  71,
+  'current component validator inventory must contain exactly 71 validators'
 );
 
 /*
@@ -276,7 +276,7 @@ console.log(
 );
 console.log('RUNTIME_PRODUCTION_ALLOWLIST_EXACT=true');
 console.log('COMPONENT_VALIDATOR_REGISTRATION_EXACT=true');
-console.log('COMPONENT_VALIDATOR_COUNT=69');
+console.log('COMPONENT_VALIDATOR_COUNT=71');
 console.log('CI_SYNTAX_REGISTRATION_EXACT=true');
 console.log('CI_EXECUTION_REGISTRATION_EXACT=true');
 console.log('HISTORICAL_COUNTY_RUNTIME_REPLAY_PRESERVED=true');
