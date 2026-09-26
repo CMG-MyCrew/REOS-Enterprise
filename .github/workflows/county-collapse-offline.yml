@@ -115,6 +115,10 @@ jobs:
           node --check scripts/validate-absentee-owner-philadelphia-owner-evidence-lookup-v1.js
           node --check scripts/validate-absentee-owner-philadelphia-owner-evidence-lookup-behavior-v1.js
           node --check scripts/validate-absentee-owner-philadelphia-owner-evidence-lookup-integration-v1.js
+          node --check build/apps-script-brand/AbsenteeOwnerOwnerEvidenceComparison.js
+          node --check scripts/validate-absentee-owner-owner-evidence-comparison-v1.js
+          node --check scripts/validate-absentee-owner-owner-evidence-comparison-behavior-v1.js
+          node --check scripts/validate-absentee-owner-owner-evidence-comparison-integration-v1.js
           node --check scripts/validate-county-runtime-integration.js
 
       - name: Validate post-restoration collapse authority design
@@ -604,6 +608,15 @@ jobs:
 
       - name: Validate absentee-owner Philadelphia owner evidence lookup integration v1
         run: node scripts/validate-absentee-owner-philadelphia-owner-evidence-lookup-integration-v1.js
+
+      - name: Validate absentee-owner owner evidence comparison static v1
+        run: node scripts/validate-absentee-owner-owner-evidence-comparison-v1.js
+
+      - name: Validate absentee-owner owner evidence comparison behavior v1
+        run: node scripts/validate-absentee-owner-owner-evidence-comparison-behavior-v1.js
+
+      - name: Validate absentee-owner owner evidence comparison integration v1
+        run: node scripts/validate-absentee-owner-owner-evidence-comparison-integration-v1.js
 
       - name: Validate certified county runtime integration
         run: |
