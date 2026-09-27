@@ -127,6 +127,15 @@ jobs:
           node --check scripts/validate-absentee-owner-classification-single-record-read-only-certification-entrypoint-v1.js
           node --check scripts/validate-absentee-owner-classification-single-record-read-only-certification-entrypoint-behavior-v1.js
           node --check scripts/validate-absentee-owner-classification-single-record-read-only-certification-entrypoint-integration-v1.js
+          node --check build/apps-script-brand/AbsenteeOwnerClassificationPersistencePlanner.js
+          node --check build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStore.js
+          node --check build/apps-script-brand/AbsenteeOwnerClassificationPersistenceExecutor.js
+          node --check build/apps-script-brand/AbsenteeOwnerClassificationBoundedRollout.js
+          node --check scripts/validate-absentee-owner-classification-persistence-bounded-rollout-contract-v1.js
+          node --check scripts/validate-absentee-owner-classification-persistence-bounded-rollout-implementation-freeze-v1.js
+          node --check scripts/validate-absentee-owner-classification-persistence-bounded-rollout-v1.js
+          node --check scripts/validate-absentee-owner-classification-persistence-bounded-rollout-behavior-v1.js
+          node --check scripts/validate-absentee-owner-classification-persistence-bounded-rollout-integration-v1.js
           node --check scripts/validate-county-runtime-integration.js
 
       - name: Validate post-restoration collapse authority design
@@ -643,6 +652,21 @@ jobs:
 
       - name: Validate absentee-owner classification single-record read-only certification entrypoint integration v1
         run: node scripts/validate-absentee-owner-classification-single-record-read-only-certification-entrypoint-integration-v1.js
+
+      - name: Validate absentee-owner classification persistence bounded rollout contract v1
+        run: node scripts/validate-absentee-owner-classification-persistence-bounded-rollout-contract-v1.js
+
+      - name: Validate absentee-owner classification persistence bounded rollout implementation freeze v1
+        run: node scripts/validate-absentee-owner-classification-persistence-bounded-rollout-implementation-freeze-v1.js
+
+      - name: Validate absentee-owner classification persistence bounded rollout implementation static v1
+        run: node scripts/validate-absentee-owner-classification-persistence-bounded-rollout-v1.js
+
+      - name: Validate absentee-owner classification persistence bounded rollout implementation behavior v1
+        run: node scripts/validate-absentee-owner-classification-persistence-bounded-rollout-behavior-v1.js
+
+      - name: Validate absentee-owner classification persistence bounded rollout implementation integration v1
+        run: node scripts/validate-absentee-owner-classification-persistence-bounded-rollout-integration-v1.js
 
       - name: Validate certified county runtime integration
         run: |
