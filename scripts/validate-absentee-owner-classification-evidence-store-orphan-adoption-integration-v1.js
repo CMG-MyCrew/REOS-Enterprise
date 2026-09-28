@@ -9,55 +9,46 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 
 const files = {
-  provisioningDesign:
-    'docs/absentee-owner-classification-evidence-store-provisioning-admin-surface-design-v1.md',
-
-  correctionDesign:
+  design:
     'docs/absentee-owner-classification-evidence-store-sheet-identity-correction-and-orphan-adoption-design-v1.md',
 
   freeze:
     'docs/absentee-owner-classification-evidence-store-sheet-identity-correction-and-orphan-adoption-implementation-freeze-v1.md',
 
   runtime:
-    'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreProvisioningAdmin.js',
-
-  orphanRuntime:
     'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreOrphanAdoption.js',
 
   staticValidator:
-    'scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-v1.js',
-
-  behaviorValidator:
-    'scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-behavior-v1.js',
-
-  integrationValidator:
-    'scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-integration-v1.js',
-
-  orphanStatic:
     'scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-v1.js',
 
-  orphanBehavior:
+  behaviorValidator:
     'scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-behavior-v1.js',
 
-  orphanIntegration:
+  integrationValidator:
     'scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-integration-v1.js',
+
+  provisionRuntime:
+    'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreProvisioningAdmin.js',
+
+  provisionIntegration:
+    'scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-integration-v1.js',
 
   workflow:
     '.github/workflows/county-collapse-offline.yml',
 
-  runtimeIntegration:
+  county:
     'scripts/validate-county-runtime-integration.js',
 
-  ownerEvidenceIntegration:
+  ownerEvidence:
     'scripts/validate-absentee-owner-philadelphia-owner-evidence-lookup-integration-v1.js',
 
-  comparisonIntegration:
+  comparison:
     'scripts/validate-absentee-owner-owner-evidence-comparison-integration-v1.js',
 
-  classificationIntegration:
+  classification:
     'scripts/validate-absentee-owner-classification-integration-v1.js',
 
-  singleRecordIntegration:
+  singleRecord:
     'scripts/validate-absentee-owner-classification-single-record-read-only-certification-entrypoint-integration-v1.js'
 };
 
@@ -81,95 +72,73 @@ function count(text, marker) {
   return text.split(marker).length - 1;
 }
 
-const provisioningDesign =
-  read(files.provisioningDesign);
-
-const correctionDesign =
-  read(files.correctionDesign);
-
-const freeze =
-  read(files.freeze);
-
-const runtime =
-  read(files.runtime);
-
-const workflow =
-  read(files.workflow);
-
-const county =
-  read(files.runtimeIntegration);
-
-const ownerEvidence =
-  read(files.ownerEvidenceIntegration);
-
-const comparison =
-  read(files.comparisonIntegration);
-
-const classification =
-  read(files.classificationIntegration);
-
-const singleRecord =
-  read(files.singleRecordIntegration);
+const design = read(files.design);
+const freeze = read(files.freeze);
+const runtime = read(files.runtime);
+const provisionRuntime = read(files.provisionRuntime);
+const workflow = read(files.workflow);
+const county = read(files.county);
+const ownerEvidence = read(files.ownerEvidence);
+const comparison = read(files.comparison);
+const classification = read(files.classification);
+const singleRecord = read(files.singleRecord);
 
 assert.strictEqual(
   crypto
     .createHash('sha256')
-    .update(
-      provisioningDesign,
-      'utf8'
-    )
-    .digest('hex'),
-  '287041aeeae9636f5b66d45c1c4c90e96f596118697adc1dbc6024ab20ad176e',
-  'merged provisioning design changed'
-);
-
-assert.strictEqual(
-  crypto
-    .createHash('sha256')
-    .update(
-      correctionDesign,
-      'utf8'
-    )
+    .update(design, 'utf8')
     .digest('hex'),
   '7df2d03a307a029840f06e192973b82a33fe9d8c8e2f883fd73ad0c7fb24a6c8',
-  'merged correction/orphan design changed'
+  'governing sheet-identity/orphan-adoption design changed'
 );
 
 assert.strictEqual(
   crypto
     .createHash('sha256')
-    .update(
-      freeze,
-      'utf8'
-    )
+    .update(freeze, 'utf8')
     .digest('hex'),
   '0acf3aaafc50aa9a3bc4f9f0538f495f270d9c13e6ac8c847906a4d1597cd8cd',
-  'merged implementation freeze changed'
+  'governing implementation freeze changed'
 );
 
 [
-  'REOS.Security.requireAdmin()',
-  'LockService.getScriptLock',
-  'SpreadsheetApp.create',
+  'ADMIN_EVIDENCE_STORE_ORPHAN_ADOPTION',
+  'REOS.Security.requireAdmin();',
+  'LockService.getScriptLock();',
+  'lock.tryLock(1000)',
+  'Session.getEffectiveUser()',
+  'workbook.getOwner()',
+  'workbook.getEditors()',
+  'workbook.getViewers()',
   'positionalSheet.getSheetId()',
-  'sheet.getSheetId()',
-  'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_VERIFIED',
+  'namedSheet.getSheetId()',
+  'properties.setProperty(',
+  'workbookCreated: false',
+  'workbookMutated: false',
+  'provisioningRetryExecuted: false',
   'persistenceAuthorized: false',
   'boundedRolloutAuthorized: false',
   'automaticOfferAuthorityGranted: false'
 ].forEach(marker => {
   assert.ok(
     runtime.includes(marker),
-    'runtime integration marker missing: ' + marker
+    'orphan runtime integration marker missing: ' + marker
   );
 });
 
 assert.strictEqual(
-  runtime.includes(
+  provisionRuntime.includes(
     'sheets[0] !== sheet'
   ),
   false,
-  'wrapper-reference identity remains in provisioning runtime'
+  'provisioning wrapper reference identity remains'
+);
+
+assert.ok(
+  provisionRuntime.includes(
+    'positionalSheet.getSheetId()'
+  ),
+  'corrected provisioning stable identity is missing'
 );
 
 const postStart =
@@ -205,21 +174,14 @@ assert.strictEqual(
   'post-county production inventory must contain exactly 49 files'
 );
 
-[
-  'AbsenteeOwnerClassificationEvidenceStoreProvisioningAdmin.js',
-  'AbsenteeOwnerClassificationEvidenceStoreOrphanAdoption.js'
-].forEach(file => {
-  assert.strictEqual(
-    count(
-      postBlock,
-      "'build/apps-script-brand/" +
-        file +
-        "'"
-    ),
-    1,
-    'production runtime must occur once: ' + file
-  );
-});
+assert.strictEqual(
+  count(
+    postBlock,
+    "'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreOrphanAdoption.js'"
+  ),
+  1,
+  'orphan-adoption runtime must occur exactly once in post-county production inventory'
+);
 
 const componentStart =
   county.indexOf(
@@ -255,8 +217,6 @@ assert.strictEqual(
 );
 
 [
-  'validate-absentee-owner-classification-evidence-store-provisioning-admin-v1.js',
-  'validate-absentee-owner-classification-evidence-store-provisioning-admin-behavior-v1.js',
   'validate-absentee-owner-classification-evidence-store-orphan-adoption-v1.js',
   'validate-absentee-owner-classification-evidence-store-orphan-adoption-behavior-v1.js'
 ].forEach(file => {
@@ -266,21 +226,19 @@ assert.strictEqual(
       "'" + file + "'"
     ),
     1,
-    'component validator registration must occur exactly once: ' + file
+    'orphan component validator registration must occur exactly once: ' + file
   );
 });
 
 [
-  'validate-absentee-owner-classification-evidence-store-provisioning-admin-surface-design-v1.js',
   'validate-absentee-owner-classification-evidence-store-sheet-identity-correction-and-orphan-adoption-design-v1.js',
   'validate-absentee-owner-classification-evidence-store-sheet-identity-correction-and-orphan-adoption-implementation-freeze-v1.js',
-  'validate-absentee-owner-classification-evidence-store-provisioning-admin-integration-v1.js',
   'validate-absentee-owner-classification-evidence-store-orphan-adoption-integration-v1.js'
 ].forEach(file => {
   assert.strictEqual(
     componentBlock.includes(file),
     false,
-    'workflow-only validator must not enter COMPONENT_VALIDATORS: ' + file
+    'workflow-only validator entered COMPONENT_VALIDATORS: ' + file
   );
 });
 
@@ -320,39 +278,13 @@ assert.strictEqual(
   );
 });
 
-assert.ok(
-  county.includes(
-    'expected county runtime integration inventory must contain 104 files'
-  ),
-  'historical county runtime inventory changed'
-);
-
-assert.ok(
-  county.includes(
-    'county runtime remains exactly 104 additive files'
-  ),
-  'historical county runtime summary changed'
-);
-
-assert.ok(
-  county.includes(
-    'expected reconciled production inventory must contain 147 files'
-  ),
-  'historical 147-file production inventory changed'
-);
-
 const syntaxMarkers = [
-  'node --check build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreProvisioningAdmin.js',
   'node --check build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreOrphanAdoption.js',
-  'node --check scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-surface-design-v1.js',
   'node --check scripts/validate-absentee-owner-classification-evidence-store-sheet-identity-correction-and-orphan-adoption-design-v1.js',
   'node --check scripts/validate-absentee-owner-classification-evidence-store-sheet-identity-correction-and-orphan-adoption-implementation-freeze-v1.js',
-  'node --check scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-v1.js',
-  'node --check scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-behavior-v1.js',
   'node --check scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-v1.js',
   'node --check scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-behavior-v1.js',
-  'node --check scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-integration-v1.js',
-  'node --check scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-integration-v1.js'
+  'node --check scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-integration-v1.js'
 ];
 
 syntaxMarkers.forEach(marker => {
@@ -366,12 +298,9 @@ syntaxMarkers.forEach(marker => {
 const executionMarkers = [
   'run: node scripts/validate-absentee-owner-classification-evidence-store-sheet-identity-correction-and-orphan-adoption-design-v1.js',
   'run: node scripts/validate-absentee-owner-classification-evidence-store-sheet-identity-correction-and-orphan-adoption-implementation-freeze-v1.js',
-  'run: node scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-v1.js',
-  'run: node scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-behavior-v1.js',
   'run: node scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-v1.js',
   'run: node scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-behavior-v1.js',
-  'run: node scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-integration-v1.js',
-  'run: node scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-integration-v1.js'
+  'run: node scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-integration-v1.js'
 ];
 
 executionMarkers.forEach(marker => {
@@ -387,18 +316,19 @@ executionMarkers.forEach(marker => {
   'DISTRESS_LEADS',
   'AbsenteeOwnerClassificationPersistenceExecutor',
   'AbsenteeOwnerClassificationBoundedRollout',
+  'REOS.Database',
   'ScriptApp.newTrigger',
   'newTrigger('
 ].forEach(marker => {
   assert.strictEqual(
     runtime.includes(marker),
     false,
-    'prohibited provisioning integration authority marker present: ' + marker
+    'prohibited orphan-adoption integration authority marker: ' + marker
   );
 });
 
 console.log(
-  'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_ADMIN_INTEGRATION_VALID=true'
+  'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_ORPHAN_ADOPTION_INTEGRATION_VALID=true'
 );
 console.log('RUNTIME_PRODUCTION_ALLOWLIST_EXACT=true');
 console.log('POST_COUNTY_PRODUCTION_FILE_COUNT=49');
@@ -407,12 +337,13 @@ console.log('LIVE_COMPONENT_COUNT_RECONCILIATION_COUNT=5');
 console.log('LIVE_POST_COUNTY_COUNT_RECONCILIATION_COUNT=3');
 console.log('CI_SYNTAX_REGISTRATION_EXACT=true');
 console.log('CI_EXECUTION_REGISTRATION_EXACT=true');
-console.log('HISTORICAL_COUNTY_RUNTIME_INVENTORY_104_PRESERVED=true');
-console.log('HISTORICAL_PRODUCTION_INVENTORY_147_PRESERVED=true');
-console.log('PRODUCTION_RPC_COUNT=2');
 console.log('STABLE_SHEET_IDENTITY=Sheet.getSheetId');
-console.log('WRAPPER_REFERENCE_IDENTITY_AUTHORIZED=false');
 console.log('PROVISIONING_RETRY_AUTHORIZED=false');
+console.log('ORPHAN_ADOPTION_PUBLIC_RPC_COUNT=1');
+console.log('ORPHAN_ADOPTION_WORKBOOK_MUTATION_AUTHORIZED=false');
 console.log('PERSISTENCE_AUTHORITY_GRANTED=false');
 console.log('BOUNDED_ROLLOUT_AUTHORITY_GRANTED=false');
+console.log('ARV_AUTHORITY_GRANTED=false');
+console.log('REPAIR_SCOPE_AUTHORITY_GRANTED=false');
+console.log('MAO_AUTHORITY_GRANTED=false');
 console.log('AUTOMATIC_OFFER_AUTHORITY_GRANTED=false');

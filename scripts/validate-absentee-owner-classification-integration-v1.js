@@ -219,8 +219,8 @@ const componentEntries =
 
 assert.equal(
   componentEntries.length,
-  76,
-  'current component validator inventory must contain exactly 76 validators'
+  78,
+  'current component validator inventory must contain exactly 78 validators'
 );
 
 assert.ok(
@@ -274,34 +274,34 @@ const postCountyEntries =
 
 assert.equal(
   postCountyEntries.length,
-  48,
-  'post-county production inventory must contain exactly 48 files'
+  49,
+  'post-county production inventory must contain exactly 49 files'
 );
 
 assert.ok(
-  /assert\.equal\(\s*componentEntries\.length,\s*76,/s
+  /assert\.equal\(\s*componentEntries\.length,\s*78,/s
     .test(ownerEvidenceIntegration),
-  'owner-evidence integration validator must reconcile component count to 76'
+  'owner-evidence integration validator must reconcile component count to 78'
 );
 
 assert.ok(
   ownerEvidenceIntegration.includes(
-    'COMPONENT_VALIDATOR_COUNT=76'
+    'COMPONENT_VALIDATOR_COUNT=78'
   ),
-  'owner-evidence integration summary must reconcile component count to 76'
+  'owner-evidence integration summary must reconcile component count to 78'
 );
 
 assert.ok(
-  /assert\.equal\(\s*componentEntries\.length,\s*76,/s
+  /assert\.equal\(\s*componentEntries\.length,\s*78,/s
     .test(comparisonIntegration),
-  'comparison integration validator must reconcile component count to 76'
+  'comparison integration validator must reconcile component count to 78'
 );
 
 assert.ok(
   comparisonIntegration.includes(
-    'COMPONENT_VALIDATOR_COUNT=76'
+    'COMPONENT_VALIDATOR_COUNT=78'
   ),
-  'comparison integration summary must reconcile component count to 76'
+  'comparison integration summary must reconcile component count to 78'
 );
 
 const syntaxMarkers = [
@@ -391,11 +391,11 @@ console.log(
 );
 
 console.log(
-  'COMPONENT_VALIDATOR_COUNT=76'
+  'COMPONENT_VALIDATOR_COUNT=78'
 );
 
 console.log(
-  'POST_COUNTY_PRODUCTION_FILE_COUNT=48'
+  'POST_COUNTY_PRODUCTION_FILE_COUNT=49'
 );
 
 console.log(

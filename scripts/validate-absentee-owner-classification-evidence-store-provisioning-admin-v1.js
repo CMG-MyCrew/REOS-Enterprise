@@ -27,12 +27,6 @@ const required = [
   'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE',
   'ADMIN_EVIDENCE_STORE_PROVISIONING_INSPECTION',
   'ADMIN_EVIDENCE_STORE_PROVISIONING',
-  'UNPROVISIONED',
-  'ALREADY_PROVISIONED',
-  'UNSAFE_ACTIVE_REOS_ALIAS',
-  'CONFIGURED_WORKBOOK_UNOPENABLE',
-  'CONFIGURED_SHEET_MISSING',
-  'CONFIGURED_SCHEMA_INVALID',
   'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_PRECONDITION_FAILED',
   'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_OUTCOME_UNCERTAIN',
   'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_VERIFIED',
@@ -45,6 +39,11 @@ const required = [
   'expectedActiveReosSpreadsheetId',
   'expectedPropertyState',
   "options.expectedPropertyState !== 'ABSENT'",
+  'typeof positionalSheet.getSheetId',
+  'typeof sheet.getSheetId',
+  'positionalSheet.getSheetId()',
+  'sheet.getSheetId()',
+  'positionalSheetId !== namedSheetId',
   'persistenceAuthorized: false',
   'boundedRolloutAuthorized: false',
   'automaticOfferAuthorityGranted: false',
@@ -58,6 +57,12 @@ required.forEach(marker => {
     'required provisioning marker missing: ' + marker
   );
 });
+
+assert.strictEqual(
+  text.includes('sheets[0] !== sheet'),
+  false,
+  'wrapper reference identity must not remain physical sheet authority'
+);
 
 const headers = [
   'Evidence Event ID',
@@ -83,8 +88,12 @@ const headers = [
 ];
 
 assert.strictEqual(new Set(headers).size, 20);
+
 headers.forEach(header => {
-  assert.ok(text.includes(header), 'header missing: ' + header);
+  assert.ok(
+    text.includes(header),
+    'header missing: ' + header
+  );
 });
 
 function count(pattern) {
@@ -107,6 +116,12 @@ assert.strictEqual(
   count(/\.setProperty\s*\(/g),
   1,
   'runtime must contain exactly one Script Property publication call site'
+);
+
+assert.strictEqual(
+  count(/\.getSheetId\s*\(\s*\)/g),
+  2,
+  'provisioning verifier must perform exactly two stable sheet-ID reads'
 );
 
 assert.strictEqual(
@@ -160,6 +175,9 @@ console.log(
 );
 console.log('PUBLIC_RPC_COUNT=2');
 console.log('EVIDENCE_SCHEMA_FIELD_COUNT=20');
+console.log('STABLE_SHEET_IDENTITY=Sheet.getSheetId');
+console.log('WRAPPER_REFERENCE_IDENTITY_AUTHORIZED=false');
+console.log('STABLE_SHEET_ID_READ_CALLSITE_COUNT=2');
 console.log('WORKBOOK_CREATE_CALLSITE_COUNT=1');
 console.log('EXPLICIT_FLUSH_CALLSITE_COUNT=1');
 console.log('SCRIPT_PROPERTY_PUBLICATION_CALLSITE_COUNT=1');

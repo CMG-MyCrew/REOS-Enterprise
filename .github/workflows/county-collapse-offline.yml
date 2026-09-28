@@ -137,9 +137,15 @@ jobs:
           node --check scripts/validate-absentee-owner-classification-persistence-bounded-rollout-behavior-v1.js
           node --check scripts/validate-absentee-owner-classification-persistence-bounded-rollout-integration-v1.js
           node --check build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreProvisioningAdmin.js
+          node --check build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreOrphanAdoption.js
           node --check scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-surface-design-v1.js
+          node --check scripts/validate-absentee-owner-classification-evidence-store-sheet-identity-correction-and-orphan-adoption-design-v1.js
+          node --check scripts/validate-absentee-owner-classification-evidence-store-sheet-identity-correction-and-orphan-adoption-implementation-freeze-v1.js
           node --check scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-v1.js
           node --check scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-behavior-v1.js
+          node --check scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-v1.js
+          node --check scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-behavior-v1.js
+          node --check scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-integration-v1.js
           node --check scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-integration-v1.js
           node --check scripts/validate-county-runtime-integration.js
 
@@ -676,11 +682,26 @@ jobs:
       - name: Validate absentee-owner classification evidence-store provisioning admin surface design v1
         run: node scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-surface-design-v1.js
 
+      - name: Validate absentee-owner classification evidence-store sheet identity correction and orphan adoption design v1
+        run: node scripts/validate-absentee-owner-classification-evidence-store-sheet-identity-correction-and-orphan-adoption-design-v1.js
+
+      - name: Validate absentee-owner classification evidence-store sheet identity correction and orphan adoption implementation freeze v1
+        run: node scripts/validate-absentee-owner-classification-evidence-store-sheet-identity-correction-and-orphan-adoption-implementation-freeze-v1.js
+
       - name: Validate absentee-owner classification evidence-store provisioning admin static v1
         run: node scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-v1.js
 
       - name: Validate absentee-owner classification evidence-store provisioning admin behavior v1
         run: node scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-behavior-v1.js
+
+      - name: Validate absentee-owner classification evidence-store orphan adoption static v1
+        run: node scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-v1.js
+
+      - name: Validate absentee-owner classification evidence-store orphan adoption behavior v1
+        run: node scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-behavior-v1.js
+
+      - name: Validate absentee-owner classification evidence-store orphan adoption integration v1
+        run: node scripts/validate-absentee-owner-classification-evidence-store-orphan-adoption-integration-v1.js
 
       - name: Validate absentee-owner classification evidence-store provisioning admin integration v1
         run: node scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-integration-v1.js

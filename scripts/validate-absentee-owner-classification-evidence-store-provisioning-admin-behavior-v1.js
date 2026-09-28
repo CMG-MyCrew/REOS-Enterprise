@@ -55,6 +55,15 @@ class FakeRange {
 
     this.sheet.headers = values[0].slice();
     this.sheet.formulas = this.sheet.headers.map(() => '');
+
+    if (this.sheet.config.corruptHeaderAfterWrite) {
+      this.sheet.headers[0] = 'Wrong Header';
+    }
+
+    if (this.sheet.config.formulaAfterWrite) {
+      this.sheet.formulas[0] = '=NOW()';
+    }
+
     this.sheet.headerWritten = true;
     return this;
   }
@@ -82,6 +91,14 @@ class FakeSheet {
     ).slice();
     this.headerWritten = this.headers.length > 0;
     this.dataRows = Number(this.config.dataRows || 0);
+    this.sheetId =
+      this.config.sheetId === undefined
+        ? 0
+        : this.config.sheetId;
+
+    if (this.config.omitGetSheetId) {
+      this.getSheetId = undefined;
+    }
   }
 
   setName(name) {
@@ -92,12 +109,19 @@ class FakeSheet {
       throw new Error('forced setName failure');
     }
 
-    this.name = name;
+    this.name =
+      this.config.forcedNameAfterSet ||
+      name;
+
     return this;
   }
 
   getName() {
     return this.name;
+  }
+
+  getSheetId() {
+    return this.sheetId;
   }
 
   getLastRow() {
@@ -120,10 +144,11 @@ class FakeSheet {
 }
 
 class FakeWorkbook {
-  constructor(id, state, sheets) {
+  constructor(id, state, sheets, config = {}) {
     this.id = id;
     this.state = state;
     this.sheets = sheets || [];
+    this.config = config;
   }
 
   getId() {
@@ -135,7 +160,35 @@ class FakeWorkbook {
   }
 
   getSheetByName(name) {
-    return this.sheets.find(sheet => sheet.getName() === name) || null;
+    const found =
+      this.sheets.find(
+        sheet =>
+          sheet.getName() === name
+      ) || null;
+
+    if (!found) {
+      return null;
+    }
+
+    if (!this.config.distinctNamedWrapper) {
+      return found;
+    }
+
+    this.state.namedWrapperCount += 1;
+
+    const wrapper =
+      Object.create(found);
+
+    if (this.config.namedSheetMissingGetSheetId) {
+      wrapper.getSheetId = undefined;
+    } else if (
+      this.config.namedSheetIdOverride !== undefined
+    ) {
+      wrapper.getSheetId = () =>
+        this.config.namedSheetIdOverride;
+    }
+
+    return wrapper;
   }
 }
 
@@ -159,7 +212,14 @@ function makeEnvironment(overrides = {}) {
     existingSheetPresent: true,
     existingHeaders: HEADERS,
     existingFormulas: HEADERS.map(() => ''),
-    existingDataRows: 2
+    existingDataRows: 2,
+    createdSheetId: 0,
+    createdNamedSheetId: undefined,
+    createdPositionalMissingGetSheetId: false,
+    createdNamedMissingGetSheetId: false,
+    forcedNameAfterSet: '',
+    corruptHeaderAfterWrite: false,
+    formulaAfterWrite: false
   }, overrides);
 
   const state = {
@@ -173,6 +233,7 @@ function makeEnvironment(overrides = {}) {
     releaseLockCount: 0,
     setNameCount: 0,
     setValuesCount: 0,
+    namedWrapperCount: 0,
     timeline: [],
     propertyValue: config.propertyValue,
     createdBook: null
@@ -330,7 +391,16 @@ function makeEnvironment(overrides = {}) {
               state,
               {
                 failSetName: config.failSetName,
-                failSetValues: config.failSetValues
+                failSetValues: config.failSetValues,
+                sheetId: config.createdSheetId,
+                omitGetSheetId:
+                  config.createdPositionalMissingGetSheetId,
+                forcedNameAfterSet:
+                  config.forcedNameAfterSet,
+                corruptHeaderAfterWrite:
+                  config.corruptHeaderAfterWrite,
+                formulaAfterWrite:
+                  config.formulaAfterWrite
               }
             )
           );
@@ -339,7 +409,14 @@ function makeEnvironment(overrides = {}) {
         state.createdBook = new FakeWorkbook(
           config.createdId,
           state,
-          sheets
+          sheets,
+          {
+            distinctNamedWrapper: true,
+            namedSheetMissingGetSheetId:
+              config.createdNamedMissingGetSheetId,
+            namedSheetIdOverride:
+              config.createdNamedSheetId
+          }
         );
 
         return state.createdBook;
@@ -542,6 +619,10 @@ let cases = 0;
   assert.strictEqual(env.state.setPropertyCount, 1);
   assert.strictEqual(env.state.releaseLockCount, 1);
   assert.strictEqual(env.state.propertyValue, 'new-evidence-book');
+  assert.ok(
+    env.state.namedWrapperCount >= 2,
+    'success must tolerate different JavaScript wrappers with the same stable sheet ID'
+  );
 
   const timeline = env.state.timeline;
   assert.ok(timeline.indexOf('create') < timeline.indexOf('setName'));
@@ -725,12 +806,136 @@ let cases = 0;
   cases += 1;
 }
 
-assert.strictEqual(cases, 21);
+
+{
+  const env = makeEnvironment({
+    createdNamedSheetId: 1
+  });
+  const result = provision(env);
+  assert.strictEqual(
+    result.classification,
+    'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_OUTCOME_UNCERTAIN'
+  );
+  assert.strictEqual(env.state.setPropertyCount, 0);
+  cases += 1;
+}
+
+{
+  const env = makeEnvironment({
+    createdPositionalMissingGetSheetId: true
+  });
+  const result = provision(env);
+  assert.strictEqual(
+    result.classification,
+    'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_OUTCOME_UNCERTAIN'
+  );
+  assert.strictEqual(env.state.setPropertyCount, 0);
+  cases += 1;
+}
+
+{
+  const env = makeEnvironment({
+    createdNamedMissingGetSheetId: true
+  });
+  const result = provision(env);
+  assert.strictEqual(
+    result.classification,
+    'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_OUTCOME_UNCERTAIN'
+  );
+  assert.strictEqual(env.state.setPropertyCount, 0);
+  cases += 1;
+}
+
+{
+  const env = makeEnvironment({
+    createdSheetId: -1
+  });
+  const result = provision(env);
+  assert.strictEqual(
+    result.classification,
+    'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_OUTCOME_UNCERTAIN'
+  );
+  assert.strictEqual(env.state.setPropertyCount, 0);
+  cases += 1;
+}
+
+{
+  const env = makeEnvironment({
+    createdSheetId: Infinity
+  });
+  const result = provision(env);
+  assert.strictEqual(
+    result.classification,
+    'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_OUTCOME_UNCERTAIN'
+  );
+  assert.strictEqual(env.state.setPropertyCount, 0);
+  cases += 1;
+}
+
+{
+  const env = makeEnvironment({
+    createdSheetId: 1.5
+  });
+  const result = provision(env);
+  assert.strictEqual(
+    result.classification,
+    'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_OUTCOME_UNCERTAIN'
+  );
+  assert.strictEqual(env.state.setPropertyCount, 0);
+  cases += 1;
+}
+
+{
+  const env = makeEnvironment({
+    forcedNameAfterSet: 'WRONG_SHEET'
+  });
+  const result = provision(env);
+  assert.strictEqual(
+    result.classification,
+    'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_OUTCOME_UNCERTAIN'
+  );
+  assert.strictEqual(env.state.setPropertyCount, 0);
+  cases += 1;
+}
+
+{
+  const env = makeEnvironment({
+    corruptHeaderAfterWrite: true
+  });
+  const result = provision(env);
+  assert.strictEqual(
+    result.classification,
+    'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_OUTCOME_UNCERTAIN'
+  );
+  assert.strictEqual(env.state.setPropertyCount, 0);
+  cases += 1;
+}
+
+{
+  const env = makeEnvironment({
+    formulaAfterWrite: true
+  });
+  const result = provision(env);
+  assert.strictEqual(
+    result.classification,
+    'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_OUTCOME_UNCERTAIN'
+  );
+  assert.strictEqual(env.state.setPropertyCount, 0);
+  cases += 1;
+}
+
+assert.strictEqual(cases, 30);
+
 
 console.log(
   'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_ADMIN_BEHAVIOR_VALID=true'
 );
 console.log('BEHAVIOR_CASE_COUNT=' + cases);
+console.log('STABLE_SHEET_IDENTITY=Sheet.getSheetId');
+console.log('WRAPPER_REFERENCE_IDENTITY_AUTHORIZED=false');
+console.log('DISTINCT_WRAPPER_SAME_SHEET_ID_SUCCESS=true');
+console.log('MISMATCHED_SHEET_ID_FAILS=true');
+console.log('MALFORMED_SHEET_ID_FAILS=true');
 console.log('INSPECTION_MUTATION_AUTHORIZED=false');
 console.log('PROVISIONING_WORKBOOK_CREATE_MAX_PER_INVOCATION=1');
 console.log('PROVISIONING_EXPLICIT_FLUSH_MAX_PER_INVOCATION=1');
