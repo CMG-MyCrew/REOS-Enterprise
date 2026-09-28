@@ -586,22 +586,49 @@ REOS.AbsenteeOwnerClassificationEvidenceStoreProvisioningAdmin = (function () {
       );
     }
 
+    var positionalSheet =
+      sheets[0];
+
     var sheet =
       workbook.getSheetByName(
         SHEET_NAME
       );
 
     if (
+      !positionalSheet ||
       !sheet ||
+      typeof positionalSheet.getSheetId !== 'function' ||
+      typeof sheet.getSheetId !== 'function' ||
       typeof sheet.getName !== 'function' ||
       sheet.getName() !== SHEET_NAME ||
-      sheets[0] !== sheet ||
       typeof sheet.getLastRow !== 'function' ||
       typeof sheet.getLastColumn !== 'function' ||
       typeof sheet.getRange !== 'function'
     ) {
       throw new Error(
         'Provisioned evidence sheet identity is invalid.'
+      );
+    }
+
+    var positionalSheetId =
+      positionalSheet.getSheetId();
+
+    var namedSheetId =
+      sheet.getSheetId();
+
+    if (
+      typeof positionalSheetId !== 'number' ||
+      !isFinite(positionalSheetId) ||
+      Math.floor(positionalSheetId) !== positionalSheetId ||
+      positionalSheetId < 0 ||
+      typeof namedSheetId !== 'number' ||
+      !isFinite(namedSheetId) ||
+      Math.floor(namedSheetId) !== namedSheetId ||
+      namedSheetId < 0 ||
+      positionalSheetId !== namedSheetId
+    ) {
+      throw new Error(
+        'Provisioned evidence sheet stable identity is invalid.'
       );
     }
 
