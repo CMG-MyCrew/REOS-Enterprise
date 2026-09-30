@@ -1733,6 +1733,141 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         text
       );
 
+    var config =
+      context &&
+      context.config
+        ? context.config
+        : {};
+
+    var recurring =
+      config.probateRecurring ===
+      true;
+
+    var recurringPublicationDate =
+      recurring
+        ? probateText_(
+            config
+              .probatePublicationDate
+          )
+        : '';
+
+    var recurringSourceSha256 =
+      recurring
+        ? probateText_(
+            config
+              .probateSourceSha256
+          )
+        : '';
+
+    var noticeOffset =
+      recurring
+        ? Number(
+            config
+              .probateNoticeOffset
+          )
+        : 0;
+
+    var noticePageSize =
+      recurring
+        ? Number(
+            config
+              .probateNoticePageSize
+          )
+        : 0;
+
+    if (recurring) {
+      if (
+        !REOS
+          .PhiladelphiaProbateRecurringSource ||
+        typeof REOS
+          .PhiladelphiaProbateRecurringSource
+          .encodeCursor !==
+          'function'
+      ) {
+        throw new Error(
+          'Philadelphia probate recurring-source cursor authority is unavailable.'
+        );
+      }
+
+      if (
+        !/^[0-9a-f]{64}$/
+          .test(
+            recurringSourceSha256
+          )
+      ) {
+        throw new Error(
+          'Philadelphia probate recurring source SHA-256 is invalid.'
+        );
+      }
+
+      if (
+        probateSha256_(
+          endpoint
+        ) !==
+        recurringSourceSha256
+      ) {
+        throw new Error(
+          'Philadelphia probate recurring source endpoint hash drift detected.'
+        );
+      }
+
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/
+          .test(
+            recurringPublicationDate
+          )
+      ) {
+        throw new Error(
+          'Philadelphia probate recurring publication date is invalid.'
+        );
+      }
+
+      if (
+        !Number.isInteger(
+          noticeOffset
+        ) ||
+        noticeOffset < 0
+      ) {
+        throw new Error(
+          'Philadelphia probate recurring notice offset is invalid.'
+        );
+      }
+
+      if (
+        !Number.isInteger(
+          noticePageSize
+        ) ||
+        noticePageSize < 1 ||
+        noticePageSize > 25
+      ) {
+        throw new Error(
+          'Philadelphia probate recurring notice page size is invalid.'
+        );
+      }
+
+      if (
+        !notices.length ||
+        probateText_(
+          notices[0]
+            .publicationDate
+        ) !==
+        recurringPublicationDate
+      ) {
+        throw new Error(
+          'Philadelphia probate PDF publication date does not match recurring source authority.'
+        );
+      }
+
+      if (
+        noticeOffset >=
+        notices.length
+      ) {
+        throw new Error(
+          'Philadelphia probate PB1 notice offset is outside the current publication.'
+        );
+      }
+    }
+
     var opaDefinition =
       MANIFEST.datasets
         .property_assessment;
@@ -1774,101 +1909,145 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
     var unmatchedNoticeCount = 0;
     var ambiguousNoticeCount = 0;
 
-    var maxNoticeScan =
-      Math.min(
-        Math.max(
-          Number(
-            context &&
-            context.config &&
-            context.config.maxNoticeScan
-              ? context.config.maxNoticeScan
-              : notices.length
+    var maxNoticeScan;
+
+    if (recurring) {
+      maxNoticeScan =
+        Math.min(
+          noticePageSize,
+          notices.length -
+            noticeOffset
+        );
+    } else {
+      maxNoticeScan =
+        Math.min(
+          Math.max(
+            Number(
+              context &&
+              context.config &&
+              context.config.maxNoticeScan
+                ? context.config.maxNoticeScan
+                : notices.length
+            ),
+            1
           ),
-          1
-        ),
-        notices.length
+          notices.length
+        );
+    }
+
+    var pageNotices =
+      notices.slice(
+        noticeOffset,
+        noticeOffset +
+          maxNoticeScan
       );
 
-    notices
-      .slice(
-        0,
-        maxNoticeScan
-      )
+    pageNotices
       .forEach(function (
         notice
       ) {
-      if (
-        records.length >= limit
-      ) {
-        return;
-      }
-
-      var resolution =
-        resolveProbateNoticeProperties_(
-          notice,
-          opaEndpoint
-        );
-
-      if (
-        resolution.status ===
-        'UNMATCHED'
-      ) {
-        unmatchedNoticeCount += 1;
-        return;
-      }
-
-      if (
-        resolution.status ===
-        'AMBIGUOUS'
-      ) {
-        ambiguousNoticeCount += 1;
-        return;
-      }
-
-      matchedNoticeCount += 1;
-
-      resolution.records
-        .forEach(function (
-          property
-        ) {
-          if (
-            records.length >= limit
-          ) {
-            return;
-          }
-
-          records.push(
-            Object.assign(
-              {},
-              property,
-              {
-                PROBATE_DECEDENT:
-                  notice.decedent,
-                PROBATE_REPRESENTATIVE_TEXT:
-                  notice
-                    .representativeText,
-                PUBLICATION_DATE:
-                  notice
-                    .publicationDate,
-                PROBATE_SOURCE_RECORD_ID:
-                  buildProbateSourceRecordId_(
-                    notice.decedent,
-                    property
-                      .parcel_number
-                  )
-              }
-            )
+        var resolution =
+          resolveProbateNoticeProperties_(
+            notice,
+            opaEndpoint
           );
-        });
-    });
+
+        if (
+          resolution.status ===
+          'UNMATCHED'
+        ) {
+          unmatchedNoticeCount += 1;
+          return;
+        }
+
+        if (
+          resolution.status ===
+          'AMBIGUOUS'
+        ) {
+          ambiguousNoticeCount += 1;
+          return;
+        }
+
+        /*
+         * Probate pagination is bounded by estate notices rather than
+         * property-row count. Never partially persist a resolved estate
+         * merely because one notice maps to multiple legitimate parcels.
+         */
+        if (
+          records.length +
+          resolution.records.length >
+          limit
+        ) {
+          throw new Error(
+            'Philadelphia probate notice page exceeds the bounded property-record limit; no partial page persistence is authorized.'
+          );
+        }
+
+        matchedNoticeCount += 1;
+
+        resolution.records
+          .forEach(function (
+            property
+          ) {
+            records.push(
+              Object.assign(
+                {},
+                property,
+                {
+                  PROBATE_DECEDENT:
+                    notice.decedent,
+                  PROBATE_REPRESENTATIVE_TEXT:
+                    notice
+                      .representativeText,
+                  PUBLICATION_DATE:
+                    notice
+                      .publicationDate,
+                  PROBATE_SOURCE_RECORD_ID:
+                    buildProbateSourceRecordId_(
+                      notice.decedent,
+                      property
+                        .parcel_number
+                    )
+                }
+              )
+            );
+          });
+      });
+
+    var nextNoticeOffset =
+      noticeOffset +
+      pageNotices.length;
+
+    var nextCursor =
+      '';
+
+    if (
+      recurring &&
+      nextNoticeOffset <
+        notices.length
+    ) {
+      nextCursor =
+        REOS
+          .PhiladelphiaProbateRecurringSource
+          .encodeCursor(
+            recurringSourceSha256,
+            recurringPublicationDate,
+            nextNoticeOffset
+          );
+    }
 
     return {
       records: records,
-      nextCursor: '',
+      nextCursor:
+        nextCursor,
       message:
         'Philadelphia probate public notice parsed ' +
         notices.length +
-        ' estate notice(s); ' +
+        ' estate notice(s); scanned bounded notice range ' +
+        noticeOffset +
+        '..' +
+        nextNoticeOffset +
+        '; ' +
         matchedNoticeCount +
         ' matched, ' +
         unmatchedNoticeCount +
@@ -1886,7 +2065,7 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         parsedNoticeCount:
           notices.length,
         scannedNoticeCount:
-          maxNoticeScan,
+          pageNotices.length,
         matchedNoticeCount:
           matchedNoticeCount,
         unmatchedNoticeCount:
@@ -1895,8 +2074,18 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
           ambiguousNoticeCount,
         propertyRecordCount:
           records.length,
+        recurring:
+          recurring,
+        noticeOffset:
+          noticeOffset,
+        nextNoticeOffset:
+          nextNoticeOffset,
+        sourceSha256:
+          recurring
+            ? recurringSourceSha256
+            : '',
         truncated:
-          records.length >= limit
+          Boolean(nextCursor)
       }
     };
   }
