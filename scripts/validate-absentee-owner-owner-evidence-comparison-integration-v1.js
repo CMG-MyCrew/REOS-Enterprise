@@ -232,7 +232,7 @@ assert.ok(
 );
 
 assert.ok(
-  /assert\.equal\(\s*componentEntries\.length,\s*82,/s
+  /assert\.equal\(\s*componentEntries\.length,\s*83,/s
     .test(ownerEvidenceIntegration),
   'owner-evidence integration validator must reconcile component count to 83'
 );
