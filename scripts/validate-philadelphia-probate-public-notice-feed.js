@@ -29,6 +29,11 @@ const SCHEDULER = path.join(
   'CountyProductionScheduler.js'
 );
 
+const RECURRING_SOURCE = path.join(
+  BUILD,
+  'PhiladelphiaProbateRecurringSource.js'
+);
+
 function pass(message) {
   console.log('PASS: ' + message);
 }
@@ -47,6 +52,12 @@ const source =
 const scheduler =
   fs.readFileSync(
     SCHEDULER,
+    'utf8'
+  );
+
+const recurringSource =
+  fs.readFileSync(
+    RECURRING_SOURCE,
     'utf8'
   );
 
@@ -99,6 +110,46 @@ assert.ok(
 
 pass(
   'probate source is restricted to approved Legal Intelligencer HTTPS hosts'
+);
+
+assert.ok(
+  recurringSource.includes(
+    "var CURSOR_PREFIX = 'PB1'"
+  ) &&
+  recurringSource.includes(
+    'PHL-PROBATE-PB1-V1'
+  ) &&
+  recurringSource.includes(
+    'MAX_LOOKBACK_DAYS = 10'
+  ) &&
+  recurringSource.includes(
+    'NOTICE_PAGE_SIZE = 25'
+  )
+);
+
+assert.ok(
+  source.includes(
+    'config.probateRecurring'
+  ) &&
+  source.includes(
+    'probateNoticeOffset'
+  ) &&
+  source.includes(
+    'probateNoticePageSize'
+  ) &&
+  source.includes(
+    '.encodeCursor('
+  )
+);
+
+assert.ok(
+  source.includes(
+    'no partial page persistence is authorized'
+  )
+);
+
+pass(
+  'probate connector supports bounded source-bound PB1 notice pagination'
 );
 
 assert.ok(
