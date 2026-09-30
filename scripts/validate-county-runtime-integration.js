@@ -132,7 +132,8 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/CountyCodeViolationDurableSourceReconciliation.js',
   'build/apps-script-brand/CountyCodeViolationDurableIdentityMigrationPlan.js',
   'build/apps-script-brand/CountyCodeViolationDurableIdentityMigrationBatch1Executor.js',
-  'build/apps-script-brand/CountyPage85SourceObservation214Repair.js'
+  'build/apps-script-brand/CountyPage85SourceObservation214Repair.js',
+  'build/apps-script-brand/PhiladelphiaProbateBoundedPdfFetch.js',
 ];
 
 /*
@@ -241,7 +242,8 @@ const COMPONENT_VALIDATORS = [
   'validate-county-code-violation-collapse-executor-safety-correction-implementation-lifecycle-v1.js',
   'validate-county-code-violation-collapse-executor-blocker-retirement-runtime-v1.js',
   'validate-county-code-violation-collapse-executor-blocker-retirement-implementation-lifecycle-v1.js',
-  'validate-county-runtime-bridge.js'
+  'validate-county-runtime-bridge.js',
+  'validate-philadelphia-probate-bounded-pdf-fetch-v1.js',
 ];
 
 const CERTIFIED_EXECUTOR_SAFETY_CORRECTION_RUNTIME_VALIDATOR =
