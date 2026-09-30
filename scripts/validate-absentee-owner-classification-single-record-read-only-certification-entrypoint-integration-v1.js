@@ -192,7 +192,7 @@ assert.strictEqual(
   classificationIntegration
 ].forEach(text => {
   assert.ok(
-    /componentEntries\.length,\s*82,/s
+    /componentEntries\.length,\s*83,/s
       .test(text),
     'count-coupled absentee-owner integration validator was not reconciled to 81'
   );
@@ -206,7 +206,7 @@ assert.strictEqual(
 });
 
 assert.ok(
-  /postCountyEntries\.length,\s*53,/s
+  /postCountyEntries\.length,\s*54,/s
     .test(
       classificationIntegration
     ),

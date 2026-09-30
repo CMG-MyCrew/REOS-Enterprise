@@ -350,7 +350,7 @@ assert(
 );
 
 assert(
-  success.fetches[0].request.followRedirects === true,
+  success.fetches[0].request.followRedirects === false,
   'followRedirects mismatch'
 );
 
@@ -435,6 +435,12 @@ assert(
 );
 
 const failCases = [
+  [
+    'http-302-redirect',
+    { status: 302 },
+    'HTTP status 302',
+    1
+  ],
   [
     'http-404',
     { status: 404 },
@@ -594,6 +600,21 @@ console.log(
 );
 console.log(
   'SUCCESS_FETCH_INVOCATION_COUNT_EXACT=1'
+);
+console.log(
+  'FOLLOW_REDIRECTS_FALSE_CERTIFIED=true'
+);
+console.log(
+  'HTTP_302_FAIL_CLOSED=true'
+);
+console.log(
+  'HTTP_302_FETCH_INVOCATION_COUNT_EXACT=1'
+);
+console.log(
+  'REDIRECT_RETRY_EXECUTED=false'
+);
+console.log(
+  'REDIRECT_SECONDARY_REQUEST_EXECUTED=false'
 );
 console.log(
   'FAIL_CLOSED_CASES_PASSED=' +

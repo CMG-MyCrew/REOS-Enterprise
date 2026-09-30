@@ -85,11 +85,17 @@ No continuation request is authorized.
 The future implementation may use:
 
 - method `get`;
-- `followRedirects: true`;
+- `followRedirects: false`;
 - `muteHttpExceptions: true`;
 - an appropriate PDF Accept header.
 
-The operation must not intentionally initiate another request.
+Redirect following is prohibited.
+
+Any HTTP 3xx response must fail closed.
+
+The operation may issue only the one direct request to the exact certified
+source URL. A redirect response must not cause a retry, redirected request,
+fallback request, or secondary-source request.
 
 ## Response validation
 
@@ -158,11 +164,12 @@ The future runtime must fail closed for:
 4. unapproved source host;
 5. source basename mismatch;
 6. publication-date/basename mismatch;
-7. HTTP non-2xx response;
-8. empty response body;
-9. response above the pinned maximum byte count;
-10. invalid `%PDF-` signature;
-11. attempted HTTP fetch count greater than one.
+7. HTTP 3xx redirect response;
+8. any other HTTP non-2xx response;
+9. empty response body;
+10. response above the pinned maximum byte count;
+11. invalid `%PDF-` signature;
+12. attempted HTTP fetch count greater than one.
 
 A failure must not trigger a retry or fallback.
 

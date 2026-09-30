@@ -37,6 +37,11 @@ function requireText(value) {
   'No secondary source is authorized.',
   'No article discovery is authorized.',
   'No recurring-source resolver invocation is authorized.',
+  '- `followRedirects: false`;',
+  'Redirect following is prohibited.',
+  'Any HTTP 3xx response must fail closed.',
+  'A redirect response must not cause a retry, redirected request,',
+  'fallback request, or secondary-source request.',
 
   'HTTP status in the 2xx range.',
   'PDF magic bytes beginning with `%PDF-`.',
@@ -144,6 +149,15 @@ console.log(
 );
 console.log(
   'MAX_HTTP_FETCH_INVOCATIONS_CONTRACT=1'
+);
+console.log(
+  'FOLLOW_REDIRECTS_CONTRACT=false'
+);
+console.log(
+  'HTTP_3XX_FAIL_CLOSED_CONTRACT=true'
+);
+console.log(
+  'REDIRECT_SECONDARY_REQUEST_AUTHORIZED=false'
 );
 console.log(
   'HTTP_RETRY_AUTHORIZED=false'

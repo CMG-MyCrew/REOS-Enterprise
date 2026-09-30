@@ -249,7 +249,7 @@ assert.strictEqual(
   singleRecord
 ].forEach(text => {
   assert.ok(
-    /componentEntries\.length,\s*82,/s.test(text),
+    /componentEntries\.length,\s*83,/s.test(text),
     'count-coupled integration validator was not reconciled to 81'
   );
 
@@ -266,7 +266,7 @@ assert.strictEqual(
   singleRecord
 ].forEach(text => {
   assert.ok(
-    /(?:postCountyEntries|postEntries)\.length,\s*53,/s.test(text),
+    /(?:postCountyEntries|postEntries)\.length,\s*54,/s.test(text),
     'post-county count-coupled validator was not reconciled to 54'
   );
 

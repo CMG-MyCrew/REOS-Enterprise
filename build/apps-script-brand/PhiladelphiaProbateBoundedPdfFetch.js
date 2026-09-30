@@ -127,7 +127,7 @@
       SOURCE_URL,
       {
         method: 'get',
-        followRedirects: true,
+        followRedirects: false,
         muteHttpExceptions: true,
         headers: {
           Accept: 'application/pdf'
