@@ -193,7 +193,7 @@ stepMarkers.forEach(marker => {
 });
 
 /*
- * The reconciled current validator has 80 component validators after
+ * The reconciled current validator has 81 component validators after
  * registering the already-merged OPA account-range behavior validator.
  */
 const componentStart =
@@ -226,8 +226,8 @@ const componentEntries =
 
 assert.equal(
   componentEntries.length,
-  80,
-  'current component validator inventory must contain exactly 80 validators'
+  81,
+  'current component validator inventory must contain exactly 81 validators'
 );
 
 /*
