@@ -155,8 +155,8 @@ const componentEntries =
 
 assert.strictEqual(
   componentEntries.length,
-  83,
-  'current component validator inventory must contain exactly 83 validators'
+  84,
+  'current component validator inventory must contain exactly 84 validators'
 );
 
 const postStart =
@@ -182,8 +182,8 @@ const postEntries =
 
 assert.strictEqual(
   postEntries.length,
-  54,
-  'current post-county production inventory must contain exactly 54 files'
+  55,
+  'current post-county production inventory must contain exactly 55 files'
 );
 
 [
@@ -192,7 +192,7 @@ assert.strictEqual(
   classificationIntegration
 ].forEach(text => {
   assert.ok(
-    /componentEntries\.length,\s*83,/s
+    /componentEntries\.length,\s*84,/s
       .test(text),
     'count-coupled absentee-owner integration validator was not reconciled to 81'
   );
@@ -206,16 +206,16 @@ assert.strictEqual(
 });
 
 assert.ok(
-  /postCountyEntries\.length,\s*54,/s
+  /postCountyEntries\.length,\s*55,/s
     .test(
       classificationIntegration
     ),
-  'classification integration post-county count was not reconciled to 54'
+  'classification integration post-county count was not reconciled to 55'
 );
 
 assert.ok(
   classificationIntegration.includes(
-    'POST_COUNTY_PRODUCTION_FILE_COUNT=54'
+    'POST_COUNTY_PRODUCTION_FILE_COUNT=55'
   ),
   'classification integration post-county summary was not reconciled to 53'
 );
@@ -334,7 +334,7 @@ console.log(
 );
 
 console.log(
-  'POST_COUNTY_PRODUCTION_FILE_COUNT=54'
+  'POST_COUNTY_PRODUCTION_FILE_COUNT=55'
 );
 
 console.log(
