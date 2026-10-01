@@ -226,8 +226,8 @@ const componentEntries =
 
 assert.equal(
   componentEntries.length,
-  84,
-  'current component validator inventory must contain exactly 84 validators'
+  85,
+  'current component validator inventory must contain exactly 85 validators'
 );
 
 /*
