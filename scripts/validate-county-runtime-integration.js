@@ -134,6 +134,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/CountyCodeViolationDurableIdentityMigrationBatch1Executor.js',
   'build/apps-script-brand/CountyPage85SourceObservation214Repair.js',
   'build/apps-script-brand/PhiladelphiaProbateBoundedPdfFetch.js',
+  'build/apps-script-brand/PhiladelphiaProbateBoundedTextExtraction.js',
 ];
 
 /*
@@ -244,6 +245,7 @@ const COMPONENT_VALIDATORS = [
   'validate-county-code-violation-collapse-executor-blocker-retirement-implementation-lifecycle-v1.js',
   'validate-county-runtime-bridge.js',
   'validate-philadelphia-probate-bounded-pdf-fetch-v1.js',
+  'validate-philadelphia-probate-bounded-text-extraction-v1.js',
 ];
 
 const CERTIFIED_EXECUTOR_SAFETY_CORRECTION_RUNTIME_VALIDATOR =
