@@ -140,6 +140,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/PhiladelphiaProbateBoundedOversizeTextEvidence.js',
   'build/apps-script-brand/PhiladelphiaProbateProductionOversizeTextEvidenceRecovery.js',
   'build/apps-script-brand/PhiladelphiaProbateOversizeRecoveryReadinessProbe.js',
+  'build/apps-script-brand/PhiladelphiaProbateCertifiedOversizePublicationAnalysis.js',
 ];
 
 /*
@@ -256,6 +257,7 @@ const COMPONENT_VALIDATORS = [
   'validate-philadelphia-probate-bounded-oversize-text-evidence-v1.js',
   'validate-philadelphia-probate-production-oversize-text-evidence-recovery-v1.js',
   'validate-philadelphia-probate-oversize-recovery-readiness-probe-v1.js',
+  'validate-philadelphia-probate-certified-oversize-publication-analysis-v1.js',
 ];
 
 const CERTIFIED_EXECUTOR_SAFETY_CORRECTION_RUNTIME_VALIDATOR =
