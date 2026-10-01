@@ -136,6 +136,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/PhiladelphiaProbateBoundedPdfFetch.js',
   'build/apps-script-brand/PhiladelphiaProbateBoundedTextExtraction.js',
   'build/apps-script-brand/PhiladelphiaProbateProductionExtractionOrchestration.js',
+  'build/apps-script-brand/PhiladelphiaProbateProductionExtractionReadinessProbe.js',
 ];
 
 /*
@@ -248,6 +249,7 @@ const COMPONENT_VALIDATORS = [
   'validate-philadelphia-probate-bounded-pdf-fetch-v1.js',
   'validate-philadelphia-probate-bounded-text-extraction-v1.js',
   'validate-philadelphia-probate-production-extraction-orchestration-v1.js',
+  'validate-philadelphia-probate-production-extraction-readiness-probe-v1.js',
 ];
 
 const CERTIFIED_EXECUTOR_SAFETY_CORRECTION_RUNTIME_VALIDATOR =
