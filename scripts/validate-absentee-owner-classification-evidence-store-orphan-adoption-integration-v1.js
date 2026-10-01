@@ -170,8 +170,8 @@ const postEntries =
 
 assert.strictEqual(
   postEntries.length,
-  56,
-  'post-county production inventory must contain exactly 56 files'
+  57,
+  'post-county production inventory must contain exactly 57 files'
 );
 
 assert.strictEqual(
@@ -212,8 +212,8 @@ const componentEntries =
 
 assert.strictEqual(
   componentEntries.length,
-  85,
-  'component validator inventory must contain exactly 85 validators'
+  86,
+  'component validator inventory must contain exactly 86 validators'
 );
 
 [
@@ -249,7 +249,7 @@ assert.strictEqual(
   singleRecord
 ].forEach(text => {
   assert.ok(
-    /componentEntries\.length,\s*85,/s.test(text),
+    /componentEntries\.length,\s*86,/s.test(text),
     'count-coupled integration validator was not reconciled to 81'
   );
 
@@ -266,13 +266,13 @@ assert.strictEqual(
   singleRecord
 ].forEach(text => {
   assert.ok(
-    /(?:postCountyEntries|postEntries)\.length,\s*56,/s.test(text),
-    'post-county count-coupled validator was not reconciled to 56'
+    /(?:postCountyEntries|postEntries)\.length,\s*57,/s.test(text),
+    'post-county count-coupled validator was not reconciled to 57'
   );
 
   assert.ok(
     text.includes(
-      'POST_COUNTY_PRODUCTION_FILE_COUNT=56'
+      'POST_COUNTY_PRODUCTION_FILE_COUNT=57'
     ),
     'post-county summary was not reconciled to 53'
   );
@@ -331,7 +331,7 @@ console.log(
   'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_ORPHAN_ADOPTION_INTEGRATION_VALID=true'
 );
 console.log('RUNTIME_PRODUCTION_ALLOWLIST_EXACT=true');
-console.log('POST_COUNTY_PRODUCTION_FILE_COUNT=56');
+console.log('POST_COUNTY_PRODUCTION_FILE_COUNT=57');
 console.log('COMPONENT_VALIDATOR_COUNT=80');
 console.log('LIVE_COMPONENT_COUNT_RECONCILIATION_COUNT=5');
 console.log('LIVE_POST_COUNTY_COUNT_RECONCILIATION_COUNT=3');
