@@ -744,7 +744,7 @@ jobs:
         run: node scripts/validate-philadelphia-probate-certified-oversize-marker-evidence-recovery-production-transport-v1.js
 
       - name: Validate current county runtime integration
-        run: node scripts/validate-county-runtime-integration.js
+        run: node ./scripts/validate-county-runtime-integration.js
 
       - name: Validate certified county runtime integration
         run: |
