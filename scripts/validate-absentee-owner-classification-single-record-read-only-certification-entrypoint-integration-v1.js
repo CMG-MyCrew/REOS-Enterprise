@@ -155,8 +155,8 @@ const componentEntries =
 
 assert.strictEqual(
   componentEntries.length,
-  92,
-  'current component validator inventory must contain exactly 92 validators'
+  93,
+  'current component validator inventory must contain exactly 93 validators'
 );
 
 const postStart =
@@ -182,8 +182,8 @@ const postEntries =
 
 assert.strictEqual(
   postEntries.length,
-  63,
-  'current post-county production inventory must contain exactly 63 files'
+  64,
+  'current post-county production inventory must contain exactly 64 files'
 );
 
 [
@@ -192,32 +192,32 @@ assert.strictEqual(
   classificationIntegration
 ].forEach(text => {
   assert.ok(
-    /componentEntries\.length,\s*92,/s
+    /componentEntries\.length,\s*93,/s
       .test(text),
-    'count-coupled absentee-owner integration validator was not reconciled to 92'
+    'count-coupled absentee-owner integration validator was not reconciled to 93'
   );
 
   assert.ok(
     text.includes(
-      'COMPONENT_VALIDATOR_COUNT=92'
+      'COMPONENT_VALIDATOR_COUNT=93'
     ),
-    'count-coupled integration summary was not reconciled to 92'
+    'count-coupled integration summary was not reconciled to 93'
   );
 });
 
 assert.ok(
-  /postCountyEntries\.length,\s*63,/s
+  /postCountyEntries\.length,\s*64,/s
     .test(
       classificationIntegration
     ),
-  'classification integration post-county count was not reconciled to 63'
+  'classification integration post-county count was not reconciled to 64'
 );
 
 assert.ok(
   classificationIntegration.includes(
-    'POST_COUNTY_PRODUCTION_FILE_COUNT=63'
+    'POST_COUNTY_PRODUCTION_FILE_COUNT=64'
   ),
-  'classification integration post-county summary was not reconciled to 63'
+  'classification integration post-county summary was not reconciled to 64'
 );
 
 [
@@ -330,11 +330,11 @@ console.log(
 );
 
 console.log(
-  'COMPONENT_VALIDATOR_COUNT=92'
+  'COMPONENT_VALIDATOR_COUNT=93'
 );
 
 console.log(
-  'POST_COUNTY_PRODUCTION_FILE_COUNT=63'
+  'POST_COUNTY_PRODUCTION_FILE_COUNT=64'
 );
 
 console.log(
