@@ -154,6 +154,7 @@ jobs:
           node --check scripts/validate-philadelphia-probate-certified-oversize-publication-analysis-v1.js
           node --check scripts/validate-philadelphia-probate-certified-oversize-analysis-production-transport-contract-v1.js
           node --check scripts/validate-philadelphia-probate-certified-oversize-analysis-production-transport-v1.js
+          node --check scripts/validate-philadelphia-probate-certified-oversize-analysis-bounded-marker-evidence-recovery-design-v1.js
           node --check scripts/validate-county-runtime-integration.js
 
       - name: Validate post-restoration collapse authority design
@@ -724,6 +725,9 @@ jobs:
 
       - name: Validate PB1 certified oversize analysis production transport behavior v1
         run: node scripts/validate-philadelphia-probate-certified-oversize-analysis-production-transport-v1.js
+
+      - name: Validate PB1 certified oversize bounded marker evidence recovery design v1
+        run: node scripts/validate-philadelphia-probate-certified-oversize-analysis-bounded-marker-evidence-recovery-design-v1.js
 
       - name: Validate certified county runtime integration
         run: |
