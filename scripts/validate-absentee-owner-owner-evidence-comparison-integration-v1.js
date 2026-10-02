@@ -206,8 +206,8 @@ const componentEntries =
 
 assert.equal(
   componentEntries.length,
-  90,
-  'current component validator inventory must contain exactly 90 validators'
+  91,
+  'current component validator inventory must contain exactly 91 validators'
 );
 
 assert.ok(
@@ -232,16 +232,16 @@ assert.ok(
 );
 
 assert.ok(
-  /assert\.equal\(\s*componentEntries\.length,\s*90,/s
+  /assert\.equal\(\s*componentEntries\.length,\s*91,/s
     .test(ownerEvidenceIntegration),
-  'owner-evidence integration validator must reconcile component count to 90'
+  'owner-evidence integration validator must reconcile component count to 91'
 );
 
 assert.ok(
   ownerEvidenceIntegration.includes(
     'COMPONENT_VALIDATOR_COUNT=80'
   ),
-  'owner-evidence integration summary must reconcile component count to 90'
+  'owner-evidence integration summary must reconcile component count to 91'
 );
 
 assert.equal(
