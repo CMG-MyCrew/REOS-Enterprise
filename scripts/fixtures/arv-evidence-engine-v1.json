@@ -1,0 +1,161 @@
+{
+  "policy": {
+    "minimumAcceptedCompCount": 3,
+    "maxPpsfSpreadRatio": 0.30
+  },
+  "subject": {
+    "livingArea": 1600
+  },
+  "cases": [
+    {
+      "name": "three coherent accepted comps support arv",
+      "expectedStatus": "supported",
+      "expectedReason": "ARV_EVIDENCE_SUPPORTED",
+      "expectArv": true,
+      "comparables": [
+        {
+          "comparableEvidenceId": "COMP-A",
+          "acceptanceDecision": "accepted",
+          "salePrice": 240000,
+          "livingArea": 1600
+        },
+        {
+          "comparableEvidenceId": "COMP-B",
+          "acceptanceDecision": "accepted",
+          "salePrice": 237000,
+          "livingArea": 1580
+        },
+        {
+          "comparableEvidenceId": "COMP-C",
+          "acceptanceDecision": "accepted",
+          "salePrice": 247500,
+          "livingArea": 1650
+        }
+      ]
+    },
+    {
+      "name": "too few accepted comps insufficient",
+      "expectedStatus": "insufficient",
+      "expectedReason": "MINIMUM_ACCEPTED_COMP_COUNT_NOT_MET",
+      "expectArv": false,
+      "comparables": [
+        {
+          "comparableEvidenceId": "COMP-A",
+          "acceptanceDecision": "accepted",
+          "salePrice": 240000,
+          "livingArea": 1600
+        },
+        {
+          "comparableEvidenceId": "COMP-B",
+          "acceptanceDecision": "accepted",
+          "salePrice": 237000,
+          "livingArea": 1580
+        }
+      ]
+    },
+    {
+      "name": "review required comp fails closed",
+      "expectedStatus": "insufficient",
+      "expectedReason": "NON_ACCEPTED_COMPARABLE_SUPPLIED",
+      "expectArv": false,
+      "comparables": [
+        {
+          "comparableEvidenceId": "COMP-A",
+          "acceptanceDecision": "accepted",
+          "salePrice": 240000,
+          "livingArea": 1600
+        },
+        {
+          "comparableEvidenceId": "COMP-B",
+          "acceptanceDecision": "accepted",
+          "salePrice": 237000,
+          "livingArea": 1580
+        },
+        {
+          "comparableEvidenceId": "COMP-C",
+          "acceptanceDecision": "review_required",
+          "salePrice": 247500,
+          "livingArea": 1650
+        }
+      ]
+    },
+    {
+      "name": "duplicate evidence id fails closed",
+      "expectedStatus": "insufficient",
+      "expectedReason": "DUPLICATE_COMPARABLE_EVIDENCE_ID",
+      "expectArv": false,
+      "comparables": [
+        {
+          "comparableEvidenceId": "COMP-A",
+          "acceptanceDecision": "accepted",
+          "salePrice": 240000,
+          "livingArea": 1600
+        },
+        {
+          "comparableEvidenceId": "COMP-A",
+          "acceptanceDecision": "accepted",
+          "salePrice": 237000,
+          "livingArea": 1580
+        },
+        {
+          "comparableEvidenceId": "COMP-C",
+          "acceptanceDecision": "accepted",
+          "salePrice": 247500,
+          "livingArea": 1650
+        }
+      ]
+    },
+    {
+      "name": "missing sale price fails closed",
+      "expectedStatus": "insufficient",
+      "expectedReason": "COMPARABLE_SALE_PRICE_MISSING_OR_INVALID",
+      "expectArv": false,
+      "comparables": [
+        {
+          "comparableEvidenceId": "COMP-A",
+          "acceptanceDecision": "accepted",
+          "salePrice": 240000,
+          "livingArea": 1600
+        },
+        {
+          "comparableEvidenceId": "COMP-B",
+          "acceptanceDecision": "accepted",
+          "salePrice": null,
+          "livingArea": 1580
+        },
+        {
+          "comparableEvidenceId": "COMP-C",
+          "acceptanceDecision": "accepted",
+          "salePrice": 247500,
+          "livingArea": 1650
+        }
+      ]
+    },
+    {
+      "name": "high ppsf dispersion requires review",
+      "expectedStatus": "review_required",
+      "expectedReason": "PRICE_PER_SQFT_DISPERSION_EXCEEDED",
+      "expectArv": false,
+      "comparables": [
+        {
+          "comparableEvidenceId": "COMP-A",
+          "acceptanceDecision": "accepted",
+          "salePrice": 160000,
+          "livingArea": 1600
+        },
+        {
+          "comparableEvidenceId": "COMP-B",
+          "acceptanceDecision": "accepted",
+          "salePrice": 240000,
+          "livingArea": 1600
+        },
+        {
+          "comparableEvidenceId": "COMP-C",
+          "acceptanceDecision": "accepted",
+          "salePrice": 320000,
+          "livingArea": 1600
+        }
+      ]
+    }
+  ]
+}
