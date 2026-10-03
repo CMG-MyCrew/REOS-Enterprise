@@ -235,14 +235,11 @@ REOS.DealLifecycleWorkflow = (function () {
     if (evidence.submittedOffer) {
       return decision_('Offer Submitted', 'At least one offer has been submitted, sent, or delivered.');
     }
-    if (
-      evidence.validAnalysis &&
-      evidence.compCount >= options.minimumComps &&
-      evidence.draftOffer &&
-      (!options.requirePositiveMaoForOfferGeneration || evidence.positiveMao)
-    ) {
-      return decision_('Offer Generation', 'Valid analysis, minimum comps, and a positive draft offer are present.');
-    }
+    // Legacy analysis / comparable-count / MAO evidence must not
+    // independently recommend Offer Generation. Production progression
+    // remains fail-closed until supported comp-backed ARV evidence AND
+    // adequate repair-scope evidence are supplied through the certified
+    // readiness-gate integration.
     if (evidence.validAnalysis && evidence.compCount >= options.minimumComps) {
       return decision_('Comparable Analysis', 'Valid analysis exists and minimum comparable count has been met.');
     }

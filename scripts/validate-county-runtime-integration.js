@@ -170,7 +170,16 @@ const POST_COUNTY_MODIFIED_PRODUCTION_FILES = [
    * once as Git status M relative to BASELINE.
    */
   'build/apps-script-brand/CSVImportEngine.js',
-  'build/apps-script-brand/LeadDeduplication.js'
+  'build/apps-script-brand/LeadDeduplication.js',
+
+  /*
+   * Certified comps workflow fail-closed hardening.
+   * AcquisitionWorkflow.js existed at the county baseline and is
+   * therefore explicitly accounted here as a later modification.
+   * DealLifecycleWorkflow.js is intentionally NOT listed here because
+   * it is classified as a post-baseline production addition.
+   */
+  'build/apps-script-brand/AcquisitionWorkflow.js'
 ];
 
 const COMPONENT_VALIDATORS = [
@@ -621,6 +630,62 @@ diffEntries = diffEntries.filter(
 
 pass(
   'explicit post-county production modifications are isolated from county reconciliation'
+);
+
+/*
+ * Certified comps workflow compatibility assertions.
+ *
+ * Explicit accounting above is not generic production-change authority.
+ * These assertions require the fail-closed behavior that justified the
+ * AcquisitionWorkflow.js post-county modification while independently
+ * preserving the DealLifecycleWorkflow.js safety hardening.
+ */
+const acquisitionWorkflowText =
+  readBuild('AcquisitionWorkflow.js');
+
+assert.ok(
+  acquisitionWorkflowText.includes(
+    'Comparable-row presence is not readiness authority.'
+  ),
+  'AcquisitionWorkflow.js must retain certified comps fail-closed readiness language'
+);
+
+assert.equal(
+  acquisitionWorkflowText.includes(
+    'if (comps.length) {'
+  ),
+  false,
+  'AcquisitionWorkflow.js must not restore comparable-presence-only progression'
+);
+
+assert.equal(
+  acquisitionWorkflowText.includes(
+    "REOS.AcquisitionPipeline.advanceStage(dealId, 'Offer Generation', 'Comps found.');"
+  ),
+  false,
+  'AcquisitionWorkflow.js must not restore legacy comps-found Offer Generation progression'
+);
+
+const dealLifecycleWorkflowText =
+  readBuild('DealLifecycleWorkflow.js');
+
+assert.ok(
+  dealLifecycleWorkflowText.includes(
+    'Legacy analysis / comparable-count / MAO evidence must not'
+  ),
+  'DealLifecycleWorkflow.js must retain certified comps fail-closed readiness language'
+);
+
+assert.equal(
+  dealLifecycleWorkflowText.includes(
+    "return decision_('Offer Generation', 'Valid analysis, minimum comps, and a positive draft offer are present.');"
+  ),
+  false,
+  'DealLifecycleWorkflow.js must not restore legacy analysis/comps/MAO Offer Generation recommendation'
+);
+
+pass(
+  'certified comps workflow accounting remains explicit and fail closed'
 );
 
 const postCountyEntries =
