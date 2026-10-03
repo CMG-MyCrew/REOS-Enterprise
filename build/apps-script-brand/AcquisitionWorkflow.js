@@ -39,10 +39,10 @@ REOS.AcquisitionWorkflow = (function () {
         return r['Deal ID'] === dealId;
       });
 
-      if (comps.length) {
-        REOS.AcquisitionPipeline.advanceStage(dealId, 'Offer Generation', 'Comps found.');
-        steps.push('Offer Generation Stage');
-      }
+      // Offer Generation progression intentionally fails closed here.
+      // Comparable-row presence is not readiness authority. A separately
+      // certified integration must supply supported comp-backed ARV evidence
+      // AND adequate repair-scope evidence before progression is eligible.
 
       if (hasSubmittedExecution_(dealId)) {
         REOS.AcquisitionPipeline.advanceStage(
