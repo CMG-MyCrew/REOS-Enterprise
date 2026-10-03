@@ -170,8 +170,8 @@ const postEntries =
 
 assert.strictEqual(
   postEntries.length,
-  66,
-  'post-county production inventory must contain exactly 66 files'
+  67,
+  'post-county production inventory must contain exactly 67 files'
 );
 
 assert.strictEqual(
@@ -212,8 +212,8 @@ const componentEntries =
 
 assert.strictEqual(
   componentEntries.length,
-  95,
-  'component validator inventory must contain exactly 95 validators'
+  96,
+  'component validator inventory must contain exactly 96 validators'
 );
 
 [
@@ -249,15 +249,15 @@ assert.strictEqual(
   singleRecord
 ].forEach(text => {
   assert.ok(
-    /componentEntries\.length,\s*95,/s.test(text),
-    'count-coupled integration validator was not reconciled to 95'
+    /componentEntries\.length,\s*96,/s.test(text),
+    'count-coupled integration validator was not reconciled to 96'
   );
 
   assert.ok(
     text.includes(
-      'COMPONENT_VALIDATOR_COUNT=95'
+      'COMPONENT_VALIDATOR_COUNT=96'
     ),
-    'count-coupled integration summary was not reconciled to 95'
+    'count-coupled integration summary was not reconciled to 96'
   );
 });
 
@@ -266,15 +266,15 @@ assert.strictEqual(
   singleRecord
 ].forEach(text => {
   assert.ok(
-    /(?:postCountyEntries|postEntries)\.length,\s*66,/s.test(text),
-    'post-county count-coupled validator was not reconciled to 66'
+    /(?:postCountyEntries|postEntries)\.length,\s*67,/s.test(text),
+    'post-county count-coupled validator was not reconciled to 67'
   );
 
   assert.ok(
     text.includes(
-      'POST_COUNTY_PRODUCTION_FILE_COUNT=66'
+      'POST_COUNTY_PRODUCTION_FILE_COUNT=67'
     ),
-    'post-county summary was not reconciled to 66'
+    'post-county summary was not reconciled to 67'
   );
 });
 
@@ -331,8 +331,8 @@ console.log(
   'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_ORPHAN_ADOPTION_INTEGRATION_VALID=true'
 );
 console.log('RUNTIME_PRODUCTION_ALLOWLIST_EXACT=true');
-console.log('POST_COUNTY_PRODUCTION_FILE_COUNT=66');
-console.log('COMPONENT_VALIDATOR_COUNT=95');
+console.log('POST_COUNTY_PRODUCTION_FILE_COUNT=67');
+console.log('COMPONENT_VALIDATOR_COUNT=96');
 console.log('LIVE_COMPONENT_COUNT_RECONCILIATION_COUNT=5');
 console.log('LIVE_POST_COUNTY_COUNT_RECONCILIATION_COUNT=3');
 console.log('CI_SYNTAX_REGISTRATION_EXACT=true');

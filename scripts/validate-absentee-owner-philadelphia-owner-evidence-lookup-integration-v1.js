@@ -193,8 +193,8 @@ stepMarkers.forEach(marker => {
 });
 
 /*
- * The reconciled current validator has 95 component validators after
- * registering the already-merged OPA account-range behavior validator.
+ * The reconciled current validator has 96 component validators after
+ * registering the successor probate transport behavior validator.
  */
 const componentStart =
   runtime.indexOf(
@@ -226,8 +226,8 @@ const componentEntries =
 
 assert.equal(
   componentEntries.length,
-  95,
-  'current component validator inventory must contain exactly 95 validators'
+  96,
+  'current component validator inventory must contain exactly 96 validators'
 );
 
 /*
@@ -276,7 +276,7 @@ console.log(
 );
 console.log('RUNTIME_PRODUCTION_ALLOWLIST_EXACT=true');
 console.log('COMPONENT_VALIDATOR_REGISTRATION_EXACT=true');
-console.log('COMPONENT_VALIDATOR_COUNT=95');
+console.log('COMPONENT_VALIDATOR_COUNT=96');
 console.log('CI_SYNTAX_REGISTRATION_EXACT=true');
 console.log('CI_EXECUTION_REGISTRATION_EXACT=true');
 console.log('HISTORICAL_COUNTY_RUNTIME_REPLAY_PRESERVED=true');
