@@ -1,0 +1,68 @@
+{
+  "request": {
+    "schemaVersion": "1",
+    "requestId": "REQ-SYNTHETIC-001",
+    "subjectDealId": "DEAL-SYNTHETIC-001",
+    "subjectCanonicalPropertyKey": "synthetic-property-001",
+    "subjectAddress": "100 Synthetic Ave, Example, PA 19000",
+    "subjectPropertyType": "single_family",
+    "subjectLivingArea": 1600,
+    "requestedAt": "2026-10-03T12:00:00Z",
+    "searchPolicy": {
+      "maximumRadiusMiles": 1,
+      "maximumSaleAgeDays": 365,
+      "maximumResultCount": 10
+    }
+  },
+  "providerId": "offline_mock_provider",
+  "responses": [
+    {
+      "name": "successful synthetic retrieval",
+      "schemaVersion": "1",
+      "requestId": "REQ-SYNTHETIC-001",
+      "retrievalStatus": "success",
+      "retrievedAt": "2026-10-03T12:00:01Z",
+      "records": [
+        {
+          "providerRecordId": "MOCK-001",
+          "retrievedAt": "2026-10-03T12:00:01Z",
+          "rawEvidence": {
+            "address": "101 Synthetic Ave",
+            "salePrice": 240000,
+            "saleDate": "2026-06-01",
+            "livingArea": 1600
+          },
+          "adapterMetadata": {
+            "synthetic": true
+          }
+        }
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "partial synthetic retrieval",
+      "schemaVersion": "1",
+      "requestId": "REQ-SYNTHETIC-001",
+      "retrievalStatus": "partial",
+      "retrievedAt": "2026-10-03T12:00:01Z",
+      "records": [],
+      "warnings": [
+        "SYNTHETIC_PARTIAL_RESULT"
+      ],
+      "errors": []
+    },
+    {
+      "name": "synthetic provider unavailable",
+      "schemaVersion": "1",
+      "requestId": "REQ-SYNTHETIC-001",
+      "retrievalStatus": "unavailable",
+      "retrievedAt": "2026-10-03T12:00:01Z",
+      "records": [],
+      "warnings": [],
+      "errors": [
+        "SYNTHETIC_PROVIDER_UNAVAILABLE"
+      ]
+    }
+  ]
+}
