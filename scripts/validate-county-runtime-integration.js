@@ -146,6 +146,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/PhiladelphiaProbateCertifiedOversizeMarkerEvidenceRecovery.js',
   'build/apps-script-brand/PhiladelphiaProbateCertifiedOversizeOrphanAnchoredMarkerEvidenceRecovery.js',
   'build/apps-script-brand/PhiladelphiaProbateCertifiedOversizeMarkerEvidenceRecoveryProductionTransport.js',
+  'build/apps-script-brand/PhiladelphiaProbateCertifiedOversizeOrphanAnchoredMarkerEvidenceRecoveryProductionTransport.js',
 ];
 
 /*
@@ -268,6 +269,7 @@ const COMPONENT_VALIDATORS = [
   'validate-philadelphia-probate-certified-oversize-marker-evidence-recovery-v1.js',
   'validate-philadelphia-probate-certified-oversize-orphan-anchored-marker-evidence-recovery-v1.js',
   'validate-philadelphia-probate-certified-oversize-marker-evidence-recovery-production-transport-v1.js',
+  'validate-philadelphia-probate-certified-oversize-orphan-anchored-marker-evidence-recovery-production-transport-v1.js',
 ];
 
 const CERTIFIED_EXECUTOR_SAFETY_CORRECTION_RUNTIME_VALIDATOR =
