@@ -1,0 +1,170 @@
+{
+  "cases": [
+    {
+      "name": "supported arv and adequate repair scope",
+      "expectedDecision": "eligible",
+      "expectedReason": "OFFER_READINESS_ELIGIBLE",
+      "input": {
+        "dealId": "DEAL-SYNTHETIC-001",
+        "arvEvidence": {
+          "dealId": "DEAL-SYNTHETIC-001",
+          "evidenceStatus": "supported",
+          "confidenceStatus": "sufficient",
+          "estimatedArv": 250000,
+          "acceptedComparableEvidenceIds": [
+            "COMP-001",
+            "COMP-002",
+            "COMP-003"
+          ],
+          "acceptedComparableCount": 3,
+          "minimumAcceptedComparableCount": 3,
+          "reviewRequired": false
+        },
+        "repairScope": {
+          "dealId": "DEAL-SYNTHETIC-001",
+          "scopeStatus": "adequate",
+          "estimatedRepairCost": 40000,
+          "scopeComplete": true,
+          "reviewRequired": false
+        }
+      }
+    },
+    {
+      "name": "comparable presence without supported arv",
+      "expectedDecision": "blocked",
+      "expectedReason": "ARV_EVIDENCE_NOT_SUPPORTED",
+      "input": {
+        "dealId": "DEAL-SYNTHETIC-002",
+        "arvEvidence": {
+          "dealId": "DEAL-SYNTHETIC-002",
+          "evidenceStatus": "insufficient",
+          "confidenceStatus": "insufficient",
+          "estimatedArv": null,
+          "acceptedComparableEvidenceIds": [
+            "COMP-010"
+          ],
+          "acceptedComparableCount": 1,
+          "minimumAcceptedComparableCount": 3,
+          "reviewRequired": false
+        },
+        "repairScope": {
+          "dealId": "DEAL-SYNTHETIC-002",
+          "scopeStatus": "adequate",
+          "estimatedRepairCost": 25000,
+          "scopeComplete": true,
+          "reviewRequired": false
+        }
+      }
+    },
+    {
+      "name": "supported arv without repair scope",
+      "expectedDecision": "blocked",
+      "expectedReason": "REPAIR_SCOPE_MISSING",
+      "input": {
+        "dealId": "DEAL-SYNTHETIC-003",
+        "arvEvidence": {
+          "dealId": "DEAL-SYNTHETIC-003",
+          "evidenceStatus": "supported",
+          "confidenceStatus": "sufficient",
+          "estimatedArv": 300000,
+          "acceptedComparableEvidenceIds": [
+            "COMP-020",
+            "COMP-021",
+            "COMP-022"
+          ],
+          "acceptedComparableCount": 3,
+          "minimumAcceptedComparableCount": 3,
+          "reviewRequired": false
+        },
+        "repairScope": null
+      }
+    },
+    {
+      "name": "repair number without adequate scope",
+      "expectedDecision": "blocked",
+      "expectedReason": "REPAIR_SCOPE_NOT_ADEQUATE",
+      "input": {
+        "dealId": "DEAL-SYNTHETIC-004",
+        "arvEvidence": {
+          "dealId": "DEAL-SYNTHETIC-004",
+          "evidenceStatus": "supported",
+          "confidenceStatus": "sufficient",
+          "estimatedArv": 225000,
+          "acceptedComparableEvidenceIds": [
+            "COMP-030",
+            "COMP-031",
+            "COMP-032"
+          ],
+          "acceptedComparableCount": 3,
+          "minimumAcceptedComparableCount": 3,
+          "reviewRequired": false
+        },
+        "repairScope": {
+          "dealId": "DEAL-SYNTHETIC-004",
+          "scopeStatus": "inadequate",
+          "estimatedRepairCost": 30000,
+          "scopeComplete": false,
+          "reviewRequired": true
+        }
+      }
+    },
+    {
+      "name": "arv review required",
+      "expectedDecision": "blocked",
+      "expectedReason": "ARV_REVIEW_REQUIRED",
+      "input": {
+        "dealId": "DEAL-SYNTHETIC-005",
+        "arvEvidence": {
+          "dealId": "DEAL-SYNTHETIC-005",
+          "evidenceStatus": "review_required",
+          "confidenceStatus": "review_required",
+          "estimatedArv": null,
+          "acceptedComparableEvidenceIds": [
+            "COMP-040",
+            "COMP-041",
+            "COMP-042"
+          ],
+          "acceptedComparableCount": 3,
+          "minimumAcceptedComparableCount": 3,
+          "reviewRequired": true
+        },
+        "repairScope": {
+          "dealId": "DEAL-SYNTHETIC-005",
+          "scopeStatus": "adequate",
+          "estimatedRepairCost": 20000,
+          "scopeComplete": true,
+          "reviewRequired": false
+        }
+      }
+    },
+    {
+      "name": "deal identity mismatch",
+      "expectedDecision": "blocked",
+      "expectedReason": "ARV_DEAL_ID_MISMATCH",
+      "input": {
+        "dealId": "DEAL-SYNTHETIC-006",
+        "arvEvidence": {
+          "dealId": "OTHER-DEAL",
+          "evidenceStatus": "supported",
+          "confidenceStatus": "sufficient",
+          "estimatedArv": 275000,
+          "acceptedComparableEvidenceIds": [
+            "COMP-050",
+            "COMP-051",
+            "COMP-052"
+          ],
+          "acceptedComparableCount": 3,
+          "minimumAcceptedComparableCount": 3,
+          "reviewRequired": false
+        },
+        "repairScope": {
+          "dealId": "DEAL-SYNTHETIC-006",
+          "scopeStatus": "adequate",
+          "estimatedRepairCost": 35000,
+          "scopeComplete": true,
+          "reviewRequired": false
+        }
+      }
+    }
+  ]
+}
