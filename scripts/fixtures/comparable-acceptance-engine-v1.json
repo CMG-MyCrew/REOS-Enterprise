@@ -1,0 +1,192 @@
+{
+  "evaluationDate": "2026-10-03",
+  "policy": {
+    "maxSaleAgeDays": 365,
+    "maxDistanceMiles": 1.0,
+    "maxLivingAreaVariancePct": 0.25,
+    "requireBedrooms": true,
+    "maxBedroomDifference": 1,
+    "requireBathrooms": true,
+    "maxBathroomDifference": 1
+  },
+  "subject": {
+    "propertyType": "single_family",
+    "livingArea": 1600,
+    "bedrooms": 3,
+    "bathrooms": 2
+  },
+  "cases": [
+    {
+      "name": "valid comparable accepted",
+      "expectedDecision": "accepted",
+      "expectedReason": "ACCEPTED",
+      "comp": {
+        "normalizationOutcome": "normalized",
+        "saleStatus": "closed",
+        "salePrice": 245000,
+        "saleDate": "2026-06-15",
+        "propertyType": "single_family",
+        "livingArea": 1550,
+        "distanceMiles": 0.4,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "warnings": []
+      }
+    },
+    {
+      "name": "stale sale rejected",
+      "expectedDecision": "rejected",
+      "expectedReason": "SALE_TOO_OLD",
+      "comp": {
+        "normalizationOutcome": "normalized",
+        "saleStatus": "closed",
+        "salePrice": 220000,
+        "saleDate": "2024-12-01",
+        "propertyType": "single_family",
+        "livingArea": 1500,
+        "distanceMiles": 0.3,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "warnings": []
+      }
+    },
+    {
+      "name": "future sale rejected",
+      "expectedDecision": "rejected",
+      "expectedReason": "SALE_DATE_IN_FUTURE",
+      "comp": {
+        "normalizationOutcome": "normalized",
+        "saleStatus": "closed",
+        "salePrice": 250000,
+        "saleDate": "2026-12-01",
+        "propertyType": "single_family",
+        "livingArea": 1600,
+        "distanceMiles": 0.2,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "warnings": []
+      }
+    },
+    {
+      "name": "property type mismatch rejected",
+      "expectedDecision": "rejected",
+      "expectedReason": "PROPERTY_TYPE_MISMATCH",
+      "comp": {
+        "normalizationOutcome": "normalized",
+        "saleStatus": "closed",
+        "salePrice": 240000,
+        "saleDate": "2026-07-01",
+        "propertyType": "duplex",
+        "livingArea": 1600,
+        "distanceMiles": 0.5,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "warnings": []
+      }
+    },
+    {
+      "name": "distance exceeded rejected",
+      "expectedDecision": "rejected",
+      "expectedReason": "DISTANCE_EXCEEDED",
+      "comp": {
+        "normalizationOutcome": "normalized",
+        "saleStatus": "closed",
+        "salePrice": 235000,
+        "saleDate": "2026-07-01",
+        "propertyType": "single_family",
+        "livingArea": 1600,
+        "distanceMiles": 2.1,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "warnings": []
+      }
+    },
+    {
+      "name": "living area variance rejected",
+      "expectedDecision": "rejected",
+      "expectedReason": "LIVING_AREA_VARIANCE_EXCEEDED",
+      "comp": {
+        "normalizationOutcome": "normalized",
+        "saleStatus": "closed",
+        "salePrice": 260000,
+        "saleDate": "2026-07-01",
+        "propertyType": "single_family",
+        "livingArea": 2200,
+        "distanceMiles": 0.5,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "warnings": []
+      }
+    },
+    {
+      "name": "missing sale price rejected",
+      "expectedDecision": "rejected",
+      "expectedReason": "SALE_PRICE_MISSING_OR_INVALID",
+      "comp": {
+        "normalizationOutcome": "normalized",
+        "saleStatus": "closed",
+        "salePrice": null,
+        "saleDate": "2026-07-01",
+        "propertyType": "single_family",
+        "livingArea": 1600,
+        "distanceMiles": 0.5,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "warnings": []
+      }
+    },
+    {
+      "name": "normalization warning requires review",
+      "expectedDecision": "review_required",
+      "expectedReason": "NORMALIZATION_WARNING",
+      "comp": {
+        "normalizationOutcome": "normalized_with_warnings",
+        "saleStatus": "closed",
+        "salePrice": 245000,
+        "saleDate": "2026-07-01",
+        "propertyType": "single_family",
+        "livingArea": 1600,
+        "distanceMiles": 0.5,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "warnings": []
+      }
+    },
+    {
+      "name": "provenance warning requires review",
+      "expectedDecision": "review_required",
+      "expectedReason": "PROVENANCE_WARNING",
+      "comp": {
+        "normalizationOutcome": "normalized",
+        "saleStatus": "closed",
+        "salePrice": 245000,
+        "saleDate": "2026-07-01",
+        "propertyType": "single_family",
+        "livingArea": 1600,
+        "distanceMiles": 0.5,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "warnings": [
+          "provider provenance incomplete"
+        ]
+      }
+    },
+    {
+      "name": "rejected normalization rejected",
+      "expectedDecision": "rejected",
+      "expectedReason": "NORMALIZATION_REJECTED",
+      "comp": {
+        "normalizationOutcome": "rejected_normalization",
+        "saleStatus": "closed",
+        "salePrice": 245000,
+        "saleDate": "2026-07-01",
+        "propertyType": "single_family",
+        "livingArea": 1600,
+        "distanceMiles": 0.5,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "warnings": []
+      }
+    }
+  ]
+}
