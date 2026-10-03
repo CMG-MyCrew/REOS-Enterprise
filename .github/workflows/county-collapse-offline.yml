@@ -160,6 +160,7 @@ jobs:
           node --check scripts/validate-philadelphia-probate-certified-oversize-analysis-bounded-marker-evidence-recovery-design-v1.js
           node --check scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-marker-evidence-recovery-design-v1.js
           node --check scripts/validate-philadelphia-probate-certified-oversize-marker-evidence-recovery-production-transport-design-v1.js
+          node --check scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-marker-evidence-recovery-production-transport-design-v1.js
           node --check scripts/validate-philadelphia-probate-certified-oversize-marker-evidence-recovery-v1.js
           node --check scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-marker-evidence-recovery-v1.js
           node --check scripts/validate-philadelphia-probate-certified-oversize-marker-evidence-recovery-production-transport-v1.js
@@ -742,6 +743,9 @@ jobs:
 
       - name: Validate PB1 certified oversize marker evidence recovery production transport design v1
         run: node scripts/validate-philadelphia-probate-certified-oversize-marker-evidence-recovery-production-transport-design-v1.js
+
+      - name: Validate PB1 certified oversize orphan-anchored marker evidence recovery production transport design v1
+        run: node scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-marker-evidence-recovery-production-transport-design-v1.js
 
       - name: Validate PB1 certified oversize marker evidence recovery v1
         run: node scripts/validate-philadelphia-probate-certified-oversize-marker-evidence-recovery-v1.js
