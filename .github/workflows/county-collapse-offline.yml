@@ -155,6 +155,7 @@ jobs:
           node --check build/apps-script-brand/PhiladelphiaProbateCertifiedOversizeOrphanAnchoredMarkerEvidenceRecovery.js
           node --check build/apps-script-brand/PhiladelphiaProbateCertifiedOversizeMarkerEvidenceRecoveryProductionTransport.js
           node --check build/apps-script-brand/PhiladelphiaProbateCertifiedOversizeOrphanAnchoredMarkerEvidenceRecoveryProductionTransport.js
+          node --check build/apps-script-brand/PhiladelphiaProbateCertifiedOversizeOrphanAnchoredDurableEvidenceCaptureProductionTransport.js
           node --check scripts/validate-philadelphia-probate-certified-oversize-publication-analysis-v1.js
           node --check scripts/validate-philadelphia-probate-certified-oversize-analysis-production-transport-contract-v1.js
           node --check scripts/validate-philadelphia-probate-certified-oversize-analysis-production-transport-v1.js
@@ -167,6 +168,7 @@ jobs:
           node --check scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-marker-evidence-recovery-v1.js
           node --check scripts/validate-philadelphia-probate-certified-oversize-marker-evidence-recovery-production-transport-v1.js
           node --check scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-marker-evidence-recovery-production-transport-v1.js
+          node --check scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-durable-evidence-capture-production-transport-v1.js
           node --check scripts/validate-county-runtime-integration.js
 
       - name: Validate post-restoration collapse authority design
@@ -750,8 +752,6 @@ jobs:
       - name: Validate PB1 certified oversize orphan-anchored marker evidence recovery production transport design v1
         run: node scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-marker-evidence-recovery-production-transport-design-v1.js
 
-      - name: Validate PB1 certified oversize orphan-anchored durable evidence capture production transport design v1
-        run: node scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-durable-evidence-capture-production-transport-design-v1.js
 
       - name: Validate PB1 certified oversize marker evidence recovery v1
         run: node scripts/validate-philadelphia-probate-certified-oversize-marker-evidence-recovery-v1.js
@@ -764,6 +764,9 @@ jobs:
 
       - name: Validate PB1 certified oversize orphan-anchored marker evidence recovery production transport v1
         run: node scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-marker-evidence-recovery-production-transport-v1.js
+
+      - name: Validate PB1 certified oversize orphan-anchored durable evidence capture production transport v1
+        run: node scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-durable-evidence-capture-production-transport-v1.js
 
       - name: Validate current county runtime integration
         run: node ./scripts/validate-county-runtime-integration.js
