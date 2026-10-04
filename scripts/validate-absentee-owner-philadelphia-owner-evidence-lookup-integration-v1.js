@@ -193,7 +193,7 @@ stepMarkers.forEach(marker => {
 });
 
 /*
- * The reconciled current validator has 96 component validators after
+ * The reconciled current validator has 97 component validators after
  * registering the successor probate transport behavior validator.
  */
 const componentStart =
@@ -226,8 +226,8 @@ const componentEntries =
 
 assert.equal(
   componentEntries.length,
-  96,
-  'current component validator inventory must contain exactly 96 validators'
+  97,
+  'current component validator inventory must contain exactly 97 validators'
 );
 
 /*
@@ -276,7 +276,7 @@ console.log(
 );
 console.log('RUNTIME_PRODUCTION_ALLOWLIST_EXACT=true');
 console.log('COMPONENT_VALIDATOR_REGISTRATION_EXACT=true');
-console.log('COMPONENT_VALIDATOR_COUNT=96');
+console.log('COMPONENT_VALIDATOR_COUNT=97');
 console.log('CI_SYNTAX_REGISTRATION_EXACT=true');
 console.log('CI_EXECUTION_REGISTRATION_EXACT=true');
 console.log('HISTORICAL_COUNTY_RUNTIME_REPLAY_PRESERVED=true');

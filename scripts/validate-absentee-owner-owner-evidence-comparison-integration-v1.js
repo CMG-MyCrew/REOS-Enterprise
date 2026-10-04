@@ -206,8 +206,8 @@ const componentEntries =
 
 assert.equal(
   componentEntries.length,
-  96,
-  'current component validator inventory must contain exactly 96 validators'
+  97,
+  'current component validator inventory must contain exactly 97 validators'
 );
 
 assert.ok(
@@ -232,16 +232,16 @@ assert.ok(
 );
 
 assert.ok(
-  /assert\.equal\(\s*componentEntries\.length,\s*96,/s
+  /assert\.equal\(\s*componentEntries\.length,\s*97,/s
     .test(ownerEvidenceIntegration),
-  'owner-evidence integration validator must reconcile component count to 96'
+  'owner-evidence integration validator must reconcile component count to 97'
 );
 
 assert.ok(
   ownerEvidenceIntegration.includes(
-    'COMPONENT_VALIDATOR_COUNT=96'
+    'COMPONENT_VALIDATOR_COUNT=97'
   ),
-  'owner-evidence integration summary must reconcile component count to 96'
+  'owner-evidence integration summary must reconcile component count to 97'
 );
 
 assert.equal(
@@ -330,7 +330,7 @@ console.log(
   'RUNTIME_PRODUCTION_ALLOWLIST_EXACT=true'
 );
 console.log(
-  'COMPONENT_VALIDATOR_COUNT=96'
+  'COMPONENT_VALIDATOR_COUNT=97'
 );
 console.log(
   'COMPARISON_INTEGRATION_RECURSIVE_REGISTRATION=false'
