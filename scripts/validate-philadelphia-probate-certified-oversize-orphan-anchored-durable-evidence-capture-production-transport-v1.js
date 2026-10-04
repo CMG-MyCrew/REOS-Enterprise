@@ -1366,6 +1366,1176 @@ expectFailure(
   );
 }
 
+
+/*
+ * External durable invocation harness — offline synthetic certification.
+ *
+ * No production clasp executable is invoked. Every child process below uses
+ * a repository-local fake clasp executable and a repository-local evidence
+ * root that is removed by this validator.
+ */
+{
+  const childProcessPb1 =
+    require('child_process');
+
+  const pathPb1 =
+    require('path');
+
+  const HARNESS =
+    pathPb1.resolve(
+      'scripts/run-philadelphia-probate-certified-oversize-orphan-anchored-durable-evidence-capture-production-transport-v1.js'
+    );
+
+  const PRODUCTION_DEPLOYMENT_ID_PB1 =
+    'AKfycbxTPu2haRrW9Ls0mkRV4uambT5ajC5RlNC5m7IBxPlcmspVjF5DGdNxOG4pCzjQbHeX';
+
+  const PUBLIC_RPC_PB1 =
+    'reosPhiladelphiaProbateCertifiedOversizeOrphanAnchoredDurableEvidenceCaptureProductionTransport';
+
+  const harnessSource =
+    fs.readFileSync(
+      HARNESS,
+      'utf8'
+    );
+
+  for (
+    const required
+    of [
+      "const MANAGEMENT_PROFILE =\n  'default';",
+      "const RUNTIME_PROFILE =\n  'reos-runtime';",
+      "const MINIMUM_SUCCESSOR_VERSION =\n  145;",
+      "const ATTEMPT_DIRECTORY =\n  'attempt-1';",
+      "'--execute-production'",
+      "'--expected-version'",
+      "'--json'",
+      "'run-function'",
+      "'--nondev'",
+      "'--params'",
+      "'[]'",
+      "'.clasp.json'",
+      "'Local .clasp.json scriptId does not match certified script.'",
+      'certifyLocalProjectIdentity();',
+      "'claim.json'",
+      "'stdout.raw'",
+      "'stderr.raw'",
+      "'manifest.json'",
+      'fs.fsyncSync(',
+      'fsyncDirectory(',
+      'promoteWithoutOverwrite(',
+      'fs.linkSync(',
+      'captureBeforeInterpretation:',
+      'captureBeforeJsonNormalization:',
+      'captureBeforeContextAnalysis:',
+      'rawPayloadInterpreted:',
+      'automaticRetryImplemented:'
+    ]
+  ) {
+    assert(
+      harnessSource.includes(
+        required
+      ),
+      'Harness required token missing: ' +
+        required
+    );
+  }
+
+  assert.strictEqual(
+    harnessSource.includes(
+      'JSON.parse(stdout'
+    ),
+    false,
+    'Harness must not parse raw RPC stdout'
+  );
+
+  assert.strictEqual(
+    harnessSource.includes(
+      'JSON.parse(stderr'
+    ),
+    false,
+    'Harness must not parse raw RPC stderr'
+  );
+
+  const testRoot =
+    pathPb1.join(
+      process.cwd(),
+      '.pb1-durable-harness-validator-' +
+        process.pid
+    );
+
+  assert.strictEqual(
+    fs.existsSync(
+      testRoot
+    ),
+    false,
+    'validator test root unexpectedly exists'
+  );
+
+  fs.mkdirSync(
+    testRoot,
+    {
+      mode:
+        0o700
+    }
+  );
+
+  const fakeClasp =
+    pathPb1.join(
+      testRoot,
+      'fake-clasp.js'
+    );
+
+  const fakeState =
+    pathPb1.join(
+      testRoot,
+      'fake-state.txt'
+    );
+
+  const expectedStdout =
+    Buffer.from(
+      '{"response":{"result":{"ok":true,"primaryEvidenceAnchor":"ORPHAN"}}}\n',
+      'utf8'
+    );
+
+  const expectedStderr =
+    Buffer.from(
+      'synthetic-stderr\n',
+      'utf8'
+    );
+
+  const fakeSource =
+`#!/usr/bin/env node
+'use strict';
+
+const fs = require('fs');
+
+const args = process.argv.slice(2);
+const mode = process.env.REOS_PB1_FAKE_MODE || 'success';
+const stateFile = process.env.REOS_PB1_TEST_FAKE_STATE;
+
+const deploymentId = '${PRODUCTION_DEPLOYMENT_ID_PB1}';
+const rpc = '${PUBLIC_RPC_PB1}';
+
+function die(message, code) {
+  process.stderr.write(message + '\\n');
+  process.exit(code || 97);
+}
+
+if (args.includes('versions')) {
+  if (mode === 'version-below') {
+    process.stdout.write('Found 1 version.\\n144 - predecessor\\n');
+  } else {
+    process.stdout.write('Found 2 versions.\\n144 - predecessor\\n145 - successor\\n');
+  }
+  process.exit(0);
+}
+
+if (args.includes('deployments')) {
+  if (mode === 'deployment-mismatch') {
+    process.stdout.write('Found 1 deployment.\\n- ' + deploymentId + ' @144 - production\\n');
+  } else {
+    process.stdout.write('Found 1 deployment.\\n- ' + deploymentId + ' @145 - production\\n');
+  }
+  process.exit(0);
+}
+
+const expected = [
+  '--user',
+  'reos-runtime',
+  '--json',
+  'run-function',
+  rpc,
+  '--nondev',
+  '--params',
+  '[]'
+];
+
+if (JSON.stringify(args) !== JSON.stringify(expected)) {
+  die('unexpected run-function arguments', 98);
+}
+
+let count = 0;
+
+if (stateFile && fs.existsSync(stateFile)) {
+  count = Number(
+    fs.readFileSync(
+      stateFile,
+      'utf8'
+    )
+  ) || 0;
+}
+
+if (stateFile) {
+  fs.writeFileSync(
+    stateFile,
+    String(count + 1),
+    'utf8'
+  );
+}
+
+if (mode !== 'empty-stdout') {
+  process.stdout.write(
+    '{"response":{"result":{"ok":true,"primaryEvidenceAnchor":"ORPHAN"}}}\\n'
+  );
+}
+
+process.stderr.write(
+  'synthetic-stderr\\n'
+);
+
+if (mode === 'child-nonzero') {
+  process.exit(17);
+}
+
+process.exit(0);
+`;
+
+  fs.writeFileSync(
+    fakeClasp,
+    fakeSource,
+    {
+      encoding:
+        'utf8',
+
+      mode:
+        0o700
+    }
+  );
+
+  fs.chmodSync(
+    fakeClasp,
+    0o700
+  );
+
+  function runHarness(
+    evidenceRoot,
+    mode = 'success',
+    expectedVersion = '145',
+    includeGate = true,
+    workingDirectory = process.cwd()
+  ) {
+    const args =
+      [];
+
+    if (includeGate) {
+      args.push(
+        '--execute-production'
+      );
+    }
+
+    args.push(
+      '--expected-version',
+      expectedVersion
+    );
+
+    return childProcessPb1.spawnSync(
+      process.execPath,
+      [
+        HARNESS,
+        ...args
+      ],
+      {
+        cwd:
+          workingDirectory,
+
+        encoding:
+          'utf8',
+
+        env: {
+          ...process.env,
+
+          REOS_PB1_TEST_MODE:
+            '1',
+
+          REOS_PB1_TEST_CLASP_BIN:
+            fakeClasp,
+
+          REOS_PB1_TEST_EVIDENCE_ROOT:
+            evidenceRoot,
+
+          REOS_PB1_TEST_FAKE_STATE:
+            fakeState,
+
+          REOS_PB1_FAKE_MODE:
+            mode
+        }
+      }
+    );
+  }
+
+  function readRunCount() {
+    if (
+      !fs.existsSync(
+        fakeState
+      )
+    ) {
+      return 0;
+    }
+
+    return Number(
+      fs.readFileSync(
+        fakeState,
+        'utf8'
+      )
+    ) || 0;
+  }
+
+  function resetRunCount() {
+    if (
+      fs.existsSync(
+        fakeState
+      )
+    ) {
+      fs.unlinkSync(
+        fakeState
+      );
+    }
+  }
+
+  function shaFile(
+    filename
+  ) {
+    return crypto
+      .createHash(
+        'sha256'
+      )
+      .update(
+        fs.readFileSync(
+          filename
+        )
+      )
+      .digest('hex');
+  }
+
+  try {
+    /*
+     * Local clasp project identity must match the certified script.
+     * This failure occurs before evidence-root creation, attempt claim,
+     * deployment inventory and run-function execution.
+     */
+    {
+      resetRunCount();
+
+      const wrongProject =
+        pathPb1.join(
+          testRoot,
+          'wrong-project'
+        );
+
+      fs.mkdirSync(
+        wrongProject,
+        {
+          mode:
+            0o700
+        }
+      );
+
+      fs.writeFileSync(
+        pathPb1.join(
+          wrongProject,
+          '.clasp.json'
+        ),
+        JSON.stringify(
+          {
+            scriptId:
+              'synthetic-wrong-script-id'
+          },
+          null,
+          2
+        ) +
+          '\n',
+        {
+          encoding:
+            'utf8',
+
+          mode:
+            0o600
+        }
+      );
+
+      const evidenceRoot =
+        pathPb1.join(
+          testRoot,
+          'wrong-project-evidence'
+        );
+
+      const result =
+        runHarness(
+          evidenceRoot,
+          'success',
+          '145',
+          true,
+          wrongProject
+        );
+
+      assert.notStrictEqual(
+        result.status,
+        0
+      );
+
+      assert(
+        result.stderr.includes(
+          'Local .clasp.json scriptId does not match certified script.'
+        )
+      );
+
+      assert.strictEqual(
+        readRunCount(),
+        0
+      );
+
+      assert.strictEqual(
+        fs.existsSync(
+          evidenceRoot
+        ),
+        false
+      );
+
+      assert.strictEqual(
+        fs.existsSync(
+          pathPb1.join(
+            evidenceRoot,
+            'attempt-1'
+          )
+        ),
+        false
+      );
+    }
+
+    /*
+     * Explicit production gate required.
+     */
+    {
+      resetRunCount();
+
+      const evidenceRoot =
+        pathPb1.join(
+          testRoot,
+          'no-gate'
+        );
+
+      const result =
+        runHarness(
+          evidenceRoot,
+          'success',
+          '145',
+          false
+        );
+
+      assert.notStrictEqual(
+        result.status,
+        0
+      );
+
+      assert.strictEqual(
+        readRunCount(),
+        0
+      );
+    }
+
+    /*
+     * Versions below the successor floor fail before run-function.
+     */
+    {
+      resetRunCount();
+
+      const evidenceRoot =
+        pathPb1.join(
+          testRoot,
+          'version-below'
+        );
+
+      const result =
+        runHarness(
+          evidenceRoot,
+          'version-below',
+          '145'
+        );
+
+      assert.notStrictEqual(
+        result.status,
+        0
+      );
+
+      assert.strictEqual(
+        readRunCount(),
+        0
+      );
+
+      assert.strictEqual(
+        fs.existsSync(
+          pathPb1.join(
+            evidenceRoot,
+            'attempt-1'
+          )
+        ),
+        false
+      );
+    }
+
+    /*
+     * Production deployment mismatch fails before run-function.
+     */
+    {
+      resetRunCount();
+
+      const evidenceRoot =
+        pathPb1.join(
+          testRoot,
+          'deployment-mismatch'
+        );
+
+      const result =
+        runHarness(
+          evidenceRoot,
+          'deployment-mismatch',
+          '145'
+        );
+
+      assert.notStrictEqual(
+        result.status,
+        0
+      );
+
+      assert.strictEqual(
+        readRunCount(),
+        0
+      );
+
+      assert.strictEqual(
+        fs.existsSync(
+          pathPb1.join(
+            evidenceRoot,
+            'attempt-1'
+          )
+        ),
+        false
+      );
+    }
+
+    /*
+     * Expected version itself may not be below 145.
+     */
+    {
+      resetRunCount();
+
+      const evidenceRoot =
+        pathPb1.join(
+          testRoot,
+          'expected-version-below-floor'
+        );
+
+      const result =
+        runHarness(
+          evidenceRoot,
+          'success',
+          '144'
+        );
+
+      assert.notStrictEqual(
+        result.status,
+        0
+      );
+
+      assert.strictEqual(
+        readRunCount(),
+        0
+      );
+    }
+
+    /*
+     * Successful capture.
+     */
+    {
+      resetRunCount();
+
+      const evidenceRoot =
+        pathPb1.join(
+          testRoot,
+          'success'
+        );
+
+      const result =
+        runHarness(
+          evidenceRoot
+        );
+
+      assert.strictEqual(
+        result.status,
+        0,
+        result.stderr
+      );
+
+      assert.strictEqual(
+        readRunCount(),
+        1
+      );
+
+      const attempt =
+        pathPb1.join(
+          evidenceRoot,
+          'attempt-1'
+        );
+
+      const stdoutFile =
+        pathPb1.join(
+          attempt,
+          'stdout.raw'
+        );
+
+      const stderrFile =
+        pathPb1.join(
+          attempt,
+          'stderr.raw'
+        );
+
+      const manifestFile =
+        pathPb1.join(
+          attempt,
+          'manifest.json'
+        );
+
+      const claimFile =
+        pathPb1.join(
+          attempt,
+          'claim.json'
+        );
+
+      assert(
+        fs.existsSync(
+          claimFile
+        )
+      );
+
+      assert(
+        fs.existsSync(
+          stdoutFile
+        )
+      );
+
+      assert(
+        fs.existsSync(
+          stderrFile
+        )
+      );
+
+      assert(
+        fs.existsSync(
+          manifestFile
+        )
+      );
+
+      assert.deepStrictEqual(
+        fs.readFileSync(
+          stdoutFile
+        ),
+        expectedStdout
+      );
+
+      assert.deepStrictEqual(
+        fs.readFileSync(
+          stderrFile
+        ),
+        expectedStderr
+      );
+
+      assert.strictEqual(
+        fs.existsSync(
+          pathPb1.join(
+            attempt,
+            '.stdout.raw.tmp'
+          )
+        ),
+        false
+      );
+
+      assert.strictEqual(
+        fs.existsSync(
+          pathPb1.join(
+            attempt,
+            '.stderr.raw.tmp'
+          )
+        ),
+        false
+      );
+
+      const claim =
+        JSON.parse(
+          fs.readFileSync(
+            claimFile,
+            'utf8'
+          )
+        );
+
+      assert.strictEqual(
+        claim.rpc,
+        PUBLIC_RPC_PB1
+      );
+
+      assert.strictEqual(
+        claim.productionDeploymentId,
+        PRODUCTION_DEPLOYMENT_ID_PB1
+      );
+
+      assert.strictEqual(
+        claim.deploymentVersion,
+        145
+      );
+
+      assert.strictEqual(
+        claim.attemptCount,
+        1
+      );
+
+      assert.strictEqual(
+        claim.managementProfile,
+        'default'
+      );
+
+      assert.strictEqual(
+        claim.runtimeProfile,
+        'reos-runtime'
+      );
+
+      const manifest =
+        JSON.parse(
+          fs.readFileSync(
+            manifestFile,
+            'utf8'
+          )
+        );
+
+      assert.strictEqual(
+        manifest.rpc,
+        PUBLIC_RPC_PB1
+      );
+
+      assert.strictEqual(
+        manifest.productionDeploymentId,
+        PRODUCTION_DEPLOYMENT_ID_PB1
+      );
+
+      assert.strictEqual(
+        manifest.deploymentVersion,
+        145
+      );
+
+      assert.strictEqual(
+        manifest.attemptCount,
+        1
+      );
+
+      assert.strictEqual(
+        manifest.managementProfile,
+        'default'
+      );
+
+      assert.strictEqual(
+        manifest.runtimeProfile,
+        'reos-runtime'
+      );
+
+      assert.strictEqual(
+        manifest.processExitCode,
+        0
+      );
+
+      assert.strictEqual(
+        manifest.stdoutBytes,
+        expectedStdout.length
+      );
+
+      assert.strictEqual(
+        manifest.stdoutSha256,
+        crypto
+          .createHash(
+            'sha256'
+          )
+          .update(
+            expectedStdout
+          )
+          .digest(
+            'hex'
+          )
+      );
+
+      assert.strictEqual(
+        manifest.stderrBytes,
+        expectedStderr.length
+      );
+
+      assert.strictEqual(
+        manifest.stderrSha256,
+        crypto
+          .createHash(
+            'sha256'
+          )
+          .update(
+            expectedStderr
+          )
+          .digest(
+            'hex'
+          )
+      );
+
+      assert.strictEqual(
+        manifest.parameterCount,
+        0
+      );
+
+      assert.strictEqual(
+        manifest.nondev,
+        true
+      );
+
+      assert.strictEqual(
+        manifest.captureBeforeInterpretation,
+        true
+      );
+
+      assert.strictEqual(
+        manifest.captureBeforeJsonNormalization,
+        true
+      );
+
+      assert.strictEqual(
+        manifest.captureBeforeContextAnalysis,
+        true
+      );
+
+      assert.strictEqual(
+        manifest.rawPayloadInterpreted,
+        false
+      );
+
+      assert.strictEqual(
+        manifest.automaticRetryImplemented,
+        false
+      );
+
+      const stdoutShaBefore =
+        shaFile(
+          stdoutFile
+        );
+
+      const stderrShaBefore =
+        shaFile(
+          stderrFile
+        );
+
+      const manifestShaBefore =
+        shaFile(
+          manifestFile
+        );
+
+      /*
+       * A second invocation must fail before the production child executes
+       * and may not overwrite any durable evidence.
+       */
+      const second =
+        runHarness(
+          evidenceRoot
+        );
+
+      assert.notStrictEqual(
+        second.status,
+        0
+      );
+
+      assert.strictEqual(
+        readRunCount(),
+        1
+      );
+
+      assert.strictEqual(
+        shaFile(
+          stdoutFile
+        ),
+        stdoutShaBefore
+      );
+
+      assert.strictEqual(
+        shaFile(
+          stderrFile
+        ),
+        stderrShaBefore
+      );
+
+      assert.strictEqual(
+        shaFile(
+          manifestFile
+        ),
+        manifestShaBefore
+      );
+    }
+
+    /*
+     * Nonzero production child is still durably captured and is never retried.
+     */
+    {
+      resetRunCount();
+
+      const evidenceRoot =
+        pathPb1.join(
+          testRoot,
+          'child-nonzero'
+        );
+
+      const result =
+        runHarness(
+          evidenceRoot,
+          'child-nonzero'
+        );
+
+      assert.strictEqual(
+        result.status,
+        17
+      );
+
+      assert.strictEqual(
+        readRunCount(),
+        1
+      );
+
+      const attempt =
+        pathPb1.join(
+          evidenceRoot,
+          'attempt-1'
+        );
+
+      assert.deepStrictEqual(
+        fs.readFileSync(
+          pathPb1.join(
+            attempt,
+            'stdout.raw'
+          )
+        ),
+        expectedStdout
+      );
+
+      assert.deepStrictEqual(
+        fs.readFileSync(
+          pathPb1.join(
+            attempt,
+            'stderr.raw'
+          )
+        ),
+        expectedStderr
+      );
+
+      const manifest =
+        JSON.parse(
+          fs.readFileSync(
+            pathPb1.join(
+              attempt,
+              'manifest.json'
+            ),
+            'utf8'
+          )
+        );
+
+      assert.strictEqual(
+        manifest.processExitCode,
+        17
+      );
+
+      assert.strictEqual(
+        manifest.stdoutBytes,
+        expectedStdout.length
+      );
+
+      assert.strictEqual(
+        manifest.stderrBytes,
+        expectedStderr.length
+      );
+
+      assert.strictEqual(
+        manifest.rawPayloadInterpreted,
+        false
+      );
+    }
+
+    /*
+     * Empty stdout is durably manifested, then fails closed.
+     */
+    {
+      resetRunCount();
+
+      const evidenceRoot =
+        pathPb1.join(
+          testRoot,
+          'empty-stdout'
+        );
+
+      const result =
+        runHarness(
+          evidenceRoot,
+          'empty-stdout'
+        );
+
+      assert.notStrictEqual(
+        result.status,
+        0
+      );
+
+      assert.strictEqual(
+        readRunCount(),
+        1
+      );
+
+      const manifest =
+        JSON.parse(
+          fs.readFileSync(
+            pathPb1.join(
+              evidenceRoot,
+              'attempt-1',
+              'manifest.json'
+            ),
+            'utf8'
+          )
+        );
+
+      assert.strictEqual(
+        manifest.processExitCode,
+        0
+      );
+
+      assert.strictEqual(
+        manifest.stdoutBytes,
+        0
+      );
+
+      assert.strictEqual(
+        manifest.rawPayloadInterpreted,
+        false
+      );
+    }
+  } finally {
+    fs.rmSync(
+      testRoot,
+      {
+        recursive:
+          true,
+
+        force:
+          true
+      }
+    );
+  }
+
+  assert.strictEqual(
+    fs.existsSync(
+      testRoot
+    ),
+    false,
+    'validator test artifacts were not cleaned up'
+  );
+
+  console.log(
+    'PB1_DURABLE_EVIDENCE_CAPTURE_EXTERNAL_INVOCATION_HARNESS_VALIDATOR_PASSED=true'
+  );
+
+  console.log(
+    'HARNESS_OFFLINE_FAKE_CLASP_ONLY=true'
+  );
+
+  console.log(
+    'HARNESS_PRODUCTION_RPC_EXECUTED=false'
+  );
+
+  console.log(
+    'HARNESS_MANAGEMENT_READ_PROFILE=default'
+  );
+
+  console.log(
+    'HARNESS_PRODUCTION_EXECUTION_PROFILE=reos-runtime'
+  );
+
+  console.log(
+    'HARNESS_LOCAL_CLASP_SCRIPT_IDENTITY_VALIDATED=true'
+  );
+
+  console.log(
+    'HARNESS_SCRIPT_ID_MISMATCH_BLOCKS_BEFORE_ATTEMPT=true'
+  );
+
+  console.log(
+    'HARNESS_SCRIPT_ID_MISMATCH_BLOCKS_BEFORE_RPC=true'
+  );
+
+  console.log(
+    'HARNESS_EXPLICIT_PRODUCTION_GATE_REQUIRED=true'
+  );
+
+  console.log(
+    'HARNESS_EXPECTED_VERSION_MINIMUM=145'
+  );
+
+  console.log(
+    'HARNESS_EXPECTED_VERSION_REQUIRED=true'
+  );
+
+  console.log(
+    'HARNESS_ATTEMPT_COUNT=1'
+  );
+
+  console.log(
+    'HARNESS_CLAIM_CREATED_BEFORE_RPC=true'
+  );
+
+  console.log(
+    'HARNESS_SECOND_ATTEMPT_BLOCKED=true'
+  );
+
+  console.log(
+    'HARNESS_RAW_STDOUT_CAPTURE_VALIDATED=true'
+  );
+
+  console.log(
+    'HARNESS_RAW_STDERR_CAPTURE_VALIDATED=true'
+  );
+
+  console.log(
+    'HARNESS_FILE_FSYNC_REQUIRED=true'
+  );
+
+  console.log(
+    'HARNESS_ATOMIC_NONOVERWRITING_PROMOTION_VALIDATED=true'
+  );
+
+  console.log(
+    'HARNESS_MANIFEST_VALIDATED=true'
+  );
+
+  console.log(
+    'HARNESS_DIRECTORY_FSYNC_REQUIRED=true'
+  );
+
+  console.log(
+    'HARNESS_CAPTURE_BEFORE_INTERPRETATION_VALIDATED=true'
+  );
+
+  console.log(
+    'HARNESS_RPC_PAYLOAD_INTERPRETATION_EXECUTED=false'
+  );
+
+  console.log(
+    'HARNESS_NONZERO_CHILD_CAPTURE_VALIDATED=true'
+  );
+
+  console.log(
+    'HARNESS_EMPTY_STDOUT_FAILS_CLOSED=true'
+  );
+
+  console.log(
+    'HARNESS_AUTOMATIC_RETRY_IMPLEMENTED=false'
+  );
+
+  console.log(
+    'HARNESS_TEST_ARTIFACT_CLEANUP_CONFIRMED=true'
+  );
+}
+
+
 console.log(
   'PB1_ORPHAN_ANCHORED_DURABLE_EVIDENCE_CAPTURE_PRODUCTION_TRANSPORT_VALIDATOR_PASSED=true'
 );
