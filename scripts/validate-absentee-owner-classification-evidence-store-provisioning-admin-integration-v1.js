@@ -201,8 +201,8 @@ const postEntries =
 
 assert.strictEqual(
   postEntries.length,
-  68,
-  'post-county production inventory must contain exactly 68 files'
+  69,
+  'post-county production inventory must contain exactly 69 files'
 );
 
 [
@@ -308,15 +308,15 @@ assert.strictEqual(
   singleRecord
 ].forEach(text => {
   assert.ok(
-    /(?:postCountyEntries|postEntries)\.length,\s*68,/s.test(text),
-    'post-county count-coupled validator was not reconciled to 68'
+    /(?:postCountyEntries|postEntries)\.length,\s*69,/s.test(text),
+    'post-county count-coupled validator was not reconciled to 69'
   );
 
   assert.ok(
     text.includes(
-      'POST_COUNTY_PRODUCTION_FILE_COUNT=68'
+      'POST_COUNTY_PRODUCTION_FILE_COUNT=69'
     ),
-    'post-county summary was not reconciled to 68'
+    'post-county summary was not reconciled to 69'
   );
 });
 
@@ -401,7 +401,7 @@ console.log(
   'ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_PROVISIONING_ADMIN_INTEGRATION_VALID=true'
 );
 console.log('RUNTIME_PRODUCTION_ALLOWLIST_EXACT=true');
-console.log('POST_COUNTY_PRODUCTION_FILE_COUNT=68');
+console.log('POST_COUNTY_PRODUCTION_FILE_COUNT=69');
 console.log('COMPONENT_VALIDATOR_COUNT=97');
 console.log('LIVE_COMPONENT_COUNT_RECONCILIATION_COUNT=5');
 console.log('LIVE_POST_COUNTY_COUNT_RECONCILIATION_COUNT=3');
