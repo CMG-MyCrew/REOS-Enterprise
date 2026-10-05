@@ -170,6 +170,8 @@ jobs:
           node --check scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-marker-evidence-recovery-production-transport-v1.js
           node --check scripts/run-philadelphia-probate-certified-oversize-orphan-anchored-durable-evidence-capture-production-transport-v1.js
           node --check scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-durable-evidence-capture-production-transport-v1.js
+          node --check build/apps-script-brand/PhiladelphiaProbatePersistenceReadinessExactIdentityInspection.js
+          node --check scripts/validate-philadelphia-probate-persistence-readiness-exact-identity-inspection-v1.js
           node --check scripts/validate-county-runtime-integration.js
 
       - name: Validate post-restoration collapse authority design
@@ -768,6 +770,9 @@ jobs:
 
       - name: Validate PB1 certified oversize orphan-anchored durable evidence capture production transport v1
         run: node scripts/validate-philadelphia-probate-certified-oversize-orphan-anchored-durable-evidence-capture-production-transport-v1.js
+
+      - name: Validate PB1 probate persistence readiness exact identity inspection v1
+        run: node scripts/validate-philadelphia-probate-persistence-readiness-exact-identity-inspection-v1.js
 
       - name: Validate current county runtime integration
         run: node ./scripts/validate-county-runtime-integration.js
