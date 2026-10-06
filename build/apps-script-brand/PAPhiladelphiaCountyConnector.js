@@ -1278,191 +1278,494 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
         .replace(/[’‘]/g, "'")
         .replace(/\u00a0/g, ' ');
 
-    /*
-     * Live Google Drive OCR evidence from the March 30, 2026
-     * Legal Intelligencer public-notice PDF identifies the probate
-     * section as:
-     *
-     *   ESTATE NOTICES
-     *   ORPHANS' COURT DIVISION
-     *
-     * The source does not contain the previously assumed
-     * "ORPHANS' COURT OF PHILADELPHIA COUNTY" section marker.
-     *
-     * Whitespace remains layout-only, while marker authority is
-     * hard-bound to the two adjacent probate section identities.
-     */
-    var markerPattern =
-      /ESTATE[\s]+NOTICES[\s]+ORPHANS'?[\s]+COURT[\s]+DIVISION/i;
-
-    var markerMatch =
-      markerPattern.exec(
-        normalized
-      );
-
-    if (!markerMatch) {
-      throw new Error(
-        'Philadelphia probate source marker was not found.'
-      );
-    }
-
     var publicationDate =
       parseProbatePublicationDate_(
         normalized
       );
 
-    var section =
-      normalized.slice(
-        markerMatch.index +
-        markerMatch[0].length
-      );
+    /*
+     * Common notice materializer.
+     *
+     * Both the certified March layout and the current October
+     * layout retain the same downstream decedent and representative
+     * authority:
+     *
+     * - surname-first comma-form decedent identity;
+     * - bounded representative-role evidence;
+     * - duplicate normalized decedents collapse to one notice;
+     * - generic headings and captions receive no estate authority.
+     *
+     * OPA reconciliation remains downstream and unchanged.
+     */
+    function buildNotices_(
+      section,
+      anchors
+    ) {
+      var notices = [];
+      var seen = {};
+
+      anchors.forEach(function (
+        anchor,
+        index
+      ) {
+        var end =
+          index + 1 <
+            anchors.length
+            ? anchors[index + 1]
+                .index
+            : section.length;
+
+        var body =
+          section
+            .slice(
+              anchor.bodyStart,
+              end
+            )
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        var candidate =
+          String(
+            anchor.name ||
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        /*
+         * Probate decedent authority remains comma-form only.
+         * This excludes trusts, generic notices, and non-decedent
+         * uppercase captions.
+         */
+        if (
+          candidate.indexOf(',') ===
+            -1
+        ) {
+          return;
+        }
+
+        /*
+         * Preserve the existing representative-role requirement.
+         * OCR-internal word wrapping remains bounded to the
+         * historically certified role forms.
+         */
+        if (
+          !/\b(?:EXECU\s*TOR|EXECU\s*TRIX|AD\s*MINIS\s*TRATOR|AD\s*MINIS\s*TRATRIX|PERSONAL\s+REPRESENTATIVE|CO-EXECU\s*TOR|CO-EXECU\s*TRIX)\b/i
+            .test(body)
+        ) {
+          return;
+        }
+
+        if (
+          /\b(?:NOTICE TO COUNSEL|CITY COUNCIL|CERTIFICATE|COURT OF COMMON PLEAS)\b/i
+            .test(candidate)
+        ) {
+          return;
+        }
+
+        var parts =
+          probateNameParts_(
+            candidate
+          );
+
+        if (!parts) {
+          return;
+        }
+
+        if (
+          seen[
+            parts.normalized
+          ]
+        ) {
+          return;
+        }
+
+        seen[
+          parts.normalized
+        ] =
+          true;
+
+        notices.push({
+          decedent:
+            candidate,
+          normalizedDecedent:
+            parts.normalized,
+          representativeText:
+            body.slice(
+              0,
+              500
+            ),
+          publicationDate:
+            publicationDate
+        });
+      });
+
+      return notices;
+    }
 
     /*
-     * Live Google Drive OCR evidence from the March 30, 2026
-     * Legal Intelligencer source establishes the estate-entry
-     * grammar as a numbered court-audit entry using an en dash:
+     * Legacy March 2026 layout.
      *
-     *   1. MILNER, THERESA
-     *   P. – Jahmir Dean, Adminis
-     *   trator.
-     *
-     *   3. KURUC SR., GEORGE F. – George F. Kuruc, Jr., Executor.
-     *
-     * Authority therefore requires:
-     * - a bounded numeric list prefix,
-     * - an uppercase comma-form candidate,
-     * - at most one OCR-wrapped candidate-name continuation line,
-     * - the observed U+2013 en-dash delimiter.
-     *
-     * This intentionally excludes generic public-notice text,
-     * sheriff-sale record numbers, and unnumbered captions.
+     * Preserve the previously certified marker and numbered
+     * U+2013 en-dash grammar exactly as the first parser path.
      */
-    var anchorPattern =
-      /(^|\n)\s*\d{1,2}\.\s*([A-Z][A-Z0-9 .,'()\/&-]{2,120}(?:\n[A-Z][A-Z0-9 .,'()\/&-]{0,40})?)\s*\u2013\s*/gm;
+    var legacyMarkerPattern =
+      /ESTATE[\s]+NOTICES[\s]+ORPHANS'?[\s]+COURT[\s]+DIVISION/i;
 
-    var anchors = [];
-    var match;
+    var legacyMarkerMatch =
+      legacyMarkerPattern.exec(
+        normalized
+      );
+
+    if (legacyMarkerMatch) {
+      var legacySection =
+        normalized.slice(
+          legacyMarkerMatch.index +
+          legacyMarkerMatch[0]
+            .length
+        );
+
+      var legacyAnchorPattern =
+        /(^|\n)\s*\d{1,2}\.\s*([A-Z][A-Z0-9 .,'()\/&-]{2,120}(?:\n[A-Z][A-Z0-9 .,'()\/&-]{0,40})?)\s*\u2013\s*/gm;
+
+      var legacyAnchors = [];
+      var legacyMatch;
+
+      while (
+        (
+          legacyMatch =
+            legacyAnchorPattern.exec(
+              legacySection
+            )
+        ) !== null
+      ) {
+        legacyAnchors.push({
+          index:
+            legacyMatch.index,
+          bodyStart:
+            legacyAnchorPattern
+              .lastIndex,
+          name:
+            String(
+              legacyMatch[2] ||
+              ''
+            )
+              .replace(
+                /\s+/g,
+                ' '
+              )
+              .trim()
+        });
+      }
+
+      var legacyNotices =
+        buildNotices_(
+          legacySection,
+          legacyAnchors
+        );
+
+      if (
+        !legacyNotices.length
+      ) {
+        throw new Error(
+          'No Philadelphia estate notices were parsed from the public-notice source.'
+        );
+      }
+
+      return legacyNotices;
+    }
+
+    /*
+     * Current October 2026 layout.
+     *
+     * Drive OCR may repeat ESTATE NOTICES as newspaper/page/column
+     * headings. Therefore global header uniqueness is not authority.
+     *
+     * Each ESTATE NOTICES occurrence defines one local candidate
+     * window. A window terminates at the next ESTATE NOTICES
+     * occurrence or the next recognized top-level public-notice
+     * heading, whichever comes first.
+     *
+     * Exactly one substantive window may qualify.
+     */
+    var estateHeaderPattern =
+      /\bESTATE[\s]+NOTICES\b/ig;
+
+    var estateHeaders = [];
+    var estateHeaderMatch;
 
     while (
       (
-        match =
-          anchorPattern.exec(section)
+        estateHeaderMatch =
+          estateHeaderPattern.exec(
+            normalized
+          )
       ) !== null
     ) {
-      anchors.push({
-        index: match.index,
-        bodyStart:
-          anchorPattern.lastIndex,
-        name:
-          String(match[2] || '')
-            .replace(/\s+/g, ' ')
-            .trim()
+      estateHeaders.push({
+        index:
+          estateHeaderMatch.index,
+        end:
+          estateHeaderPattern
+            .lastIndex
       });
     }
 
-    var notices = [];
-    var seen = {};
-
-    anchors.forEach(function (
-      anchor,
-      index
+    if (
+      !estateHeaders.length
     ) {
-      var end =
-        index + 1 < anchors.length
-          ? anchors[index + 1].index
-          : section.length;
-
-      var body =
-        section
-          .slice(
-            anchor.bodyStart,
-            end
-          )
-          .replace(/\s+/g, ' ')
-          .trim();
-
-      var candidate =
-        anchor.name;
-
-      /*
-       * Probate decedent identities in the certified source are
-       * surname-first comma forms. Requiring the comma prevents
-       * numbered trust captions such as:
-       *
-       *   1. ROBERT SCHAFFER JR. SPECIAL NEEDS TRUST – Trustee...
-       *
-       * from becoming decedent authority.
-       */
-      if (
-        candidate.indexOf(',') ===
-        -1
-      ) {
-        return;
-      }
-
-      /*
-       * OCR may split representative titles internally:
-       *
-       *   Adminis
-       *   trator
-       *
-       * or:
-       *
-       *   Ad
-       *   ministrator
-       *
-       * Preserve the existing representative-role contract while
-       * tolerating only those whitespace splits.
-       */
-      if (
-        !/\b(?:EXECU\s*TOR|EXECU\s*TRIX|AD\s*MINIS\s*TRATOR|AD\s*MINIS\s*TRATRIX|PERSONAL\s+REPRESENTATIVE|CO-EXECU\s*TOR|CO-EXECU\s*TRIX)\b/i
-          .test(body)
-      ) {
-        return;
-      }
-
-      if (
-        /\b(?:NOTICE TO COUNSEL|CITY COUNCIL|CERTIFICATE|COURT OF COMMON PLEAS)\b/i
-          .test(candidate)
-      ) {
-        return;
-      }
-
-      var parts =
-        probateNameParts_(
-          candidate
-        );
-
-      if (!parts) {
-        return;
-      }
-
-      if (seen[parts.normalized]) {
-        return;
-      }
-
-      seen[parts.normalized] =
-        true;
-
-      notices.push({
-        decedent:
-          candidate,
-        normalizedDecedent:
-          parts.normalized,
-        representativeText:
-          body.slice(0, 500),
-        publicationDate:
-          publicationDate
-      });
-    });
-
-    if (!notices.length) {
       throw new Error(
-        'No Philadelphia estate notices were parsed from the public-notice source.'
+        'Philadelphia probate source marker was not found.'
       );
     }
 
-    return notices;
+    /*
+     * Current-format probate identity is still narrowly bound to
+     * the observed Legal Intelligencer estate section.
+     *
+     * The October evidence contains one:
+     *
+     *   ORPHANS' COURT OF PHILADELPHIA COUNTY
+     *
+     * and one:
+     *
+     *   Letters have been granted
+     *
+     * Ambiguous or missing identity fails closed.
+     */
+    function collectMatches_(
+      pattern
+    ) {
+      var result = [];
+      var match;
+
+      while (
+        (
+          match =
+            pattern.exec(
+              normalized
+            )
+        ) !== null
+      ) {
+        result.push({
+          index:
+            match.index,
+          end:
+            pattern.lastIndex
+        });
+      }
+
+      return result;
+    }
+
+    var currentOrphansMarkers =
+      collectMatches_(
+        /\bORPHANS'?[\s]+COURT[\s]+OF[\s]+PHILADELPHIA[\s]+COUNTY\b/ig
+      );
+
+    var currentLettersMarkers =
+      collectMatches_(
+        /\bLetters[\s]+have[\s]+been[\s]+granted\b/ig
+      );
+
+    if (
+      currentOrphansMarkers
+        .length !== 1 ||
+      currentLettersMarkers
+        .length !== 1
+    ) {
+      throw new Error(
+        'Philadelphia probate current-format probate identity marker was not found or was ambiguous.'
+      );
+    }
+
+    /*
+     * Top-level boundaries limit current-format scanning.
+     * No current estate entry can borrow authority from text after
+     * the next public-notice section heading.
+     */
+    var boundaryPattern =
+      /\b(?:PUBLIC[\s]+NOTICES|CORPORATE[\s]+NOTICES|NOTICE[\s]+TO[\s]+COUNSEL|CIVIL[\s]+ACTION|LEGAL[\s]+NOTICES|CHANGE[\s]+OF[\s]+NAME|FICTITIOUS[\s]+NAME(?:[\s]+NOTICES?)?|SHERIFF(?:'S)?[\s]+(?:SALE|SALES|NOTICES?))\b/ig;
+
+    var boundaries =
+      collectMatches_(
+        boundaryPattern
+      );
+
+    /*
+     * Current estate records are unnumbered uppercase comma-form
+     * names followed by either the observed double hyphen or the
+     * previously certified U+2013 en dash.
+     *
+     * At most one OCR-wrapped uppercase name continuation line is
+     * accepted.
+     */
+    function parseCurrentWindow_(
+      section
+    ) {
+      var currentAnchorPattern =
+        /(^|\n)\s*([A-Z][A-Z0-9 .,'()\/&-]{2,120},[A-Z0-9 .,'()\/&-]{1,100}(?:\n[A-Z][A-Z0-9 .,'()\/&-]{0,40})?)\s*(--|\u2013)\s*/gm;
+
+      var anchors = [];
+      var match;
+
+      while (
+        (
+          match =
+            currentAnchorPattern
+              .exec(
+                section
+              )
+        ) !== null
+      ) {
+        anchors.push({
+          index:
+            match.index,
+          bodyStart:
+            currentAnchorPattern
+              .lastIndex,
+          name:
+            String(
+              match[2] ||
+              ''
+            )
+              .replace(
+                /\s+/g,
+                ' '
+              )
+              .trim(),
+          delimiter:
+            String(
+              match[3] ||
+              ''
+            )
+        });
+      }
+
+      return buildNotices_(
+        section,
+        anchors
+      );
+    }
+
+    var qualifyingWindows =
+      [];
+
+    estateHeaders
+      .forEach(function (
+        header,
+        index
+      ) {
+        var windowEnd =
+          normalized.length;
+
+        if (
+          index + 1 <
+            estateHeaders.length
+        ) {
+          windowEnd =
+            Math.min(
+              windowEnd,
+              estateHeaders[
+                index + 1
+              ].index
+            );
+        }
+
+        boundaries
+          .forEach(function (
+            boundary
+          ) {
+            if (
+              boundary.index >
+                header.end &&
+              boundary.index <
+                windowEnd
+            ) {
+              windowEnd =
+                boundary.index;
+            }
+          });
+
+        if (
+          windowEnd <=
+            header.end
+        ) {
+          return;
+        }
+
+        /*
+         * The substantive estate header is locally bound to both
+         * current-format probate identities. October certification
+         * established a conservative 5,000-character OCR radius.
+         */
+        var identityNearby =
+          Math.abs(
+            currentOrphansMarkers[
+              0
+            ].index -
+            header.index
+          ) <= 5000 &&
+          Math.abs(
+            currentLettersMarkers[
+              0
+            ].index -
+            header.index
+          ) <= 5000;
+
+        if (!identityNearby) {
+          return;
+        }
+
+        var section =
+          normalized.slice(
+            header.end,
+            windowEnd
+          );
+
+        var notices =
+          parseCurrentWindow_(
+            section
+          );
+
+        if (
+          !notices.length
+        ) {
+          return;
+        }
+
+        qualifyingWindows.push({
+          headerIndex:
+            index,
+          headerStart:
+            header.index,
+          windowEnd:
+            windowEnd,
+          notices:
+            notices
+        });
+      });
+
+    if (
+      !qualifyingWindows.length
+    ) {
+      throw new Error(
+        'Philadelphia probate current-format estate content window was not found.'
+      );
+    }
+
+    if (
+      qualifyingWindows.length !==
+        1
+    ) {
+      throw new Error(
+        'Philadelphia probate current-format estate content window is ambiguous.'
+      );
+    }
+
+    return qualifyingWindows[
+      0
+    ].notices;
   }
 
   function escapeArcGisSql_(value) {
