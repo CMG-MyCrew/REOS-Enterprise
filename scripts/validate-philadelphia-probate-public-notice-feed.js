@@ -1082,6 +1082,49 @@ assert.ok(
   )
 );
 
+const sourceAuthorityPreflight =
+  source.slice(
+    source.indexOf(
+      'function probateSourcePreflight_(options)'
+    ),
+    source.indexOf(
+      'function probateSourceConfigure_(options)'
+    )
+  );
+
+assert.ok(
+  sourceAuthorityPreflight.includes(
+    'MANIFEST.datasets.probate.maxLimit'
+  ),
+  'source-authority preflight property-row capacity must use the probate dataset maximum'
+);
+
+assert.ok(
+  sourceAuthorityPreflight.includes(
+    'maxNoticeScan:\n          25'
+  ),
+  'source-authority preflight must remain bounded to 25 estate notices'
+);
+
+assert.ok(
+  sourceAuthorityPreflight.includes(
+    'dryRun:\n        true'
+  ),
+  'source-authority preflight must remain dry-run only'
+);
+
+assert.equal(
+  sourceAuthorityPreflight.includes(
+    '        25\n      );'
+  ),
+  false,
+  'source-authority preflight must not retain the historical 25-property-row cap'
+);
+
+pass(
+  'probate source-authority preflight uses the existing 500-row dataset capacity while retaining the 25-estate notice bound'
+);
+
 assert.ok(
   /REOS\.Security[\s\S]{0,80}\.requireAdmin\s*\(/.test(
     source
