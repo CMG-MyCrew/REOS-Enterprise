@@ -235,7 +235,7 @@ let temporaryDocTrashed = false;
 let noticeFetchCount = 0;
 const opaQueries = [];
 
-const noticeText = [
+const legacyNoticeText = [
   'THE LEGAL INTELLIGENCER',
   'MONDAY, MARCH 30, 2026',
   'PUBLIC NOTICES',
@@ -253,6 +253,9 @@ const noticeText = [
   '2604-304',
   'MARLENY PINEDA, SOLELY IN HER CAPACITY AS EXECUTRIX TO THE ESTATE OF GABRIEL PINEDA, DECEASED.'
 ].join('\n');
+
+let activeNoticeText =
+  legacyNoticeText;
 
 const fakeBlob = {
   getContentType() {
@@ -516,7 +519,7 @@ const sandbox = {
         getBody() {
           return {
             getText() {
-              return noticeText;
+              return activeNoticeText;
             }
           };
         }
@@ -748,6 +751,279 @@ assert.ok(
 pass(
   'OPA enrichment is bounded to decedent owner-name evidence'
 );
+
+
+/*
+ * October 6, 2026 current-layout compatibility fixture.
+ *
+ * Certified OCR structure:
+ * - repeated ESTATE NOTICES heading cluster;
+ * - current probate identity block;
+ * - later substantive ESTATE NOTICES heading;
+ * - unnumbered comma-form decedents;
+ * - double-hyphen entry delimiter;
+ * - generic uppercase double-hyphen caption after a top-level
+ *   boundary must not become estate authority.
+ */
+activeNoticeText = [
+  'THE LEGAL INTELLIGENCER',
+  'TUESDAY, OCTOBER 6, 2026',
+  'PUBLIC NOTICES',
+  'ESTATE NOTICES',
+  'ESTATE NOTICES',
+  'ESTATE NOTICES',
+  'ESTATE NOTICES',
+  'CORPORATE NOTICES',
+  'NOTICE TO COUNSEL',
+  'General newspaper layout text.',
+  "ORPHANS' COURT OF PHILADELPHIA COUNTY",
+  'Letters have been granted to the following representatives.',
+  'ESTATE NOTICES',
+  'SMITH, ROBERT L. -- John Smith, Execu',
+  'tor, 100 Test Street, Philadelphia, PA 19103.',
+  'JONES, ALICE M. -- Mary Jones, Adminis',
+  'tratrix, 200 Test Street, Philadelphia, PA 19104.',
+  'PUBLIC NOTICES',
+  'FAKE, PERSON -- Jane Fake, Executor.',
+  'CORPORATE NOTICES'
+].join('\n');
+
+temporaryDocTrashed =
+  false;
+
+const currentLayoutResult =
+  registered.fetch({
+    runId:
+      'CCR-PROBATE-CURRENT-LAYOUT',
+    connectorId:
+      'PA-PHILADELPHIA',
+    dataset:
+      'probate',
+    cursor:
+      '',
+    limit:
+      100,
+    config: {
+      endpoint:
+        'https://assets.alm.com/certification/tlipn100626.pdf'
+    },
+    now:
+      new Date(
+        '2026-10-06T16:00:00Z'
+      )
+  });
+
+assert.equal(
+  currentLayoutResult
+    .metadata
+    .publicationDate,
+  '2026-10-06'
+);
+
+assert.equal(
+  currentLayoutResult
+    .metadata
+    .parsedNoticeCount,
+  2,
+  'only the substantive current-layout estate window may produce notices'
+);
+
+assert.equal(
+  currentLayoutResult
+    .metadata
+    .matchedNoticeCount,
+  1
+);
+
+assert.equal(
+  currentLayoutResult
+    .metadata
+    .ambiguousNoticeCount,
+  1
+);
+
+assert.equal(
+  currentLayoutResult
+    .metadata
+    .unmatchedNoticeCount,
+  0
+);
+
+assert.equal(
+  currentLayoutResult
+    .records
+    .length,
+  2
+);
+
+assert.ok(
+  currentLayoutResult
+    .records
+    .every(
+      record =>
+        record
+          .PROBATE_DECEDENT ===
+        'SMITH, ROBERT L.'
+    )
+);
+
+assert.equal(
+  temporaryDocTrashed,
+  true
+);
+
+pass(
+  'current October layout tolerates repeated ESTATE NOTICES header noise and selects one substantive estate window'
+);
+
+pass(
+  'current unnumbered double-hyphen estate entries retain comma-form and representative-role authority'
+);
+
+pass(
+  'uppercase double-hyphen captions outside the selected estate window receive no probate authority'
+);
+
+
+/*
+ * Current-format zero-substantive-window case.
+ *
+ * Identity evidence may exist, but a header window without a
+ * valid estate entry receives no probate parsing authority.
+ */
+activeNoticeText = [
+  'THE LEGAL INTELLIGENCER',
+  'TUESDAY, OCTOBER 6, 2026',
+  'PUBLIC NOTICES',
+  "ORPHANS' COURT OF PHILADELPHIA COUNTY",
+  'Letters have been granted to the following representatives.',
+  'ESTATE NOTICES',
+  'THIS IS GENERIC PUBLIC NOTICE TEXT',
+  'PUBLIC NOTICES'
+].join('\n');
+
+assert.throws(
+  () =>
+    registered.fetch({
+      runId:
+        'CCR-PROBATE-CURRENT-ZERO',
+      connectorId:
+        'PA-PHILADELPHIA',
+      dataset:
+        'probate',
+      cursor:
+        '',
+      limit:
+        100,
+      config: {
+        endpoint:
+          'https://assets.alm.com/certification/tlipn100626.pdf'
+      },
+      now:
+        new Date(
+          '2026-10-06T16:00:00Z'
+        )
+    }),
+  /current-format estate content window was not found/
+);
+
+pass(
+  'current-layout zero-substantive-window source fails closed'
+);
+
+
+/*
+ * Current-format ambiguity case.
+ *
+ * One probate identity block cannot authorize two separate
+ * substantive ESTATE NOTICES windows.
+ */
+activeNoticeText = [
+  'THE LEGAL INTELLIGENCER',
+  'TUESDAY, OCTOBER 6, 2026',
+  'PUBLIC NOTICES',
+  "ORPHANS' COURT OF PHILADELPHIA COUNTY",
+  'Letters have been granted to the following representatives.',
+  'ESTATE NOTICES',
+  'SMITH, ROBERT L. -- John Smith, Executor.',
+  'ESTATE NOTICES',
+  'JONES, ALICE M. -- Mary Jones, Administratrix.',
+  'PUBLIC NOTICES'
+].join('\n');
+
+assert.throws(
+  () =>
+    registered.fetch({
+      runId:
+        'CCR-PROBATE-CURRENT-AMBIGUOUS-WINDOW',
+      connectorId:
+        'PA-PHILADELPHIA',
+      dataset:
+        'probate',
+      cursor:
+        '',
+      limit:
+        100,
+      config: {
+        endpoint:
+          'https://assets.alm.com/certification/tlipn100626.pdf'
+      },
+      now:
+        new Date(
+          '2026-10-06T16:00:00Z'
+        )
+    }),
+  /current-format estate content window is ambiguous/
+);
+
+pass(
+  'multiple substantive current-layout estate windows fail closed'
+);
+
+
+/*
+ * Current-format identity ambiguity/missing authority.
+ */
+activeNoticeText = [
+  'THE LEGAL INTELLIGENCER',
+  'TUESDAY, OCTOBER 6, 2026',
+  'PUBLIC NOTICES',
+  'ESTATE NOTICES',
+  'SMITH, ROBERT L. -- John Smith, Executor.',
+  'PUBLIC NOTICES'
+].join('\n');
+
+assert.throws(
+  () =>
+    registered.fetch({
+      runId:
+        'CCR-PROBATE-CURRENT-NO-IDENTITY',
+      connectorId:
+        'PA-PHILADELPHIA',
+      dataset:
+        'probate',
+      cursor:
+        '',
+      limit:
+        100,
+      config: {
+        endpoint:
+          'https://assets.alm.com/certification/tlipn100626.pdf'
+      },
+      now:
+        new Date(
+          '2026-10-06T16:00:00Z'
+        )
+    }),
+  /current-format probate identity marker/
+);
+
+pass(
+  'current-layout estate entries without bounded probate identity fail closed'
+);
+
+activeNoticeText =
+  legacyNoticeText;
 
 assert.throws(
   () =>
