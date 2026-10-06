@@ -43,6 +43,17 @@ REOS.CountyProductionScheduler = (function () {
     Object.freeze({
       connectorId: 'PA-PHILADELPHIA',
       dataset: 'sheriff_mortgage_sales'
+    }),
+    /*
+     * Feed index 4 is the certified Philadelphia probate recurring
+     * source. PB1 continuation cursors are stored only through the
+     * existing CURRENT_FEED_CURSOR checkpoint. Source discovery and
+     * source-drift validation occur immediately before the bounded
+     * probate page execution.
+     */
+    Object.freeze({
+      connectorId: 'PA-PHILADELPHIA',
+      dataset: 'probate'
     })
   ]);
 
@@ -655,15 +666,112 @@ REOS.CountyProductionScheduler = (function () {
       let nextCursor = '';
 
       try {
+        const syncOptions = {
+          confirmLive: true,
+          limit: 50,
+          cursor: currentFeedCursor
+        };
+
+        /*
+         * Probate is the only scheduler feed whose source endpoint is
+         * publication-discovered rather than a static endpoint property.
+         *
+         * The PB1 resolver receives the exact scheduler checkpoint
+         * cursor. On continuation it therefore re-resolves the exact
+         * publication and fails closed if the article/PDF authority
+         * changed. No source discovery result is persisted separately
+         * from the scheduler checkpoint.
+         */
+        if (item.dataset === 'probate') {
+          if (
+            !REOS.PhiladelphiaProbateRecurringSource ||
+            typeof REOS.PhiladelphiaProbateRecurringSource
+              .resolve !== 'function' ||
+            typeof REOS.PhiladelphiaProbateRecurringSource
+              .approvedSourceUrl !== 'function'
+          ) {
+            throw new Error(
+              'Philadelphia probate recurring-source authority is unavailable.'
+            );
+          }
+
+          const probateSource =
+            REOS.PhiladelphiaProbateRecurringSource.resolve(
+              currentFeedCursor,
+              new Date(attemptAt)
+            );
+
+          if (
+            !probateSource ||
+            probateSource.ok !== true ||
+            probateSource.cursorDomainId !==
+              'PHL-PROBATE-PB1-V1' ||
+            !REOS.PhiladelphiaProbateRecurringSource
+              .approvedSourceUrl(
+                probateSource.sourceUrl
+              ) ||
+            !/^[0-9a-f]{64}$/.test(
+              String(
+                probateSource.sourceSha256 ||
+                ''
+              )
+            ) ||
+            !/^\d{4}-\d{2}-\d{2}$/.test(
+              String(
+                probateSource.publicationDate ||
+                ''
+              )
+            ) ||
+            !Number.isInteger(
+              Number(
+                probateSource.noticeOffset
+              )
+            ) ||
+            Number(
+              probateSource.noticeOffset
+            ) < 0 ||
+            Number(
+              probateSource.noticePageSize
+            ) !== 25
+          ) {
+            throw new Error(
+              'Philadelphia probate recurring-source authority is invalid.'
+            );
+          }
+
+          /*
+           * One probate page is bounded by 25 estate notices. The
+           * connector separately prevents partial persistence when one
+           * estate resolves to multiple legitimate parcels. Its existing
+           * dataset maximum is 500 property observations.
+           */
+          syncOptions.limit = 500;
+
+          syncOptions.config = {
+            endpoint:
+              probateSource.sourceUrl,
+            probateRecurring:
+              true,
+            probatePublicationDate:
+              probateSource.publicationDate,
+            probateSourceSha256:
+              probateSource.sourceSha256,
+            probateNoticeOffset:
+              Number(
+                probateSource.noticeOffset
+              ),
+            probateNoticePageSize:
+              Number(
+                probateSource.noticePageSize
+              )
+          };
+        }
+
         const result =
           REOS.CountyRuntimeBridge.sync(
             item.connectorId,
             item.dataset,
-            {
-              confirmLive: true,
-              limit: 50,
-              cursor: currentFeedCursor
-            }
+            syncOptions
           );
 
         /*
