@@ -188,16 +188,29 @@ assert.ok(
   'county scheduler allowlist must be inspectable'
 );
 
+const probateAllowlistMatches =
+  allowlistMatch[1].match(
+    /dataset: 'probate'/g
+  ) || [];
+
 assert.equal(
-  allowlistMatch[1].includes(
+  probateAllowlistMatches.length,
+  1,
+  'probate must appear exactly once in unattended scheduler authority'
+);
+
+assert.ok(
+  allowlistMatch[1].indexOf(
     "dataset: 'probate'"
+  ) >
+  allowlistMatch[1].indexOf(
+    "dataset: 'sheriff_mortgage_sales'"
   ),
-  false,
-  'probate must remain outside unattended scheduler authority'
+  'probate must be appended after the four previously certified county feeds'
 );
 
 pass(
-  'probate remains excluded from unattended county scheduler authority'
+  'probate is explicitly appended as scheduler feed index 4'
 );
 
 assert.equal(

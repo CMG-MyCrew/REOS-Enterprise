@@ -81,7 +81,8 @@ const requiredPairs = [
   ['PA-PHILADELPHIA', 'code_violations'],
   ['PA-PHILADELPHIA', 'vacant_properties'],
   ['PA-PHILADELPHIA', 'sheriff_tax_sales'],
-  ['PA-PHILADELPHIA', 'sheriff_mortgage_sales']
+  ['PA-PHILADELPHIA', 'sheriff_mortgage_sales'],
+  ['PA-PHILADELPHIA', 'probate']
 ];
 
 for (const [connectorId, dataset] of requiredPairs) {
@@ -171,7 +172,6 @@ for (const forbidden of [
   'tax_delinquent',
   'property_assessment',
   'parcel_inventory',
-  'probate',
   'absentee_owner',
   'absentee_owners'
 ]) {
@@ -363,6 +363,41 @@ const context = {
           writerId:
             'COUNTY_PRODUCTION_SCHEDULER',
           blockedByLease: false
+        };
+      }
+    },
+
+    PhiladelphiaProbateRecurringSource: {
+      approvedSourceUrl(url) {
+        return /^https:\/\/assets\.alm\.com\//i.test(
+          String(url || '')
+        );
+      },
+
+      resolve(cursor) {
+        const hasCursor =
+          Boolean(
+            String(cursor || '')
+          );
+
+        return {
+          ok: true,
+          cursorDomainId:
+            'PHL-PROBATE-PB1-V1',
+          publicationDate:
+            '2026-10-06',
+          articleUrl:
+            'https://www.law.com/thelegalintelligencer/2026/10/06/tuesday-public-noticescalendars/',
+          sourceUrl:
+            'https://assets.alm.com/certification/tlipn100626.pdf',
+          sourceSha256:
+            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          noticeOffset:
+            hasCursor ? 25 : 0,
+          noticePageSize:
+            25,
+          continuation:
+            hasCursor
         };
       }
     },
@@ -720,7 +755,7 @@ assert(
   healthy.ok === true &&
   healthy.status === 'Healthy' &&
   syncCalls.length === requiredPairs.length,
-  'four bounded invocations complete exactly one healthy four-feed cycle'
+  'five bounded invocations complete exactly one healthy five-feed cycle'
 );
 
 const actualPairs = syncCalls.map(
@@ -740,7 +775,6 @@ assert(
       [
         'property_assessment',
         'parcel_inventory',
-        'probate',
         'absentee_owner',
         'absentee_owners'
       ].includes(call.dataset)
