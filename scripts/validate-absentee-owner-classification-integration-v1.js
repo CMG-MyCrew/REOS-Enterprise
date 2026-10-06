@@ -274,8 +274,8 @@ const postCountyEntries =
 
 assert.equal(
   postCountyEntries.length,
-  69,
-  'post-county production inventory must contain exactly 69 files'
+  70,
+  'post-county production inventory must contain exactly 70 files'
 );
 
 assert.ok(
@@ -395,7 +395,7 @@ console.log(
 );
 
 console.log(
-  'POST_COUNTY_PRODUCTION_FILE_COUNT=69'
+  'POST_COUNTY_PRODUCTION_FILE_COUNT=70'
 );
 
 console.log(

@@ -774,6 +774,9 @@ jobs:
       - name: Validate PB1 probate persistence readiness exact identity inspection v1
         run: node scripts/validate-philadelphia-probate-persistence-readiness-exact-identity-inspection-v1.js
 
+      - name: Validate PB1 probate absent persistence executor v1
+        run: node scripts/validate-philadelphia-probate-absent-persistence-executor-v1.js
+
       - name: Validate current county runtime integration
         run: node ./scripts/validate-county-runtime-integration.js
 

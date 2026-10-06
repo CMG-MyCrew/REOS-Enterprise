@@ -182,8 +182,8 @@ const postEntries =
 
 assert.strictEqual(
   postEntries.length,
-  69,
-  'current post-county production inventory must contain exactly 69 files'
+  70,
+  'current post-county production inventory must contain exactly 70 files'
 );
 
 [
@@ -206,18 +206,18 @@ assert.strictEqual(
 });
 
 assert.ok(
-  /postCountyEntries\.length,\s*69,/s
+  /postCountyEntries\.length,\s*70,/s
     .test(
       classificationIntegration
     ),
-  'classification integration post-county count was not reconciled to 69'
+  'classification integration post-county count was not reconciled to 70'
 );
 
 assert.ok(
   classificationIntegration.includes(
-    'POST_COUNTY_PRODUCTION_FILE_COUNT=69'
+    'POST_COUNTY_PRODUCTION_FILE_COUNT=70'
   ),
-  'classification integration post-county summary was not reconciled to 69'
+  'classification integration post-county summary was not reconciled to 70'
 );
 
 [
@@ -334,7 +334,7 @@ console.log(
 );
 
 console.log(
-  'POST_COUNTY_PRODUCTION_FILE_COUNT=69'
+  'POST_COUNTY_PRODUCTION_FILE_COUNT=70'
 );
 
 console.log(
