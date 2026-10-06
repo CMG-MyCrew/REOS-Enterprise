@@ -3081,16 +3081,23 @@ REOS.PAPhiladelphiaCountyConnector = (function () {
     REOS.CountyRuntimeBridge
       .registerConnectors();
 
+    /*
+     * Source preflight must exercise the same property-row capacity as
+     * one production probate scheduler page.
+     *
+     * Estate-notice scanning remains independently bounded to 25 below.
+     * Preflight remains dry-run only. fetchProbatePublicNotice_ retains
+     * its existing fail-closed rule against partially returning an
+     * estate whose property expansion exceeds the dataset maximum.
+     *
+     * Ignore the historical caller-supplied low record limit here:
+     * source-authority preflight is production-equivalent validation,
+     * not a persistence page-size override.
+     */
     var limit =
-      Math.min(
-        Math.max(
-          Number(
-            options.limit ||
-            10
-          ),
-          1
-        ),
-        25
+      Number(
+        MANIFEST.datasets.probate.maxLimit ||
+        500
       );
 
     var context = {
