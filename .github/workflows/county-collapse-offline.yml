@@ -119,6 +119,7 @@ jobs:
           node --check scripts/validate-absentee-owner-philadelphia-owner-evidence-lookup-integration-v1.js
           node --check build/apps-script-brand/AbsenteeOwnerOpaAccountRangeEvidenceEvaluator.js
           node --check scripts/validate-absentee-owner-opa-account-range-evidence-evaluator-behavior-v1.js
+          node --check scripts/validate-absentee-owner-opa-account-range-certified-property-source-identity-boundary-design-v1.js
           node --check scripts/validate-absentee-owner-source-evidence-retrieval-boundary-contract-design-v1.js
           node --check scripts/validate-absentee-owner-source-evidence-retrieval-runtime-implementation-boundary-design-v1.js
           node --check build/apps-script-brand/AbsenteeOwnerPhiladelphiaCodeViolationSourceEvidenceRetriever.js
@@ -677,6 +678,9 @@ jobs:
 
       - name: Validate absentee-owner OPA account range evidence evaluator behavior v1
         run: node scripts/validate-absentee-owner-opa-account-range-evidence-evaluator-behavior-v1.js
+
+      - name: Validate absentee-owner OPA account range certified property-source identity boundary design v1
+        run: node scripts/validate-absentee-owner-opa-account-range-certified-property-source-identity-boundary-design-v1.js
 
       - name: Validate absentee-owner source-evidence retrieval boundary contract design v1
         run: node scripts/validate-absentee-owner-source-evidence-retrieval-boundary-contract-design-v1.js
