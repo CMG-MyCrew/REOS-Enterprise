@@ -168,6 +168,19 @@ const ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_FILES = [
   'build/apps-script-brand/AbsenteeOwnerPhiladelphiaCodeViolationSourceEvidenceRetriever.js'
 ];
 
+/*
+ * Bounded absentee-owner single-record source-evidence production entrypoint.
+ *
+ * Keep this separately authorized production RPC boundary outside both the
+ * inherited POST_COUNTY_PRODUCTION_FILES inventory and the internal retriever
+ * inventory. It grants only manual, single-record, read-only retrieval
+ * orchestration and no deployment, evaluator, persistence, classification,
+ * acquisition, ARV, repair, MAO, or offer authority.
+ */
+const ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_ENTRYPOINT_FILES = [
+  'build/apps-script-brand/AbsenteeOwnerSourceEvidenceRetrievalSingleRecordProductionEntrypoint.js'
+];
+
 
 /*
  * Explicit post-county modifications of production files that existed at
@@ -818,8 +831,51 @@ diffEntries = diffEntries.filter(
     )
 );
 
+const absenteeOwnerSourceEvidenceRetrievalProductionEntrypointEntries =
+  diffEntries.filter(entry =>
+    ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_ENTRYPOINT_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_ENTRYPOINT_FILES.length,
+  1,
+  'bounded absentee-owner source-evidence production entrypoint inventory must contain exactly one file'
+);
+
+ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_ENTRYPOINT_FILES.forEach(file => {
+  const matches =
+    absenteeOwnerSourceEvidenceRetrievalProductionEntrypointEntries.filter(
+      entry => entry.file === file
+    );
+
+  assert.equal(
+    matches.length,
+    1,
+    `bounded absentee-owner source-evidence production entrypoint file missing or duplicated: ${file}`
+  );
+
+  assert.equal(
+    matches[0].status,
+    'A',
+    `bounded absentee-owner source-evidence production entrypoint file must remain additive: ${file}`
+  );
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_ENTRYPOINT_FILES.includes(
+      entry.file
+    )
+);
+
 pass(
   'bounded absentee-owner source-evidence retrieval production surface is exactly one explicitly allowlisted additive file'
+);
+
+pass(
+  'bounded absentee-owner single-record production entrypoint surface is exactly one explicitly allowlisted additive file'
 );
 
 pass(
