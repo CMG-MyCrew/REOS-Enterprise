@@ -153,6 +153,23 @@ const POST_COUNTY_PRODUCTION_FILES = [
 ];
 
 /*
+ * Bounded absentee-owner source-evidence retrieval runtime.
+ *
+ * Keep this read-only implementation separate from the inherited
+ * POST_COUNTY_PRODUCTION_FILES inventory. Multiple existing certified
+ * absentee-owner integration validators intentionally pin that historical
+ * inventory at exactly 70 files.
+ *
+ * This one-file inventory is not generic production-addition authority.
+ * The runtime remains internal, read-only, non-RPC, non-scheduled,
+ * non-persistent, and without classification/offer authority.
+ */
+const ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_FILES = [
+  'build/apps-script-brand/AbsenteeOwnerPhiladelphiaCodeViolationSourceEvidenceRetriever.js'
+];
+
+
+/*
  * Explicit post-county modifications of production files that existed at
  * the county reconciliation baseline.
  *
@@ -760,6 +777,49 @@ diffEntries = diffEntries.filter(
     !POST_COUNTY_PRODUCTION_FILES.includes(
       entry.file
     )
+);
+
+const absenteeOwnerSourceEvidenceRetrievalEntries =
+  diffEntries.filter(entry =>
+    ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_FILES.length,
+  1,
+  'bounded absentee-owner source-evidence retrieval inventory must contain exactly one file'
+);
+
+ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    absenteeOwnerSourceEvidenceRetrievalEntries.filter(
+      entry => entry.file === file
+    );
+
+  assert.equal(
+    matches.length,
+    1,
+    `bounded absentee-owner source-evidence retrieval file missing or duplicated: ${file}`
+  );
+
+  assert.equal(
+    matches[0].status,
+    'A',
+    `bounded absentee-owner source-evidence retrieval file must remain additive: ${file}`
+  );
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'bounded absentee-owner source-evidence retrieval production surface is exactly one explicitly allowlisted additive file'
 );
 
 pass(

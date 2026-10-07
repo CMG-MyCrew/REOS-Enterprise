@@ -121,6 +121,10 @@ jobs:
           node --check scripts/validate-absentee-owner-opa-account-range-evidence-evaluator-behavior-v1.js
           node --check scripts/validate-absentee-owner-source-evidence-retrieval-boundary-contract-design-v1.js
           node --check scripts/validate-absentee-owner-source-evidence-retrieval-runtime-implementation-boundary-design-v1.js
+          node --check build/apps-script-brand/AbsenteeOwnerPhiladelphiaCodeViolationSourceEvidenceRetriever.js
+          node --check scripts/validate-absentee-owner-philadelphia-code-violation-source-evidence-retriever-v1.js
+          node --check scripts/validate-absentee-owner-philadelphia-code-violation-source-evidence-retriever-behavior-v1.js
+          node --check scripts/validate-absentee-owner-philadelphia-code-violation-source-evidence-retriever-integration-v1.js
           node --check build/apps-script-brand/AbsenteeOwnerOwnerEvidenceComparison.js
           node --check scripts/validate-absentee-owner-owner-evidence-comparison-v1.js
           node --check scripts/validate-absentee-owner-owner-evidence-comparison-behavior-v1.js
@@ -674,6 +678,15 @@ jobs:
 
       - name: Validate absentee-owner source-evidence retrieval runtime implementation boundary design v1
         run: node scripts/validate-absentee-owner-source-evidence-retrieval-runtime-implementation-boundary-design-v1.js
+
+      - name: Validate absentee-owner Philadelphia code-violation source-evidence retriever static v1
+        run: node scripts/validate-absentee-owner-philadelphia-code-violation-source-evidence-retriever-v1.js
+
+      - name: Validate absentee-owner Philadelphia code-violation source-evidence retriever behavior v1
+        run: node scripts/validate-absentee-owner-philadelphia-code-violation-source-evidence-retriever-behavior-v1.js
+
+      - name: Validate absentee-owner Philadelphia code-violation source-evidence retriever integration v1
+        run: node scripts/validate-absentee-owner-philadelphia-code-violation-source-evidence-retriever-integration-v1.js
 
       - name: Validate absentee-owner owner evidence comparison static v1
         run: node scripts/validate-absentee-owner-owner-evidence-comparison-v1.js
