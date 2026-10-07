@@ -182,7 +182,17 @@ const POST_COUNTY_MODIFIED_PRODUCTION_FILES = [
    * DealLifecycleWorkflow.js is intentionally NOT listed here because
    * it is classified as a post-baseline production addition.
    */
-  'build/apps-script-brand/AcquisitionWorkflow.js'
+  'build/apps-script-brand/AcquisitionWorkflow.js',
+
+  /*
+   * Certified Daily Digest acquisition-KPI correction from PR #297.
+   *
+   * Notifications.js existed at the historical county baseline and is
+   * therefore an explicit later modification. A separate blob-identity
+   * assertion below prevents this accounting entry from becoming generic
+   * authority for future Notifications.js changes.
+   */
+  'build/apps-script-brand/Notifications.js'
 ];
 
 const COMPONENT_VALIDATORS = [
@@ -634,6 +644,34 @@ diffEntries = diffEntries.filter(
 
 pass(
   'explicit post-county production modifications are isolated from county reconciliation'
+);
+
+/*
+ * Certified Daily Digest Notifications.js identity.
+ *
+ * Explicit accounting above is not generic modification authority. The
+ * current production file must remain byte-exact to the PR #297 correction
+ * that introduced acquisition-backed Daily Digest KPIs.
+ */
+const certifiedNotificationsBlob = git([
+  'hash-object',
+  'build/apps-script-brand/Notifications.js'
+]);
+
+assert.equal(
+  certifiedNotificationsBlob.status,
+  0,
+  'unable to hash certified Notifications.js'
+);
+
+assert.equal(
+  certifiedNotificationsBlob.stdout.trim(),
+  '2d26878d1a36db08cbc271a9d3b15c97cb207a8b',
+  'Notifications.js must remain exact to the certified PR #297 Daily Digest correction'
+);
+
+pass(
+  'Notifications.js remains exact to the certified PR #297 Daily Digest correction'
 );
 
 /*
