@@ -66,16 +66,27 @@ REOS.Notifications = (function () {
 
   function dailyDigest() {
     REOS.Security.requirePermission('reports:read');
+
+    const acquisition = strictAcquisitionDigestKpis_();
     const dashboard = REOS.Dashboard.getExecutiveDashboard();
     const email = REOS.Security.getCurrentUserEmail();
+
+    if (!acquisition || acquisition.ok !== true || !acquisition.values) {
+      throw new Error('Daily Digest acquisition KPI producer unavailable');
+    }
+
     const body = [
       'REOS Daily Digest',
       '',
-      'Active Leads: ' + value_(dashboard.crm, 'activeLeadsCount'),
-      'Overdue Tasks: ' + value_(dashboard.tasks, 'overdueCount'),
-      'Active Transactions: ' + value_(dashboard.transactions, 'activeCount'),
-      'Rental Cash Flow: $' + value_(dashboard.rentals, 'monthlyCashFlow'),
-      'Monthly Net Profit: $' + value_(value_(dashboard.finance, 'currentMonth', {}), 'netProfit')
+      'Active Leads: ' + acquisition.values.pendingDistressLeads,
+      'Overdue Tasks: ' + acquisition.values.overdueTasks,
+      'Active Deals: ' + acquisition.values.activeDeals,
+      'Rental Cash Flow: $' + requiredValue_(dashboard.rentals, 'monthlyCashFlow', 'Rental Cash Flow'),
+      'Monthly Net Profit: $' + requiredValue_(
+        dashboard.finance && !dashboard.finance.error ? dashboard.finance.currentMonth : null,
+        'netProfit',
+        'Monthly Net Profit'
+      )
     ].join('\n');
 
     return sendEmail({
@@ -93,8 +104,48 @@ REOS.Notifications = (function () {
     });
   }
 
-  function value_(obj, key, fallback) {
-    return obj && !obj.error && obj[key] !== undefined ? obj[key] : (fallback || 0);
+  function strictAcquisitionDigestKpis_() {
+    const distress = REOS.Database.getAll('DISTRESS_LEADS');
+    const tasks = REOS.Database.getAll('ACQUISITION_TASK_QUEUE');
+    const deals = REOS.Database.getAll('DEALS');
+
+    if (!Array.isArray(distress)) {
+      throw new Error('Daily Digest acquisition KPI unavailable: DISTRESS_LEADS');
+    }
+    if (!Array.isArray(tasks)) {
+      throw new Error('Daily Digest acquisition KPI unavailable: ACQUISITION_TASK_QUEUE');
+    }
+    if (!Array.isArray(deals)) {
+      throw new Error('Daily Digest acquisition KPI unavailable: DEALS');
+    }
+
+    const now = new Date();
+    const openTasks = tasks.filter(function (row) {
+      return row.Status === 'Open';
+    });
+    const overdueTasks = openTasks.filter(function (row) {
+      return row['Due At'] && new Date(row['Due At']) < now;
+    });
+
+    return {
+      ok: true,
+      values: {
+        pendingDistressLeads: distress.filter(function (row) {
+          return !row['Imported Deal ID'];
+        }).length,
+        overdueTasks: overdueTasks.length,
+        activeDeals: deals.filter(function (row) {
+          return row['Deal Status'] !== 'Closed';
+        }).length
+      }
+    };
+  }
+
+  function requiredValue_(obj, key, label) {
+    if (!obj || obj.error || obj[key] === undefined || obj[key] === null) {
+      throw new Error('Daily Digest KPI unavailable: ' + label);
+    }
+    return obj[key];
   }
 
   return {
