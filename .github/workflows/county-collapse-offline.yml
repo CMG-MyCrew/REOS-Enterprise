@@ -166,6 +166,7 @@ jobs:
           node --check scripts/validate-absentee-owner-classification-persistence-bounded-rollout-v1.js
           node --check scripts/validate-absentee-owner-classification-persistence-bounded-rollout-behavior-v1.js
           node --check scripts/validate-absentee-owner-classification-persistence-bounded-rollout-integration-v1.js
+          node --check scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-extension-design-v2.js
           node --check build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreProvisioningAdmin.js
           node --check build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreOrphanAdoption.js
           node --check scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-surface-design-v1.js
@@ -797,6 +798,9 @@ jobs:
 
       - name: Validate absentee-owner classification persistence bounded rollout implementation integration v1
         run: node scripts/validate-absentee-owner-classification-persistence-bounded-rollout-integration-v1.js
+
+      - name: Validate absentee-owner classification persistence certified property-source provenance extension design v2
+        run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-extension-design-v2.js
 
       - name: Validate absentee-owner classification evidence-store provisioning admin surface design v1
         run: node scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-surface-design-v1.js
