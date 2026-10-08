@@ -169,6 +169,20 @@ const ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_FILES = [
 ];
 
 /*
+ * Bounded absentee-owner OPA account-range property-source identity
+ * certification runtime.
+ *
+ * Keep this pure internal certifier separate from the inherited
+ * POST_COUNTY_PRODUCTION_FILES inventory and from the existing
+ * source-evidence retrieval surfaces. This one-file inventory grants no
+ * RPC, external retrieval, scheduler, persistence, classification,
+ * acquisition, ARV, repair, MAO, or offer authority.
+ */
+const ABSENTEE_OWNER_PROPERTY_SOURCE_IDENTITY_CERTIFICATION_PRODUCTION_FILES = [
+  'build/apps-script-brand/AbsenteeOwnerOpaAccountRangePropertySourceIdentityCertification.js'
+];
+
+/*
  * Bounded absentee-owner single-record source-evidence production entrypoint.
  *
  * Keep this separately authorized production RPC boundary outside both the
@@ -831,6 +845,45 @@ diffEntries = diffEntries.filter(
     )
 );
 
+const absenteeOwnerPropertySourceIdentityCertificationEntries =
+  diffEntries.filter(entry =>
+    ABSENTEE_OWNER_PROPERTY_SOURCE_IDENTITY_CERTIFICATION_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  ABSENTEE_OWNER_PROPERTY_SOURCE_IDENTITY_CERTIFICATION_PRODUCTION_FILES.length,
+  1,
+  'bounded absentee-owner property-source identity certification inventory must contain exactly one file'
+);
+
+ABSENTEE_OWNER_PROPERTY_SOURCE_IDENTITY_CERTIFICATION_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    absenteeOwnerPropertySourceIdentityCertificationEntries.filter(
+      entry => entry.file === file
+    );
+
+  assert.equal(
+    matches.length,
+    1,
+    `bounded absentee-owner property-source identity certification file missing or duplicated: ${file}`
+  );
+
+  assert.equal(
+    matches[0].status,
+    'A',
+    `bounded absentee-owner property-source identity certification file must remain additive: ${file}`
+  );
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !ABSENTEE_OWNER_PROPERTY_SOURCE_IDENTITY_CERTIFICATION_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
 const absenteeOwnerSourceEvidenceRetrievalProductionEntrypointEntries =
   diffEntries.filter(entry =>
     ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_ENTRYPOINT_FILES.includes(
@@ -872,6 +925,10 @@ diffEntries = diffEntries.filter(
 
 pass(
   'bounded absentee-owner source-evidence retrieval production surface is exactly one explicitly allowlisted additive file'
+);
+
+pass(
+  'bounded absentee-owner property-source identity certification surface is exactly one explicitly allowlisted additive file'
 );
 
 pass(
