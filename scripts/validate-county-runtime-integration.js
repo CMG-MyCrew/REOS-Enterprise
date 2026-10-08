@@ -205,6 +205,19 @@ const ABSENTEE_OWNER_CERTIFIED_PROPERTY_SOURCE_IDENTITY_OWNER_EVIDENCE_LOOKUP_PR
  * acquisition, ARV, repair, MAO, or offer authority.
  */
 /*
+ * Certified property-source provenance persistence planner v2.
+ *
+ * Keep this additive pure planner separate from inherited production
+ * inventories. It validates one internally produced five-artifact evidence
+ * bundle and prepares deterministic v2 persistence data only. It grants no
+ * store, executor, RPC, scheduler, HTTP, database, SpreadsheetApp, lock,
+ * classification-execution, acquisition, ARV, repair, MAO, or offer authority.
+ */
+const ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_PLANNER_V2_PRODUCTION_FILES = [
+  'build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2.js'
+];
+
+/*
  * Bounded certified-property-source owner-evidence production entrypoint.
  *
  * Keep this manual single-record admin RPC separate from both the internal
@@ -947,6 +960,76 @@ diffEntries = diffEntries.filter(
     !ABSENTEE_OWNER_CERTIFIED_PROPERTY_SOURCE_IDENTITY_OWNER_EVIDENCE_LOOKUP_PRODUCTION_FILES.includes(
       entry.file
     )
+);
+
+const absenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2Entries =
+  diffEntries.filter(entry =>
+    ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_PLANNER_V2_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_PLANNER_V2_PRODUCTION_FILES.length,
+  1,
+  'certified property-source provenance planner v2 inventory must contain exactly one file'
+);
+
+ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_PLANNER_V2_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    absenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2Entries.filter(
+      entry => entry.file === file
+    );
+
+  assert.ok(
+    fs.existsSync(path.join(ROOT, file)),
+    `certified property-source provenance planner v2 file is missing: ${file}`
+  );
+
+  if (matches.length === 0) {
+    const sourceEditStatus = git([
+      'status',
+      '--porcelain=v1',
+      '--untracked-files=all',
+      '--',
+      file
+    ]);
+
+    assert.equal(
+      sourceEditStatus.status,
+      0,
+      `unable to inspect source-edit status for planner v2: ${file}`
+    );
+
+    assert.equal(
+      String(sourceEditStatus.stdout || '').trim(),
+      '?? ' + file,
+      `planner v2 must be either an untracked authorized source edit or additive against baseline: ${file}`
+    );
+  } else {
+    assert.equal(
+      matches.length,
+      1,
+      `certified property-source provenance planner v2 file duplicated: ${file}`
+    );
+
+    assert.equal(
+      matches[0].status,
+      'A',
+      `certified property-source provenance planner v2 file must remain additive: ${file}`
+    );
+  }
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_PLANNER_V2_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'certified property-source provenance planner v2 surface is exactly one explicitly allowlisted additive pure-planner file'
 );
 
 const absenteeOwnerCertifiedPropertySourceIdentityOwnerEvidenceProductionEntrypointEntries =

@@ -802,6 +802,22 @@ jobs:
       - name: Validate absentee-owner classification persistence certified property-source provenance extension design v2
         run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-extension-design-v2.js
 
+      - name: Check absentee-owner certified property-source provenance planner v2 syntax
+        run: |
+          node --check build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2.js
+          node --check scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-v2.js
+          node --check scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-behavior-v2.js
+          node --check scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-integration-v2.js
+
+      - name: Validate absentee-owner certified property-source provenance planner static v2
+        run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-v2.js
+
+      - name: Validate absentee-owner certified property-source provenance planner behavior v2
+        run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-behavior-v2.js
+
+      - name: Validate absentee-owner certified property-source provenance planner integration v2
+        run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-integration-v2.js
+
       - name: Validate absentee-owner classification evidence-store provisioning admin surface design v1
         run: node scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-surface-design-v1.js
 
