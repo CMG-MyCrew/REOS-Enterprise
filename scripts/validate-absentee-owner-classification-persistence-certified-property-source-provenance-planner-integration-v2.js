@@ -10,6 +10,7 @@ const ROOT = path.resolve(__dirname, '..');
 const BASE = '6d48ecae5d51ceb1a7698366034c861bef7e52cf';
 const BASE_TREE = 'a59a1894106dcf29e609484cfc5961d03f2e3188';
 const BRANCH = 'feat/absentee-owner-classification-persistence-certified-property-source-provenance-runtime-v2';
+const FIRST_IMPLEMENTATION_COMMIT = 'e2829015621817a2c6b6bea2f09bae711ac32c7d';
 
 const IMPLEMENTATION =
   'build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2.js';
@@ -70,31 +71,259 @@ function constArrayBlock(text, name) {
   return text.slice(start, end + 2);
 }
 
-assert.strictEqual(gitText(['rev-parse', 'HEAD'], 'unable to read HEAD'), BASE, 'HEAD drifted from certified base');
-assert.strictEqual(gitText(['rev-parse', 'HEAD^{tree}'], 'unable to read HEAD tree'), BASE_TREE, 'committed tree drifted from certified base');
-assert.strictEqual(gitText(['branch', '--show-current'], 'unable to read branch'), BRANCH, 'wrong runtime branch');
+function readGitHubEvent() {
+  const eventPath = process.env.GITHUB_EVENT_PATH || '';
+  assert.ok(eventPath, 'GitHub Actions event path missing');
+
+  let event;
+  try {
+    event = JSON.parse(fs.readFileSync(eventPath, 'utf8'));
+  } catch (error) {
+    assert.fail('unable to parse GitHub Actions event: ' + error.message);
+  }
+
+  return event;
+}
+
+function changedFilesBetween(base, head) {
+  const output = gitText(
+    ['diff', '--name-only', base, head],
+    'unable to inspect committed file scope'
+  );
+
+  return output
+    ? output.split(/\r?\n/).filter(Boolean).sort()
+    : [];
+}
+
+function commitParents(commit) {
+  const line = gitText(
+    ['rev-list', '--parents', '-n', '1', commit],
+    'unable to inspect commit parents: ' + commit
+  );
+
+  return line.split(/\s+/).slice(1);
+}
 
 ALLOWED_FILES.forEach(file => {
-  assert.ok(fs.existsSync(path.join(ROOT, file)), 'required first-tranche file missing: ' + file);
+  assert.ok(
+    fs.existsSync(path.join(ROOT, file)),
+    'required first-tranche file missing: ' + file
+  );
 });
 
-const statusText = gitText(
-  ['status', '--porcelain=v1', '--untracked-files=all'],
-  'unable to inspect worktree status'
-);
-assert.ok(statusText, 'source edit produced no worktree changes');
+const githubActions = process.env.GITHUB_ACTIONS === 'true';
+const githubEventName = process.env.GITHUB_EVENT_NAME || '';
+let validationMode = '';
 
-const changed = statusText
-  .split(/\r?\n/)
-  .filter(Boolean)
-  .map(line => line.slice(3))
-  .sort();
+if (!githubActions) {
+  validationMode = 'LOCAL_SOURCE_EDIT_CERTIFICATION';
 
-assert.deepStrictEqual(
-  changed,
-  ALLOWED_FILES,
-  'first tranche must modify exactly the authorized six files and no seventh file'
-);
+  assert.strictEqual(
+    gitText(['rev-parse', 'HEAD'], 'unable to read HEAD'),
+    BASE,
+    'HEAD drifted from certified base'
+  );
+
+  assert.strictEqual(
+    gitText(['rev-parse', 'HEAD^{tree}'], 'unable to read HEAD tree'),
+    BASE_TREE,
+    'committed tree drifted from certified base'
+  );
+
+  assert.strictEqual(
+    gitText(['branch', '--show-current'], 'unable to read branch'),
+    BRANCH,
+    'wrong runtime branch'
+  );
+
+  const statusText = gitText(
+    ['status', '--porcelain=v1', '--untracked-files=all'],
+    'unable to inspect worktree status'
+  );
+
+  assert.ok(statusText, 'source edit produced no worktree changes');
+
+  const changed = statusText
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map(line => line.slice(3))
+    .sort();
+
+  assert.deepStrictEqual(
+    changed,
+    ALLOWED_FILES,
+    'first tranche must modify exactly the authorized six files and no seventh file'
+  );
+} else if (githubEventName === 'pull_request') {
+  validationMode = 'GITHUB_PULL_REQUEST_CI';
+
+  const event = readGitHubEvent();
+
+  assert.ok(event.pull_request, 'pull_request payload missing');
+
+  assert.strictEqual(
+    event.pull_request.base.ref,
+    'main',
+    'PR base branch must be main'
+  );
+
+  assert.strictEqual(
+    event.pull_request.base.sha,
+    BASE,
+    'PR base SHA drifted from certified base'
+  );
+
+  assert.strictEqual(
+    event.pull_request.head.ref,
+    BRANCH,
+    'PR head branch drifted from certified runtime branch'
+  );
+
+  const prHead = event.pull_request.head.sha;
+
+  assert.match(
+    prHead,
+    /^[0-9a-f]{40}$/,
+    'PR head SHA must be a full commit SHA'
+  );
+
+  assert.strictEqual(
+    gitText(
+      ['rev-parse', prHead + '^{commit}'],
+      'unable to resolve PR head commit'
+    ),
+    prHead,
+    'resolved PR head commit mismatch'
+  );
+
+  assert.deepStrictEqual(
+    commitParents(FIRST_IMPLEMENTATION_COMMIT),
+    [BASE],
+    'first implementation commit must remain directly based on certified base'
+  );
+
+  assert.deepStrictEqual(
+    commitParents(prHead),
+    [FIRST_IMPLEMENTATION_COMMIT],
+    'corrective PR head must directly follow first implementation commit'
+  );
+
+  assert.strictEqual(
+    gitText(
+      ['merge-base', BASE, prHead],
+      'unable to calculate PR merge base'
+    ),
+    BASE,
+    'PR head must descend from certified base'
+  );
+
+  assert.strictEqual(
+    gitText(
+      ['rev-list', '--count', BASE + '..' + prHead],
+      'unable to count PR commits'
+    ),
+    '2',
+    'PR head must be exactly two commits ahead of certified base'
+  );
+
+  const checkoutHead = gitText(
+    ['rev-parse', 'HEAD'],
+    'unable to read PR checkout HEAD'
+  );
+
+  assert.strictEqual(
+    process.env.GITHUB_SHA || '',
+    checkoutHead,
+    'GITHUB_SHA must equal checked-out PR merge commit'
+  );
+
+  assert.match(
+    process.env.GITHUB_REF || '',
+    /^refs\/pull\/[0-9]+\/merge$/,
+    'GITHUB_REF must identify a pull-request merge ref'
+  );
+
+  assert.deepStrictEqual(
+    commitParents(checkoutHead),
+    [BASE, prHead],
+    'PR synthetic merge commit parents must be certified base then PR head'
+  );
+
+  assert.strictEqual(
+    gitText(
+      ['rev-parse', 'HEAD^{tree}'],
+      'unable to read PR checkout tree'
+    ),
+    gitText(
+      ['rev-parse', prHead + '^{tree}'],
+      'unable to read PR head tree'
+    ),
+    'PR synthetic merge tree must equal PR head tree'
+  );
+
+  assert.strictEqual(
+    gitText(
+      ['status', '--porcelain=v1', '--untracked-files=all'],
+      'unable to inspect PR checkout status'
+    ),
+    '',
+    'PR CI checkout must be clean'
+  );
+
+  assert.deepStrictEqual(
+    changedFilesBetween(BASE, prHead),
+    ALLOWED_FILES,
+    'PR base-to-head scope must remain exactly the authorized six files'
+  );
+} else if (githubEventName === 'push') {
+  validationMode = 'GITHUB_MAIN_PUSH_CI';
+
+  const event = readGitHubEvent();
+
+  const checkoutHead = gitText(
+    ['rev-parse', 'HEAD'],
+    'unable to read main-push checkout HEAD'
+  );
+
+  assert.strictEqual(
+    process.env.GITHUB_REF || '',
+    'refs/heads/main',
+    'push CI is authorized only for refs/heads/main'
+  );
+
+  assert.strictEqual(
+    process.env.GITHUB_SHA || '',
+    checkoutHead,
+    'GITHUB_SHA must equal checked-out main commit'
+  );
+
+  assert.strictEqual(
+    event.ref,
+    'refs/heads/main',
+    'push event ref must be refs/heads/main'
+  );
+
+  assert.strictEqual(
+    event.after,
+    checkoutHead,
+    'push event after SHA must equal checked-out main commit'
+  );
+
+  assert.strictEqual(
+    gitText(
+      ['status', '--porcelain=v1', '--untracked-files=all'],
+      'unable to inspect main-push checkout status'
+    ),
+    '',
+    'main-push CI checkout must be clean'
+  );
+} else {
+  assert.fail(
+    'unsupported GitHub Actions event for v2 planner integration validator: ' +
+      githubEventName
+  );
+}
 
 V1_RUNTIME_FILES.forEach(file => {
   const result = git(['diff', '--quiet', BASE, '--', file]);
@@ -203,6 +432,8 @@ assert.strictEqual(
 );
 assert.strictEqual(count(implementation, "'AOCE2-'"), 1, 'AOCE2 prefix declaration must occur exactly once');
 
+console.log('VALIDATION_MODE=' + validationMode);
+console.log('GITHUB_ACTIONS_CONTEXT=' + githubActions);
 console.log('ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_PLANNER_INTEGRATION_V2_VALID=true');
 console.log('BASE_MAIN=' + BASE);
 console.log('BASE_MAIN_TREE=' + BASE_TREE);
