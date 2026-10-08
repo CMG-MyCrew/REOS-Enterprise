@@ -125,6 +125,14 @@ assert.equal(
 [
   "'READ_ONLY_OWNER_EVIDENCE_COMPARISON'",
   "'absentee_owner_owner_evidence_comparison'",
+  "'absentee_owner_philadelphia_owner_evidence_lookup'",
+  "'exact_property_address'",
+  "'absentee_owner_certified_property_source_identity_owner_evidence_lookup'",
+  "'certified_opa_account'",
+  "'EXACT_SOURCE_OPA_ACCOUNT_UNIQUE_ROW_RESTRICTED_RANGE_CONTAINMENT'",
+  'propertySourceIdentityCertified',
+  'certifiedOpaAccount',
+  'rangeContainmentCertifiedMatch',
   "'MAILING_ADDRESS_MATCHES'",
   "'MAILING_ADDRESS_DIFFERS'",
   "'INSUFFICIENT_MAILING_EVIDENCE'",
@@ -325,6 +333,15 @@ assert.equal(
 
 console.log(
   'ABSENTEE_OWNER_EVIDENCE_COMPARISON_INTEGRATION_VALID=true'
+);
+console.log(
+  'HISTORICAL_EXACT_ADDRESS_COMPARISON_PATH_PRESERVED=true'
+);
+console.log(
+  'CERTIFIED_ACCOUNT_COMPARISON_PATH_PRESENT=true'
+);
+console.log(
+  'COMPARISON_ALGORITHM_CHANGE_AUTHORIZED=false'
 );
 console.log(
   'RUNTIME_PRODUCTION_ALLOWLIST_EXACT=true'

@@ -12,8 +12,11 @@ REOS.AbsenteeOwnerOwnerEvidenceComparison = (function () {
   var UPSTREAM_MODE =
     'READ_ONLY_OWNER_EVIDENCE';
 
-  var UPSTREAM_PHASE =
+  var EXACT_ADDRESS_UPSTREAM_PHASE =
     'absentee_owner_philadelphia_owner_evidence_lookup';
+
+  var CERTIFIED_ACCOUNT_UPSTREAM_PHASE =
+    'absentee_owner_certified_property_source_identity_owner_evidence_lookup';
 
   var SOURCE_AGENCY =
     'Philadelphia Office of Property Assessment';
@@ -24,8 +27,14 @@ REOS.AbsenteeOwnerOwnerEvidenceComparison = (function () {
   var SOURCE_ENDPOINT =
     'https://phl.carto.com/api/v2/sql';
 
-  var SOURCE_LOOKUP_MODE =
+  var EXACT_ADDRESS_SOURCE_LOOKUP_MODE =
     'exact_property_address';
+
+  var CERTIFIED_ACCOUNT_SOURCE_LOOKUP_MODE =
+    'certified_opa_account';
+
+  var CERTIFICATION_BASIS =
+    'EXACT_SOURCE_OPA_ACCOUNT_UNIQUE_ROW_RESTRICTED_RANGE_CONTAINMENT';
 
   var DISTRESS_ID =
     'Distress Lead ID';
@@ -52,6 +61,20 @@ REOS.AbsenteeOwnerOwnerEvidenceComparison = (function () {
     'connectorExecutionAuthorityGranted',
     'certificationMutationAuthorityGranted',
     'automaticOfferAuthorityGranted'
+  ]);
+
+  var CERTIFIED_ACCOUNT_AUTHORITY_FIELDS = Object.freeze([
+    'classificationAuthorityGranted',
+    'absenteeClassificationAuthorityGranted',
+    'classificationPersistenceAuthorityGranted',
+    'ownerOccupancyAuthorityGranted',
+    'vacancyAuthorityGranted',
+    'qualifiedDealQueueAuthorityGranted',
+    'acquisitionLifecycleAuthorityGranted',
+    'arvAuthorityGranted',
+    'repairScopeAuthorityGranted',
+    'maoAuthorityGranted',
+    'offerAuthorityGranted'
   ]);
 
   function authority_() {
@@ -218,13 +241,58 @@ REOS.AbsenteeOwnerOwnerEvidenceComparison = (function () {
     });
   }
 
-  function sourceEligible_(source) {
+  function sourceEligible_(
+    source,
+    lookupMode
+  ) {
     return isPlainObject_(source) &&
       source.agency === SOURCE_AGENCY &&
       source.table === SOURCE_TABLE &&
       source.endpoint === SOURCE_ENDPOINT &&
       source.lookupQueryMode ===
-        SOURCE_LOOKUP_MODE;
+        lookupMode;
+  }
+
+  function certifiedAccountAuthoritiesFalse_(
+    evidence
+  ) {
+    return CERTIFIED_ACCOUNT_AUTHORITY_FIELDS
+      .every(function (field) {
+        return own_(evidence, field) &&
+          evidence[field] === false;
+      });
+  }
+
+  function certifiedAccountEligible_(
+    evidence
+  ) {
+    var account =
+      cleanString_(
+        evidence.certifiedOpaAccount
+      );
+
+    return evidence.phase ===
+        CERTIFIED_ACCOUNT_UPSTREAM_PHASE &&
+      sourceEligible_(
+        evidence.source,
+        CERTIFIED_ACCOUNT_SOURCE_LOOKUP_MODE
+      ) &&
+      evidence.propertySourceIdentityCertified ===
+        true &&
+      evidence.certificationBasis ===
+        CERTIFICATION_BASIS &&
+      evidence.rangeContainmentDiagnosticCandidate ===
+        true &&
+      evidence.rangeContainmentCertifiedMatch ===
+        false &&
+      /^[0-9]{9}$/.test(account) &&
+      evidence.source.certifiedOpaAccount ===
+        account &&
+      evidence.source.parcelNumber ===
+        account &&
+      certifiedAccountAuthoritiesFalse_(
+        evidence
+      );
   }
 
   function mailingEnvelopeEligible_(
@@ -248,7 +316,6 @@ REOS.AbsenteeOwnerOwnerEvidenceComparison = (function () {
 
     if (
       evidence.mode !== UPSTREAM_MODE ||
-      evidence.phase !== UPSTREAM_PHASE ||
       evidence.outcome !== 'MATCHED'
     ) {
       return false;
@@ -268,10 +335,6 @@ REOS.AbsenteeOwnerOwnerEvidenceComparison = (function () {
       return false;
     }
 
-    if (!sourceEligible_(evidence.source)) {
-      return false;
-    }
-
     if (
       !mailingEnvelopeEligible_(
         evidence.ownerMailingEvidence
@@ -280,7 +343,25 @@ REOS.AbsenteeOwnerOwnerEvidenceComparison = (function () {
       return false;
     }
 
-    return upstreamAuthoritiesFalse_(
+    if (
+      !upstreamAuthoritiesFalse_(
+        evidence
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      evidence.phase ===
+        EXACT_ADDRESS_UPSTREAM_PHASE
+    ) {
+      return sourceEligible_(
+        evidence.source,
+        EXACT_ADDRESS_SOURCE_LOOKUP_MODE
+      );
+    }
+
+    return certifiedAccountEligible_(
       evidence
     );
   }
@@ -399,6 +480,16 @@ REOS.AbsenteeOwnerOwnerEvidenceComparison = (function () {
         evidence.source.propertyLocation;
     }
 
+    if (
+      own_(
+        evidence.source,
+        'certifiedOpaAccount'
+      )
+    ) {
+      result.certifiedOpaAccount =
+        evidence.source.certifiedOpaAccount;
+    }
+
     return result;
   }
 
@@ -433,6 +524,26 @@ REOS.AbsenteeOwnerOwnerEvidenceComparison = (function () {
       normalizedMailingAddress:
         mailing
     };
+
+    if (
+      evidence.phase ===
+        CERTIFIED_ACCOUNT_UPSTREAM_PHASE
+    ) {
+      result.propertySourceIdentityCertified =
+        true;
+
+      result.certificationBasis =
+        evidence.certificationBasis;
+
+      result.certifiedOpaAccount =
+        evidence.certifiedOpaAccount;
+
+      result.rangeContainmentDiagnosticCandidate =
+        true;
+
+      result.rangeContainmentCertifiedMatch =
+        false;
+    }
 
     if (Array.isArray(differences)) {
       result.differingComponents =

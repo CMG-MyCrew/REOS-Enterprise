@@ -125,6 +125,100 @@ function clone(value) {
   );
 }
 
+function certifiedAccountEvidence() {
+  const result =
+    clone(
+      evidence()
+    );
+
+  result.phase =
+    'absentee_owner_certified_property_source_identity_owner_evidence_lookup';
+
+  result.target.rowNumber =
+    1530;
+
+  result.target.identity = {
+    'Distress Lead ID':
+      'DL-20260825185532-4474',
+    'Canonical Property Key':
+      'property|parcel|pa|philadelphia|1473083'
+  };
+
+  result.target.propertyAddress =
+    '1624 N BODINE ST';
+
+  result.target.city =
+    'PHILADELPHIA';
+
+  result.target.state =
+    'PA';
+
+  result.target.zip =
+    '19122';
+
+  result.source.lookupQueryMode =
+    'certified_opa_account';
+
+  result.source.certifiedOpaAccount =
+    '183124510';
+
+  result.source.parcelNumber =
+    '183124510';
+
+  result.source.propertyLocation =
+    '1616-42 N BODINE ST';
+
+  result.propertySourceIdentityCertified =
+    true;
+
+  result.certificationBasis =
+    'EXACT_SOURCE_OPA_ACCOUNT_UNIQUE_ROW_RESTRICTED_RANGE_CONTAINMENT';
+
+  result.certifiedOpaAccount =
+    '183124510';
+
+  result.rangeContainmentDiagnosticCandidate =
+    true;
+
+  result.rangeContainmentCertifiedMatch =
+    false;
+
+  result.classificationAuthorityGranted =
+    false;
+
+  result.absenteeClassificationAuthorityGranted =
+    false;
+
+  result.classificationPersistenceAuthorityGranted =
+    false;
+
+  result.ownerOccupancyAuthorityGranted =
+    false;
+
+  result.vacancyAuthorityGranted =
+    false;
+
+  result.qualifiedDealQueueAuthorityGranted =
+    false;
+
+  result.acquisitionLifecycleAuthorityGranted =
+    false;
+
+  result.arvAuthorityGranted =
+    false;
+
+  result.repairScopeAuthorityGranted =
+    false;
+
+  result.maoAuthorityGranted =
+    false;
+
+  result.offerAuthorityGranted =
+    false;
+
+  return result;
+}
+
 function createHarness() {
   const state = {
     externalHttpCalls: 0,
@@ -971,10 +1065,126 @@ test(
   }
 );
 
+test(
+  'certified-account owner evidence is comparison eligible',
+  () => {
+    const input =
+      certifiedAccountEvidence();
+
+    const { out } =
+      run(input);
+
+    assertOutcome(
+      out,
+      'MAILING_ADDRESS_DIFFERS',
+      true
+    );
+
+    assert.strictEqual(
+      out.source.lookupQueryMode,
+      'certified_opa_account'
+    );
+
+    assert.strictEqual(
+      out.source.certifiedOpaAccount,
+      '183124510'
+    );
+
+    assert.strictEqual(
+      out.propertySourceIdentityCertified,
+      true
+    );
+
+    assert.strictEqual(
+      out.certificationBasis,
+      'EXACT_SOURCE_OPA_ACCOUNT_UNIQUE_ROW_RESTRICTED_RANGE_CONTAINMENT'
+    );
+
+    assert.strictEqual(
+      out.certifiedOpaAccount,
+      '183124510'
+    );
+
+    assert.strictEqual(
+      out.rangeContainmentCertifiedMatch,
+      false
+    );
+  }
+);
+
+test(
+  'certified-account evidence without certification is rejected',
+  () => {
+    const input =
+      certifiedAccountEvidence();
+
+    input.propertySourceIdentityCertified =
+      false;
+
+    const { out } =
+      run(input);
+
+    assertOutcome(
+      out,
+      'INELIGIBLE_OWNER_EVIDENCE',
+      false
+    );
+  }
+);
+
+test(
+  'certified-account evidence with returned parcel mismatch is rejected',
+  () => {
+    const input =
+      certifiedAccountEvidence();
+
+    input.source.parcelNumber =
+      '999999999';
+
+    const { out } =
+      run(input);
+
+    assertOutcome(
+      out,
+      'INELIGIBLE_OWNER_EVIDENCE',
+      false
+    );
+  }
+);
+
+test(
+  'historical exact-address owner evidence remains comparison eligible',
+  () => {
+    const { out } =
+      run(
+        evidence()
+      );
+
+    assertOutcome(
+      out,
+      'MAILING_ADDRESS_MATCHES',
+      true
+    );
+
+    assert.strictEqual(
+      out.source.lookupQueryMode,
+      'exact_property_address'
+    );
+
+    assert.strictEqual(
+      Object.prototype.hasOwnProperty.call(
+        out,
+        'propertySourceIdentityCertified'
+      ),
+      false
+    );
+  }
+);
+
 assert.strictEqual(
   count,
-  28,
-  'behavior validator must execute exactly 28 cases'
+  32,
+  'behavior validator must execute exactly 32 cases'
 );
 
 console.log('');

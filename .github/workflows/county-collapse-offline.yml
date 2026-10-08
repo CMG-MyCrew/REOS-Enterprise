@@ -124,6 +124,11 @@ jobs:
           node --check scripts/validate-absentee-owner-opa-account-range-property-source-identity-certification-v1.js
           node --check scripts/validate-absentee-owner-opa-account-range-property-source-identity-certification-behavior-v1.js
           node --check scripts/validate-absentee-owner-opa-account-range-property-source-identity-certification-integration-v1.js
+          node --check scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-retrieval-boundary-design-v1.js
+          node --check build/apps-script-brand/AbsenteeOwnerCertifiedPropertySourceIdentityOwnerEvidenceLookup.js
+          node --check scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-lookup-v1.js
+          node --check scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-lookup-behavior-v1.js
+          node --check scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-lookup-integration-v1.js
           node --check scripts/validate-absentee-owner-source-evidence-retrieval-boundary-contract-design-v1.js
           node --check scripts/validate-absentee-owner-source-evidence-retrieval-runtime-implementation-boundary-design-v1.js
           node --check build/apps-script-brand/AbsenteeOwnerPhiladelphiaCodeViolationSourceEvidenceRetriever.js
@@ -694,6 +699,18 @@ jobs:
 
       - name: Validate absentee-owner OPA account range property-source identity certification integration v1
         run: node scripts/validate-absentee-owner-opa-account-range-property-source-identity-certification-integration-v1.js
+
+      - name: Validate absentee-owner certified property-source identity owner-evidence retrieval boundary design v1
+        run: node scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-retrieval-boundary-design-v1.js
+
+      - name: Validate absentee-owner certified property-source identity owner-evidence lookup static v1
+        run: node scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-lookup-v1.js
+
+      - name: Validate absentee-owner certified property-source identity owner-evidence lookup behavior v1
+        run: node scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-lookup-behavior-v1.js
+
+      - name: Validate absentee-owner certified property-source identity owner-evidence lookup integration v1
+        run: node scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-lookup-integration-v1.js
 
       - name: Validate absentee-owner source-evidence retrieval boundary contract design v1
         run: node scripts/validate-absentee-owner-source-evidence-retrieval-boundary-contract-design-v1.js

@@ -34,6 +34,13 @@ const source = fs.readFileSync(
   "'opa_properties_public'",
   "'https://phl.carto.com/api/v2/sql'",
   "'exact_property_address'",
+  "'absentee_owner_certified_property_source_identity_owner_evidence_lookup'",
+  "'certified_opa_account'",
+  "'EXACT_SOURCE_OPA_ACCOUNT_UNIQUE_ROW_RESTRICTED_RANGE_CONTAINMENT'",
+  'propertySourceIdentityCertified',
+  'certifiedOpaAccount',
+  'rangeContainmentDiagnosticCandidate',
+  'rangeContainmentCertifiedMatch',
   "'MAILING_ADDRESS_MATCHES'",
   "'MAILING_ADDRESS_DIFFERS'",
   "'INSUFFICIENT_MAILING_EVIDENCE'",
@@ -142,6 +149,12 @@ console.log(
 );
 console.log(
   'COMPARISON_OUTCOME_COUNT=4'
+);
+console.log(
+  'CERTIFIED_ACCOUNT_COMPARISON_ELIGIBILITY_PRESENT=true'
+);
+console.log(
+  'HISTORICAL_EXACT_ADDRESS_COMPARISON_ELIGIBILITY_PRESENT=true'
 );
 console.log(
   'EXTERNAL_HTTP_CALL_SITE_COUNT=0'
