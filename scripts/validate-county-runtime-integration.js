@@ -204,6 +204,19 @@ const ABSENTEE_OWNER_CERTIFIED_PROPERTY_SOURCE_IDENTITY_OWNER_EVIDENCE_LOOKUP_PR
  * orchestration and no deployment, evaluator, persistence, classification,
  * acquisition, ARV, repair, MAO, or offer authority.
  */
+/*
+ * Bounded certified-property-source owner-evidence production entrypoint.
+ *
+ * Keep this manual single-record admin RPC separate from both the internal
+ * lookup inventory and the historical source-evidence entrypoint inventory.
+ * The entrypoint delegates once to the already-certified owner-evidence
+ * lookup and grants no direct HTTP, persistence, classification, scheduler,
+ * acquisition, ARV, repair, MAO, or offer authority.
+ */
+const ABSENTEE_OWNER_CERTIFIED_PROPERTY_SOURCE_IDENTITY_OWNER_EVIDENCE_PRODUCTION_ENTRYPOINT_FILES = [
+  'build/apps-script-brand/AbsenteeOwnerCertifiedPropertySourceIdentityOwnerEvidenceProductionEntrypoint.js'
+];
+
 const ABSENTEE_OWNER_SOURCE_EVIDENCE_RETRIEVAL_PRODUCTION_ENTRYPOINT_FILES = [
   'build/apps-script-brand/AbsenteeOwnerSourceEvidenceRetrievalSingleRecordProductionEntrypoint.js'
 ];
@@ -934,6 +947,49 @@ diffEntries = diffEntries.filter(
     !ABSENTEE_OWNER_CERTIFIED_PROPERTY_SOURCE_IDENTITY_OWNER_EVIDENCE_LOOKUP_PRODUCTION_FILES.includes(
       entry.file
     )
+);
+
+const absenteeOwnerCertifiedPropertySourceIdentityOwnerEvidenceProductionEntrypointEntries =
+  diffEntries.filter(entry =>
+    ABSENTEE_OWNER_CERTIFIED_PROPERTY_SOURCE_IDENTITY_OWNER_EVIDENCE_PRODUCTION_ENTRYPOINT_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  ABSENTEE_OWNER_CERTIFIED_PROPERTY_SOURCE_IDENTITY_OWNER_EVIDENCE_PRODUCTION_ENTRYPOINT_FILES.length,
+  1,
+  'bounded certified-property-source owner-evidence production entrypoint inventory must contain exactly one file'
+);
+
+ABSENTEE_OWNER_CERTIFIED_PROPERTY_SOURCE_IDENTITY_OWNER_EVIDENCE_PRODUCTION_ENTRYPOINT_FILES.forEach(file => {
+  const matches =
+    absenteeOwnerCertifiedPropertySourceIdentityOwnerEvidenceProductionEntrypointEntries.filter(
+      entry => entry.file === file
+    );
+
+  assert.equal(
+    matches.length,
+    1,
+    `bounded certified-property-source owner-evidence production entrypoint file missing or duplicated: ${file}`
+  );
+
+  assert.equal(
+    matches[0].status,
+    'A',
+    `bounded certified-property-source owner-evidence production entrypoint file must remain additive: ${file}`
+  );
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !ABSENTEE_OWNER_CERTIFIED_PROPERTY_SOURCE_IDENTITY_OWNER_EVIDENCE_PRODUCTION_ENTRYPOINT_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'bounded certified-property-source owner-evidence production entrypoint surface is exactly one explicitly allowlisted additive file'
 );
 
 const absenteeOwnerSourceEvidenceRetrievalProductionEntrypointEntries =

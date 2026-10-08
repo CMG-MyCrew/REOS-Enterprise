@@ -129,6 +129,11 @@ jobs:
           node --check scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-lookup-v1.js
           node --check scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-lookup-behavior-v1.js
           node --check scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-lookup-integration-v1.js
+          node --check scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-production-invocation-boundary-design-v1.js
+          node --check build/apps-script-brand/AbsenteeOwnerCertifiedPropertySourceIdentityOwnerEvidenceProductionEntrypoint.js
+          node --check scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-production-entrypoint-v1.js
+          node --check scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-production-entrypoint-behavior-v1.js
+          node --check scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-production-entrypoint-integration-v1.js
           node --check scripts/validate-absentee-owner-source-evidence-retrieval-boundary-contract-design-v1.js
           node --check scripts/validate-absentee-owner-source-evidence-retrieval-runtime-implementation-boundary-design-v1.js
           node --check build/apps-script-brand/AbsenteeOwnerPhiladelphiaCodeViolationSourceEvidenceRetriever.js
@@ -711,6 +716,18 @@ jobs:
 
       - name: Validate absentee-owner certified property-source identity owner-evidence lookup integration v1
         run: node scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-lookup-integration-v1.js
+
+      - name: Validate absentee-owner owner-evidence production invocation boundary design v1
+        run: node scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-production-invocation-boundary-design-v1.js
+
+      - name: Validate absentee-owner owner-evidence production entrypoint static v1
+        run: node scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-production-entrypoint-v1.js
+
+      - name: Validate absentee-owner owner-evidence production entrypoint behavior v1
+        run: node scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-production-entrypoint-behavior-v1.js
+
+      - name: Validate absentee-owner owner-evidence production entrypoint integration v1
+        run: node scripts/validate-absentee-owner-certified-property-source-identity-owner-evidence-production-entrypoint-integration-v1.js
 
       - name: Validate absentee-owner source-evidence retrieval boundary contract design v1
         run: node scripts/validate-absentee-owner-source-evidence-retrieval-boundary-contract-design-v1.js
