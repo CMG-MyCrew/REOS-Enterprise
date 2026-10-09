@@ -230,6 +230,17 @@ const ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_V2_PRODUCTION_FILES = [
 ];
 
 /*
+ * Certified property-source provenance persistence executor v2.
+ *
+ * Keep this internal persistence executor separate from planner/store,
+ * provisioning, rollout, orchestration, acquisition, ARV, repair, MAO,
+ * and offer authority. It owns one ScriptLock composition boundary only.
+ */
+const ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_EXECUTOR_V2_PRODUCTION_FILES = [
+  'build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceExecutorV2.js'
+];
+
+/*
  * V2 evidence-store provisioning administration runtime.
  *
  * Keep this additive administrative provisioning surface separate from the
@@ -1124,6 +1135,76 @@ diffEntries = diffEntries.filter(
 
 pass(
   'classification evidence store v2 surface is exactly one explicitly allowlisted additive store file'
+);
+
+const absenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceExecutorV2Entries =
+  diffEntries.filter(entry =>
+    ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_EXECUTOR_V2_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_EXECUTOR_V2_PRODUCTION_FILES.length,
+  1,
+  'certified property-source provenance executor v2 inventory must contain exactly one file'
+);
+
+ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_EXECUTOR_V2_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    absenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceExecutorV2Entries.filter(
+      entry => entry.file === file
+    );
+
+  assert.ok(
+    fs.existsSync(path.join(ROOT, file)),
+    `certified property-source provenance executor v2 runtime is missing: ${file}`
+  );
+
+  if (matches.length === 0) {
+    const sourceEditStatus = git([
+      'status',
+      '--porcelain=v1',
+      '--untracked-files=all',
+      '--',
+      file
+    ]);
+
+    assert.equal(
+      sourceEditStatus.status,
+      0,
+      `unable to inspect executor v2 source-edit status: ${file}`
+    );
+
+    assert.equal(
+      String(sourceEditStatus.stdout || '').trim(),
+      '?? ' + file,
+      `executor v2 must be either an untracked authorized source edit or additive against baseline: ${file}`
+    );
+  } else {
+    assert.equal(
+      matches.length,
+      1,
+      `certified property-source provenance executor v2 runtime duplicated: ${file}`
+    );
+
+    assert.equal(
+      matches[0].status,
+      'A',
+      `certified property-source provenance executor v2 must remain additive: ${file}`
+    );
+  }
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_EXECUTOR_V2_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'certified property-source provenance executor v2 surface is exactly one explicitly allowlisted additive internal persistence file'
 );
 
 
