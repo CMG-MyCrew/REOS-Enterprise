@@ -218,6 +218,18 @@ const ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVEN
 ];
 
 /*
+ * Certified property-source provenance classification evidence store v2.
+ *
+ * Keep this additive append-only store separate from the v1 evidence store
+ * and from provisioning, executor, rollout, orchestration, acquisition, ARV,
+ * repair, MAO, and offer authority. The caller owns the ScriptLock; this store
+ * validates the lock context and performs one authorized append boundary only.
+ */
+const ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_V2_PRODUCTION_FILES = [
+  'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js'
+];
+
+/*
  * Bounded certified-property-source owner-evidence production entrypoint.
  *
  * Keep this manual single-record admin RPC separate from both the internal
@@ -1030,6 +1042,76 @@ diffEntries = diffEntries.filter(
 
 pass(
   'certified property-source provenance planner v2 surface is exactly one explicitly allowlisted additive pure-planner file'
+);
+
+const absenteeOwnerClassificationEvidenceStoreV2Entries =
+  diffEntries.filter(entry =>
+    ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_V2_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_V2_PRODUCTION_FILES.length,
+  1,
+  'classification evidence store v2 inventory must contain exactly one file'
+);
+
+ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_V2_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    absenteeOwnerClassificationEvidenceStoreV2Entries.filter(
+      entry => entry.file === file
+    );
+
+  assert.ok(
+    fs.existsSync(path.join(ROOT, file)),
+    `classification evidence store v2 file is missing: ${file}`
+  );
+
+  if (matches.length === 0) {
+    const sourceEditStatus = git([
+      'status',
+      '--porcelain=v1',
+      '--untracked-files=all',
+      '--',
+      file
+    ]);
+
+    assert.equal(
+      sourceEditStatus.status,
+      0,
+      `unable to inspect source-edit status for classification evidence store v2: ${file}`
+    );
+
+    assert.equal(
+      String(sourceEditStatus.stdout || '').trim(),
+      '?? ' + file,
+      `classification evidence store v2 must be either an untracked authorized source edit or additive against baseline: ${file}`
+    );
+  } else {
+    assert.equal(
+      matches.length,
+      1,
+      `classification evidence store v2 file duplicated: ${file}`
+    );
+
+    assert.equal(
+      matches[0].status,
+      'A',
+      `classification evidence store v2 file must remain additive: ${file}`
+    );
+  }
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_V2_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'classification evidence store v2 surface is exactly one explicitly allowlisted additive store file'
 );
 
 const absenteeOwnerCertifiedPropertySourceIdentityOwnerEvidenceProductionEntrypointEntries =
