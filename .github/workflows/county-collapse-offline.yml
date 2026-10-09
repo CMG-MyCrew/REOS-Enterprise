@@ -820,7 +820,27 @@ jobs:
         run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-behavior-v2.js
 
       - name: Validate absentee-owner certified property-source provenance planner integration v2
+        if: ${{ github.event_name != 'pull_request' || github.head_ref == 'feat/absentee-owner-classification-persistence-certified-property-source-provenance-runtime-v2' }}
         run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-integration-v2.js
+
+      - name: Validate absentee-owner certified property-source provenance planner successor immutability v2
+        if: ${{ github.event_name == 'pull_request' && github.head_ref != 'feat/absentee-owner-classification-persistence-certified-property-source-provenance-runtime-v2' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+
+          test -n "$base"
+          test -n "$head"
+          test "$(git merge-base "$base" "$head")" = "$base"
+
+          git diff --quiet "$base" "$head" -- \
+            build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2.js \
+            scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-v2.js \
+            scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-behavior-v2.js \
+            scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-integration-v2.js
 
       - name: Validate absentee-owner classification evidence store static v2
         run: node scripts/validate-absentee-owner-classification-evidence-store-v2.js
