@@ -230,6 +230,18 @@ const ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_V2_PRODUCTION_FILES = [
 ];
 
 /*
+ * V2 evidence-store provisioning administration runtime.
+ *
+ * Keep this additive administrative provisioning surface separate from the
+ * inherited POST_COUNTY_PRODUCTION_FILES inventory and from the V2
+ * persistence store. It grants no persistence, rollout, orchestration,
+ * scheduler, acquisition, ARV, repair, MAO, or offer authority.
+ */
+const ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_V2_PROVISIONING_PRODUCTION_FILES = [
+  'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2ProvisioningAdmin.js'
+];
+
+/*
  * Bounded certified-property-source owner-evidence production entrypoint.
  *
  * Keep this manual single-record admin RPC separate from both the internal
@@ -1112,6 +1124,77 @@ diffEntries = diffEntries.filter(
 
 pass(
   'classification evidence store v2 surface is exactly one explicitly allowlisted additive store file'
+);
+
+
+const absenteeOwnerClassificationEvidenceStoreV2ProvisioningEntries =
+  diffEntries.filter(entry =>
+    ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_V2_PROVISIONING_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_V2_PROVISIONING_PRODUCTION_FILES.length,
+  1,
+  'classification evidence store v2 provisioning inventory must contain exactly one file'
+);
+
+ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_V2_PROVISIONING_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    absenteeOwnerClassificationEvidenceStoreV2ProvisioningEntries.filter(
+      entry => entry.file === file
+    );
+
+  assert.ok(
+    fs.existsSync(path.join(ROOT, file)),
+    `classification evidence store v2 provisioning runtime is missing: ${file}`
+  );
+
+  if (matches.length === 0) {
+    const sourceEditStatus = git([
+      'status',
+      '--porcelain=v1',
+      '--untracked-files=all',
+      '--',
+      file
+    ]);
+
+    assert.equal(
+      sourceEditStatus.status,
+      0,
+      `unable to inspect V2 provisioning runtime source-edit status: ${file}`
+    );
+
+    assert.equal(
+      String(sourceEditStatus.stdout || '').trim(),
+      '?? ' + file,
+      `V2 provisioning runtime must be either an untracked authorized source edit or additive against baseline: ${file}`
+    );
+  } else {
+    assert.equal(
+      matches.length,
+      1,
+      `V2 provisioning runtime duplicated: ${file}`
+    );
+
+    assert.equal(
+      matches[0].status,
+      'A',
+      `V2 provisioning runtime must remain additive: ${file}`
+    );
+  }
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_V2_PROVISIONING_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'classification evidence store v2 provisioning surface is exactly one explicitly allowlisted additive administrative file'
 );
 
 const absenteeOwnerCertifiedPropertySourceIdentityOwnerEvidenceProductionEntrypointEntries =
