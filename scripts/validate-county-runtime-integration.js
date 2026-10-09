@@ -241,6 +241,19 @@ const ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVEN
 ];
 
 /*
+ * Certified property-source provenance bounded rollout orchestrator v2.
+ *
+ * Keep this internal bounded orchestration runtime separate from planner,
+ * store, executor, provisioning, scheduler, production-RPC, acquisition,
+ * ARV, repair, MAO, and offer authority. It preflights up to ten explicit
+ * evidence bundles and delegates persistence only to the certified V2
+ * executor. It owns no persistence lock and exposes no global RPC.
+ */
+const ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_BOUNDED_ROLLOUT_ORCHESTRATOR_V2_PRODUCTION_FILES = [
+  'build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceBoundedRolloutOrchestratorV2.js'
+];
+
+/*
  * V2 evidence-store provisioning administration runtime.
  *
  * Keep this additive administrative provisioning surface separate from the
@@ -1205,6 +1218,76 @@ diffEntries = diffEntries.filter(
 
 pass(
   'certified property-source provenance executor v2 surface is exactly one explicitly allowlisted additive internal persistence file'
+);
+
+const absenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceBoundedRolloutOrchestratorV2Entries =
+  diffEntries.filter(entry =>
+    ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_BOUNDED_ROLLOUT_ORCHESTRATOR_V2_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_BOUNDED_ROLLOUT_ORCHESTRATOR_V2_PRODUCTION_FILES.length,
+  1,
+  'certified property-source provenance bounded rollout orchestrator v2 inventory must contain exactly one file'
+);
+
+ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_BOUNDED_ROLLOUT_ORCHESTRATOR_V2_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    absenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceBoundedRolloutOrchestratorV2Entries.filter(
+      entry => entry.file === file
+    );
+
+  assert.ok(
+    fs.existsSync(path.join(ROOT, file)),
+    `certified property-source provenance bounded rollout orchestrator v2 runtime is missing: ${file}`
+  );
+
+  if (matches.length === 0) {
+    const sourceEditStatus = git([
+      'status',
+      '--porcelain=v1',
+      '--untracked-files=all',
+      '--',
+      file
+    ]);
+
+    assert.equal(
+      sourceEditStatus.status,
+      0,
+      `unable to inspect bounded rollout orchestrator v2 source-edit status: ${file}`
+    );
+
+    assert.equal(
+      String(sourceEditStatus.stdout || '').trim(),
+      '?? ' + file,
+      `bounded rollout orchestrator v2 must be either an untracked authorized source edit or additive against baseline: ${file}`
+    );
+  } else {
+    assert.equal(
+      matches.length,
+      1,
+      `bounded rollout orchestrator v2 file missing or duplicated: ${file}`
+    );
+
+    assert.equal(
+      matches[0].status,
+      'A',
+      `bounded rollout orchestrator v2 must remain additive: ${file}`
+    );
+  }
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_BOUNDED_ROLLOUT_ORCHESTRATOR_V2_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'certified property-source provenance bounded rollout orchestrator v2 surface is exactly one explicitly allowlisted additive internal orchestration file'
 );
 
 
