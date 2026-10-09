@@ -23,6 +23,197 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Detect county-relevant push changes
+        id: county_changes
+        if: ${{ github.event_name == 'push' }}
+        shell: bash
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+      
+          before="$PUSH_BEFORE"
+          after="$PUSH_SHA"
+      
+          if [[ ! "$before" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "Invalid push before SHA" >&2
+            exit 1
+          fi
+      
+          if [[ ! "$after" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "Invalid push SHA" >&2
+            exit 1
+          fi
+      
+          if [[ "$before" == "0000000000000000000000000000000000000000" ]]; then
+            echo "Cannot safely classify zero-before push range" >&2
+            exit 1
+          fi
+      
+          if ! git cat-file -e "$after^{commit}" 2>/dev/null; then
+            echo "Push target commit is unavailable" >&2
+            exit 1
+          fi
+      
+          if ! git cat-file -e "$before^{commit}" 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin "$before" || true
+          fi
+      
+          if ! git cat-file -e "$before^{commit}" 2>/dev/null; then
+            echo "Push before commit is unavailable" >&2
+            exit 1
+          fi
+      
+          surface_file="$(mktemp)"
+          delta_file="$(mktemp)"
+          trap 'rm -f "$surface_file" "$delta_file"' EXIT
+      
+          cat > "$surface_file" <<'COUNTY_SURFACES'
+            .github/workflows/county-collapse-offline.yml
+            build/apps-script-brand/CountyArcGisKeysetBoundaryDiagnostic.js
+            build/apps-script-brand/CountyArcGisPageRecordDiagnostic.js
+            build/apps-script-brand/CountyC1CertifiedAuthority.js
+            build/apps-script-brand/CountyC1InsertRecovery.js
+            build/apps-script-brand/CountyC1LivePreflight.js
+            build/apps-script-brand/CountyC1MaintenanceGate.js
+            build/apps-script-brand/CountyC1SchemaMigration.js
+            build/apps-script-brand/CountyCheckpointAk1ToAk2Reconciliation.js
+            build/apps-script-brand/CountyCheckpointRecovery.js
+            build/apps-script-brand/CountyCodeViolationBlockedStorageBackfillExecutor.js
+            build/apps-script-brand/CountyCodeViolationCollapseDirectKeepExecutionAuthority.js
+            build/apps-script-brand/CountyCodeViolationCollapseExecutionPreflight.js
+            build/apps-script-brand/CountyCodeViolationCollapseExecutionPreflightV2.js
+            build/apps-script-brand/CountyCodeViolationCollapseExecutor.js
+            build/apps-script-brand/CountyCodeViolationCollapseFullRowEvidence.js
+            build/apps-script-brand/CountyCodeViolationCollapseMaintenanceGate.js
+            build/apps-script-brand/CountyCodeViolationCollapseMaintenanceOperator.js
+            build/apps-script-brand/CountyCodeViolationCollapseOnlyEvidenceAuthority.js
+            build/apps-script-brand/CountyCodeViolationCollapseResidualEvidence.js
+            build/apps-script-brand/CountyCodeViolationCollapseWinnerPlan.js
+            build/apps-script-brand/CountyCodeViolationDurableIdentityAudit.js
+            build/apps-script-brand/CountyCodeViolationDurableIdentityMigrationBatch1Executor.js
+            build/apps-script-brand/CountyCodeViolationDurableIdentityMigrationPlan.js
+            build/apps-script-brand/CountyCodeViolationDurableIdentityMultiSpanMigrationExecutor.js
+            build/apps-script-brand/CountyCodeViolationDurableIdentityRollingMigrationExecutor.js
+            build/apps-script-brand/CountyCodeViolationDurableSourceReconciliation.js
+            build/apps-script-brand/CountyCodeViolationGate1PopulationAuthority.js
+            build/apps-script-brand/CountyCodeViolationGate1Reconciliation.js
+            build/apps-script-brand/CountyCodeViolationGate1RecoveryAuthority.js
+            build/apps-script-brand/CountyCodeViolationGate1RecoveryExecutor.js
+            build/apps-script-brand/CountyCodeViolationGate1RecoveryMaintenanceGate.js
+            build/apps-script-brand/CountyCodeViolationGate1RecoveryPreflight.js
+            build/apps-script-brand/CountyCodeViolationGroup3PostRestorationEvidence.js
+            build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationContract.js
+            build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationExecutor.js
+            build/apps-script-brand/CountyCodeViolationGroup3ZillowRestorationOperator.js
+            build/apps-script-brand/CountyCodeViolationSingleRowDriftDiagnostic.js
+            build/apps-script-brand/CountyCodeViolationSourceRecordDiagnostic.js
+            build/apps-script-brand/CountyCodeViolationTwoRowRawEvidence.js
+            build/apps-script-brand/CountyCollapseGroup2PostTerminalReconciliation.js
+            build/apps-script-brand/CountyCollapseGroup2PreparedOperationRetirement.js
+            build/apps-script-brand/CountyCollapseGroup2StrandedOperationReconciliation.js
+            build/apps-script-brand/CountyCollapseGroup4PostBarrierTimeoutEvidence.js
+            build/apps-script-brand/CountyCollapseGroup4PostBarrierTimeoutTerminalReconciliation.js
+            build/apps-script-brand/CountyCollapseObservationPreservationStore.js
+            build/apps-script-brand/CountyCollapseOperationIntentOrphanBindingRecovery.js
+            build/apps-script-brand/CountyCollapseOperationIntentStore.js
+            build/apps-script-brand/CountyCollapseRuntimePrerequisiteCertification.js
+            build/apps-script-brand/CountyEndpointConfigurationAuthority.js
+            build/apps-script-brand/CountyIdentityHistoricalAudit.js
+            build/apps-script-brand/CountyIdentityReferenceAudit.js
+            build/apps-script-brand/CountyIdentityRepairEvidenceExport.js
+            build/apps-script-brand/CountyIdentitySourceReconciliation.js
+            build/apps-script-brand/CountyMutationExclusionLease.js
+            build/apps-script-brand/CountyPage23ArcGisRuntimeDiagnostic.js
+            build/apps-script-brand/CountyPage85SourceObservation214Repair.js
+            build/apps-script-brand/CountyPage86DuplicateSourceRepair.js
+            build/apps-script-brand/CountyPage86DuplicateSourceRepairEvidence.js
+            build/apps-script-brand/CountyPage89SourceObservation622060Repair.js
+            build/apps-script-brand/CountyProductionScheduler.js
+            build/apps-script-brand/CountySparseRowRepairEvidence.js
+            build/apps-script-brand/CountySparseRowRepairExecutor.js
+            scripts/validate-county-code-violation-collapse-execution-boundary-v2.js
+            scripts/validate-county-code-violation-collapse-execution-preflight-v1.js
+            scripts/validate-county-code-violation-collapse-executor-blocker-retirement-contract-v1.js
+            scripts/validate-county-code-violation-collapse-executor-blocker-retirement-implementation-lifecycle-v1.js
+            scripts/validate-county-code-violation-collapse-executor-blocker-retirement-runtime-v1.js
+            scripts/validate-county-code-violation-collapse-executor-blocker-retirement-successor-authorization-v2.js
+            scripts/validate-county-code-violation-collapse-executor-contract-v1.js
+            scripts/validate-county-code-violation-collapse-executor-implementation-authorization-v1.js
+            scripts/validate-county-code-violation-collapse-executor-implementation-authorization-v2.js
+            scripts/validate-county-code-violation-collapse-executor-implementation-lifecycle-v1.js
+            scripts/validate-county-code-violation-collapse-executor-maintenance-handoff-v1.js
+            scripts/validate-county-code-violation-collapse-executor-rpc-entrypoint-v1.js
+            scripts/validate-county-code-violation-collapse-executor-runtime-v1.js
+            scripts/validate-county-code-violation-collapse-executor-safety-correction-authorization-v1.js
+            scripts/validate-county-code-violation-collapse-executor-safety-correction-implementation-lifecycle-v1.js
+            scripts/validate-county-code-violation-collapse-executor-safety-correction-runtime-v1.js
+            scripts/validate-county-code-violation-collapse-maintenance-gate-v1.js
+            scripts/validate-county-code-violation-collapse-maintenance-implementation-lifecycle-v1.js
+            scripts/validate-county-code-violation-collapse-maintenance-quiescence-contract-v1.js
+            scripts/validate-county-code-violation-collapse-postdelete-repeatability-contract-v1.js
+            scripts/validate-county-code-violation-collapse-postdelete-repeatability-implementation-lifecycle-v1.js
+            scripts/validate-county-code-violation-collapse-postdelete-repeatability-runtime-v1.js
+            scripts/validate-county-code-violation-collapse-successor-preflight-rpc-entrypoint-v1.js
+            scripts/validate-county-code-violation-collapse-winner-plan-v1.js
+            scripts/validate-county-code-violation-group3-post-restoration-evidence-v1.js
+            scripts/validate-county-code-violation-group3-zillow-restoration-contract-v1.js
+            scripts/validate-county-code-violation-group3-zillow-restoration-executor-contract-v1.js
+            scripts/validate-county-code-violation-group3-zillow-restoration-executor-v1.js
+            scripts/validate-county-code-violation-group3-zillow-restoration-operator-entrypoint-contract-v1.js
+            scripts/validate-county-code-violation-group3-zillow-restoration-operator-entrypoint-v1.js
+            scripts/validate-county-code-violation-post-restoration-collapse-authority-contract-v1.js
+            scripts/validate-county-collapse-group2-executor-history-exception-authorization-v1.js
+            scripts/validate-county-collapse-group2-executor-history-exception-v1.js
+            scripts/validate-county-collapse-group2-post-terminal-reconciliation-authorization-v1.js
+            scripts/validate-county-collapse-group2-post-terminal-reconciliation-v1.js
+            scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-design-v1.js
+            scripts/validate-county-collapse-group2-postsuccess-history-invariant-repair-v1.js
+            scripts/validate-county-collapse-group2-prepared-operation-retirement-authorization-v1.js
+            scripts/validate-county-collapse-group2-prepared-operation-retirement-v1.js
+            scripts/validate-county-collapse-group2-stranded-operation-reconciliation-v2.js
+            scripts/validate-county-collapse-group4-postbarrier-timeout-terminal-reconciliation-design-v1.js
+            scripts/validate-county-collapse-group4-postbarrier-timeout-terminal-reconciliation-v1.js
+            scripts/validate-county-collapse-observation-preservation-contract-v1.js
+            scripts/validate-county-collapse-observation-preservation-implementation-contract-v1.js
+            scripts/validate-county-collapse-observation-preservation-store-v1.js
+            scripts/validate-county-collapse-operation-intent-contract-v1.js
+            scripts/validate-county-collapse-operation-intent-orphan-binding-recovery-contract-v1.js
+            scripts/validate-county-collapse-operation-intent-orphan-binding-recovery-v1.js
+            scripts/validate-county-collapse-operation-intent-store-v1.js
+            scripts/validate-county-collapse-runtime-prerequisite-certification-contract-v1.js
+            scripts/validate-county-collapse-runtime-prerequisite-certification-v1.js
+            scripts/validate-county-collapse-runtime-prerequisite-implementation-lifecycle-v1.js
+            scripts/validate-county-mutation-exclusion-lease-authority-compatibility-v1.js
+            scripts/validate-county-mutation-exclusion-lease-contract-v1.js
+            scripts/validate-county-mutation-exclusion-lease-implementation-contract-v1.js
+            scripts/validate-county-mutation-exclusion-lease-retrofit-validation-lifecycle-v1.js
+            scripts/validate-county-mutation-exclusion-lease-validation-lifecycle-v1.js
+            scripts/validate-county-mutation-exclusion-writer-code-violation-group3-zillow-restoration-v1.js
+            scripts/validate-county-runtime-integration.js
+          COUNTY_SURFACES
+      
+          git diff --name-status "$before" "$after" > "$delta_file"
+      
+          county_relevant=false
+      
+          while IFS=$'\t' read -r status path1 path2; do
+            [[ -n "${status:-}" ]] || continue
+      
+            for changed_path in "${path1:-}" "${path2:-}"; do
+              [[ -n "$changed_path" ]] || continue
+      
+              if grep -Fx -- "$changed_path" "$surface_file" >/dev/null; then
+                county_relevant=true
+                break 2
+              fi
+            done
+          done < "$delta_file"
+      
+          echo "county_relevant=$county_relevant" >> "$GITHUB_OUTPUT"
+          echo "county_relevant=$county_relevant"
+
       - name: Report Node runtime
         run: node --version
 
@@ -922,9 +1113,11 @@ jobs:
         run: node scripts/validate-philadelphia-probate-absent-persistence-executor-v1.js
 
       - name: Validate current county runtime integration
+        if: ${{ github.event_name != 'push' || steps.county_changes.outputs.county_relevant == 'true' }}
         run: node ./scripts/validate-county-runtime-integration.js
 
       - name: Validate certified county runtime integration
+        if: ${{ github.event_name != 'push' || steps.county_changes.outputs.county_relevant == 'true' }}
         run: |
           root="$(mktemp -d)"
           wt="$root/certified"
