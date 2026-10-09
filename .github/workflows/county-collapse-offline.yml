@@ -812,6 +812,10 @@ jobs:
           node --check scripts/validate-absentee-owner-classification-evidence-store-v2.js
           node --check scripts/validate-absentee-owner-classification-evidence-store-behavior-v2.js
           node --check scripts/validate-absentee-owner-classification-evidence-store-integration-v2.js
+          node --check build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2ProvisioningAdmin.js
+          node --check scripts/validate-absentee-owner-classification-evidence-store-v2-provisioning-admin-v1.js
+          node --check scripts/validate-absentee-owner-classification-evidence-store-v2-provisioning-admin-behavior-v1.js
+          node --check scripts/validate-absentee-owner-classification-evidence-store-v2-provisioning-admin-integration-v1.js
 
       - name: Validate absentee-owner certified property-source provenance planner static v2
         run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-v2.js
@@ -850,6 +854,15 @@ jobs:
 
       - name: Validate absentee-owner classification evidence store integration v2
         run: node scripts/validate-absentee-owner-classification-evidence-store-integration-v2.js
+
+      - name: Validate absentee-owner classification evidence-store v2 provisioning admin static v1
+        run: node scripts/validate-absentee-owner-classification-evidence-store-v2-provisioning-admin-v1.js
+
+      - name: Validate absentee-owner classification evidence-store v2 provisioning admin behavior v1
+        run: node scripts/validate-absentee-owner-classification-evidence-store-v2-provisioning-admin-behavior-v1.js
+
+      - name: Validate absentee-owner classification evidence-store v2 provisioning admin integration v1
+        run: node scripts/validate-absentee-owner-classification-evidence-store-v2-provisioning-admin-integration-v1.js
 
       - name: Validate absentee-owner classification evidence-store provisioning admin surface design v1
         run: node scripts/validate-absentee-owner-classification-evidence-store-provisioning-admin-surface-design-v1.js
