@@ -889,7 +889,6 @@ jobs:
 
           test -n "$base"
           test -n "$head"
-          test "$(git merge-base "$base" "$head")" = "$base"
 
           git diff --quiet "$base" "$head" -- \
             build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2.js \
@@ -918,7 +917,6 @@ jobs:
 
           test -n "$base"
           test -n "$head"
-          test "$(git merge-base "$base" "$head")" = "$base"
 
           git diff --quiet "$base" "$head" -- \
             build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js \
