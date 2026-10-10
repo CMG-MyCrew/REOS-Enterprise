@@ -1,0 +1,401 @@
+name: Absentee owner V2 PR319 exact merge validation v1
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-merge-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout dispatch main snapshot
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          path: dispatch-main
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Certify dispatch main and support-workflow scope
+        shell: bash
+        env:
+          PRE_SUPPORT_MAIN: 1e721decd3e2868e82ca130f5d841e34226a3622
+          SUPPORT_WORKFLOW: .github/workflows/absentee-owner-v2-pr319-exact-merge-validation-v1.yml
+        run: |
+          set -euo pipefail
+
+          cd "$GITHUB_WORKSPACE/dispatch-main"
+
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+          test "$GITHUB_SHA" != "$PRE_SUPPORT_MAIN"
+
+          git cat-file -e "$PRE_SUPPORT_MAIN^{commit}"
+          git merge-base --is-ancestor "$PRE_SUPPORT_MAIN" "$GITHUB_SHA"
+
+          mapfile -t main_changes < <(
+            git diff-tree \
+              --no-commit-id \
+              --name-status \
+              -r \
+              "$PRE_SUPPORT_MAIN" \
+              "$GITHUB_SHA"
+          )
+
+          test "${#main_changes[@]}" -eq 1
+          test "${main_changes[0]}" = $'A\t'"$SUPPORT_WORKFLOW"
+
+          git cat-file -e "$GITHUB_SHA:$SUPPORT_WORKFLOW"
+
+          test -z "$(
+            git status \
+              --porcelain=v1 \
+              --untracked-files=all
+          )"
+
+          printf 'DISPATCH_MAIN_SHA=%s\n' "$GITHUB_SHA"
+          printf 'POST_SUPPORT_MAIN_SCOPE_EXACT=true\n'
+
+      - name: Checkout live PR319 synthetic merge
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: refs/pull/319/merge
+          path: live-merge
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Certify live PR319 merge identity and scope
+        id: live_merge
+        shell: bash
+        env:
+          DISPATCH_MAIN: ${{ github.sha }}
+          RUNTIME_HEAD: d26c205c1f47ae28b60c176c209e0fc5a409e92a
+          RUNTIME_FILE: build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2ExactEventReadOnlyReconciliation.js
+          RUNTIME_SHA256: 0f274486d26b09833a19ddf5104b69c00379e54506e1d14e415fe839303da7d2
+        run: |
+          set -euo pipefail
+
+          cd "$GITHUB_WORKSPACE/live-merge"
+
+          merge_sha="$(git rev-parse HEAD)"
+          merge_tree="$(git rev-parse HEAD^{tree})"
+
+          mapfile -t parent_tokens < <(
+            git rev-list \
+              --parents \
+              -n 1 \
+              "$merge_sha"
+          )
+
+          read -r commit parent1 parent2 extra <<< "${parent_tokens[0]}"
+
+          test "$commit" = "$merge_sha"
+          test "$parent1" = "$DISPATCH_MAIN"
+          test "$parent2" = "$RUNTIME_HEAD"
+          test -z "${extra:-}"
+
+          git cat-file -e "$DISPATCH_MAIN^{commit}"
+          git cat-file -e "$RUNTIME_HEAD^{commit}"
+
+          test -z "$(
+            git status \
+              --porcelain=v1 \
+              --untracked-files=all
+          )"
+
+          mapfile -t merge_changes < <(
+            git diff-tree \
+              --no-commit-id \
+              --name-status \
+              -r \
+              "$DISPATCH_MAIN" \
+              "$merge_sha"
+          )
+
+          test "${#merge_changes[@]}" -eq 1
+          test "${merge_changes[0]}" = $'A\t'"$RUNTIME_FILE"
+
+          runtime_sha="$(
+            git cat-file blob \
+              "$merge_sha:$RUNTIME_FILE" |
+              sha256sum |
+              awk '{print $1}'
+          )"
+
+          test "$runtime_sha" = "$RUNTIME_SHA256"
+
+          runtime_head_sha="$(
+            git cat-file blob \
+              "$RUNTIME_HEAD:$RUNTIME_FILE" |
+              sha256sum |
+              awk '{print $1}'
+          )"
+
+          test "$runtime_head_sha" = "$RUNTIME_SHA256"
+
+          printf 'merge_sha=%s\n' "$merge_sha" >> "$GITHUB_OUTPUT"
+          printf 'merge_tree=%s\n' "$merge_tree" >> "$GITHUB_OUTPUT"
+
+          printf 'LIVE_PR319_MERGE_SHA=%s\n' "$merge_sha"
+          printf 'LIVE_PR319_MERGE_TREE=%s\n' "$merge_tree"
+          printf 'LIVE_PR319_MERGE_FIRST_PARENT=%s\n' "$parent1"
+          printf 'LIVE_PR319_MERGE_SECOND_PARENT=%s\n' "$parent2"
+          printf 'LIVE_PR319_FIRST_PARENT_CHANGESET_EXACT=true\n'
+          printf 'LIVE_PR319_RUNTIME_SHA256_EXACT=true\n'
+
+      - name: Validate reconciliation runtime syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd "$GITHUB_WORKSPACE/live-merge"
+
+          node --check \
+            build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2ExactEventReadOnlyReconciliation.js
+
+          printf 'RECONCILIATION_RUNTIME_NODE_SYNTAX_VALID=true\n'
+
+      - name: Validate reconciliation read-only safety boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd "$GITHUB_WORKSPACE/live-merge"
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path(
+              "build/apps-script-brand/"
+              "AbsenteeOwnerClassificationEvidenceStoreV2ExactEventReadOnlyReconciliation.js"
+          )
+
+          text = path.read_text(encoding="utf-8")
+
+          required_exact_once = [
+              "function reosAbsenteeOwnerClassificationEvidenceStoreV2ExactEventReadOnlyReconciliation",
+              "READ_ONLY_EXACT_V2_EVENT_RECONCILIATION",
+              "ABSENTEE_OWNER_V2_EXACT_EVENT_RECONCILIATION_VERIFIED",
+              "ABSENTEE_OWNER_V2_EXACT_EVENT_RECONCILIATION_NOT_PRESENT",
+              "ABSENTEE_OWNER_V2_EXACT_EVENT_RECONCILIATION_PRECONDITION_FAILED",
+          ]
+
+          for marker in required_exact_once:
+              count = text.count(marker)
+              if count != 1:
+                  raise SystemExit(
+                      f"required marker count mismatch: {marker}: {count}"
+                  )
+
+          required_safety_markers = [
+              "No persistence authority.",
+              "No retry authority.",
+              "No DISTRESS_LEADS access.",
+              "No external HTTP.",
+              "No scheduler, trigger, ARV, repair-scope, MAO, or offer authority.",
+          ]
+
+          for marker in required_safety_markers:
+              if marker not in text:
+                  raise SystemExit(
+                      f"required safety marker absent: {marker}"
+                  )
+
+          forbidden = [
+              "UrlFetchApp",
+              ".setValue(",
+              ".setValues(",
+              ".appendRow(",
+              ".insertRow(",
+              ".deleteRow(",
+              ".insertSheet(",
+              ".deleteSheet(",
+              ".clear(",
+              ".clearContent(",
+              ".setFormula(",
+              ".setFormulaR1C1(",
+              ".persist(",
+              "AcquisitionWorkflow",
+              "DealLifecycleWorkflow",
+              "Suggested Offer",
+              "Estimated Repairs",
+              "Estimated Value",
+          ]
+
+          for marker in forbidden:
+              if marker in text:
+                  raise SystemExit(
+                      f"forbidden authority/mutation marker present: {marker}"
+                  )
+
+          print("READ_ONLY_REQUIRED_MARKERS_EXACT=true")
+          print("WRITE_API_MARKERS_ABSENT=true")
+          print("EXTERNAL_HTTP_MARKER_ABSENT=true")
+          print("PERSISTENCE_CALL_MARKER_ABSENT=true")
+          print("ACQUISITION_AUTHORITY_MARKERS_ABSENT=true")
+          PY
+
+      - name: Validate current county runtime integration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd "$GITHUB_WORKSPACE/live-merge"
+
+          node scripts/validate-county-runtime-integration.js
+
+          printf 'COUNTY_RUNTIME_INTEGRATION_VALID=true\n'
+
+      - name: Validate planner successor immutability against live base
+        shell: bash
+        env:
+          LIVE_BASE: ${{ github.sha }}
+          RUNTIME_HEAD: d26c205c1f47ae28b60c176c209e0fc5a409e92a
+        run: |
+          set -euo pipefail
+
+          cd "$GITHUB_WORKSPACE/live-merge"
+
+          git diff --quiet \
+            "$LIVE_BASE" \
+            "$RUNTIME_HEAD" \
+            -- \
+            build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2.js \
+            scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-v2.js \
+            scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-behavior-v2.js \
+            scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-integration-v2.js
+
+          printf 'PLANNER_SUCCESSOR_IMMUTABILITY_VALID=true\n'
+
+      - name: Validate evidence-store successor immutability against live base
+        shell: bash
+        env:
+          LIVE_BASE: ${{ github.sha }}
+          RUNTIME_HEAD: d26c205c1f47ae28b60c176c209e0fc5a409e92a
+        run: |
+          set -euo pipefail
+
+          cd "$GITHUB_WORKSPACE/live-merge"
+
+          git diff --quiet \
+            "$LIVE_BASE" \
+            "$RUNTIME_HEAD" \
+            -- \
+            build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js \
+            scripts/validate-absentee-owner-classification-evidence-store-v2.js \
+            scripts/validate-absentee-owner-classification-evidence-store-behavior-v2.js \
+            scripts/validate-absentee-owner-classification-evidence-store-integration-v2.js
+
+          printf 'EVIDENCE_STORE_SUCCESSOR_IMMUTABILITY_VALID=true\n'
+
+      - name: Certify acquisition authority remains absent
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd "$GITHUB_WORKSPACE/live-merge"
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path(
+              "build/apps-script-brand/"
+              "AbsenteeOwnerClassificationEvidenceStoreV2ExactEventReadOnlyReconciliation.js"
+          )
+
+          text = path.read_text(encoding="utf-8")
+
+          required = (
+              "No scheduler, trigger, ARV, repair-scope, MAO, or offer authority."
+          )
+
+          if required not in text:
+              raise SystemExit(
+                  "acquisition authority denial marker absent"
+              )
+
+          forbidden = [
+              "AcquisitionWorkflow",
+              "DealLifecycleWorkflow",
+              "Suggested Offer",
+              "Estimated Repairs",
+              "Estimated Value",
+              "reosCalculateMao",
+              "reosGenerateOffer",
+              "reosSubmitOffer",
+          ]
+
+          for marker in forbidden:
+              if marker in text:
+                  raise SystemExit(
+                      f"downstream acquisition marker present: {marker}"
+                  )
+
+          print("ARV_AUTHORITY_GRANTED=false")
+          print("REPAIR_SCOPE_AUTHORITY_GRANTED=false")
+          print("MAO_AUTHORITY_GRANTED=false")
+          print("OFFER_GENERATION_AUTHORITY_GRANTED=false")
+          print("OFFER_SUBMISSION_AUTHORITY_GRANTED=false")
+          PY
+
+      - name: Checkout final main race snapshot
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: main
+          path: final-main
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Checkout final PR319 merge race snapshot
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: refs/pull/319/merge
+          path: final-merge
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Final main head and merge race certification
+        shell: bash
+        env:
+          DISPATCH_MAIN: ${{ github.sha }}
+          INITIAL_LIVE_MERGE: ${{ steps.live_merge.outputs.merge_sha }}
+          RUNTIME_HEAD: d26c205c1f47ae28b60c176c209e0fc5a409e92a
+        run: |
+          set -euo pipefail
+
+          final_main="$(
+            git -C "$GITHUB_WORKSPACE/final-main" \
+              rev-parse HEAD
+          )"
+
+          final_merge="$(
+            git -C "$GITHUB_WORKSPACE/final-merge" \
+              rev-parse HEAD
+          )"
+
+          test "$final_main" = "$DISPATCH_MAIN"
+          test "$final_merge" = "$INITIAL_LIVE_MERGE"
+
+          read -r commit parent1 parent2 extra <<< "$(
+            git -C "$GITHUB_WORKSPACE/final-merge" \
+              rev-list \
+              --parents \
+              -n 1 \
+              "$final_merge"
+          )"
+
+          test "$commit" = "$final_merge"
+          test "$parent1" = "$DISPATCH_MAIN"
+          test "$parent2" = "$RUNTIME_HEAD"
+          test -z "${extra:-}"
+
+          printf 'FINAL_MAIN_RACE_ABSENT=true\n'
+          printf 'FINAL_PR319_HEAD_RACE_ABSENT=true\n'
+          printf 'FINAL_PR319_MERGE_RACE_ABSENT=true\n'
+          printf 'PR319_EXACT_MERGE_SNAPSHOT_INDEPENDENT_VALIDATION=true\n'
