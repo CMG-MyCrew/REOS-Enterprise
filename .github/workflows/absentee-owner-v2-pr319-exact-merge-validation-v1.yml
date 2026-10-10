@@ -191,7 +191,9 @@ jobs:
           )"
 
           GIT_MERGE_AUTOEDIT=no \
-          git merge \
+          git -c user.name="REOS CI" \
+            -c user.email="reos-ci@users.noreply.github.com" \
+            merge \
             --no-commit \
             --no-ff \
             "$RUNTIME_HEAD"
