@@ -277,6 +277,25 @@ const ABSENTEE_OWNER_CLASSIFICATION_EVIDENCE_STORE_V2_PROVISIONING_PRODUCTION_FI
   'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2ProvisioningAdmin.js'
 ];
 
+
+/*
+ * Exact-event V2 read-only reconciliation runtime.
+ *
+ * Keep this isolated reconciliation surface separate from the historical
+ * county production inventory. The compatibility validator must pass in both
+ * promotion states:
+ *
+ * - before the runtime is merged, the exact path is absent;
+ * - when the runtime is present, it must be exactly one additive file.
+ *
+ * This inventory grants no persistence write, retry, scheduler, trigger,
+ * external HTTP, Distress_Leads mutation, acquisition, ARV, repair, MAO,
+ * offer, deployment, or production invocation authority.
+ */
+const ABSENTEE_OWNER_V2_EXACT_EVENT_READ_ONLY_RECONCILIATION_PRODUCTION_FILES = [
+  'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2ExactEventReadOnlyReconciliation.js'
+];
+
 /*
  * Bounded certified-property-source owner-evidence production entrypoint.
  *
@@ -1441,6 +1460,67 @@ diffEntries = diffEntries.filter(
 
 pass(
   'classification evidence store v2 provisioning surface is exactly one explicitly allowlisted additive administrative file'
+);
+
+const absenteeOwnerV2ExactEventReadOnlyReconciliationEntries =
+  diffEntries.filter(entry =>
+    ABSENTEE_OWNER_V2_EXACT_EVENT_READ_ONLY_RECONCILIATION_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  ABSENTEE_OWNER_V2_EXACT_EVENT_READ_ONLY_RECONCILIATION_PRODUCTION_FILES.length,
+  1,
+  'V2 exact-event read-only reconciliation inventory must contain exactly one file'
+);
+
+ABSENTEE_OWNER_V2_EXACT_EVENT_READ_ONLY_RECONCILIATION_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    absenteeOwnerV2ExactEventReadOnlyReconciliationEntries.filter(
+      entry => entry.file === file
+    );
+
+  const runtimeExists =
+    fs.existsSync(
+      path.join(ROOT, file)
+    );
+
+  assert.ok(
+    matches.length <= 1,
+    `V2 exact-event read-only reconciliation file duplicated: ${file}`
+  );
+
+  if (runtimeExists) {
+    assert.equal(
+      matches.length,
+      1,
+      `V2 exact-event read-only reconciliation runtime must be an exact additive production file when present: ${file}`
+    );
+
+    assert.equal(
+      matches[0].status,
+      'A',
+      `V2 exact-event read-only reconciliation runtime must remain additive: ${file}`
+    );
+  } else {
+    assert.equal(
+      matches.length,
+      0,
+      `V2 exact-event read-only reconciliation diff entry exists while runtime path is absent: ${file}`
+    );
+  }
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !ABSENTEE_OWNER_V2_EXACT_EVENT_READ_ONLY_RECONCILIATION_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'V2 exact-event read-only reconciliation is isolated as one optional exact additive production file'
 );
 
 const absenteeOwnerCertifiedPropertySourceIdentityOwnerEvidenceProductionEntrypointEntries =
