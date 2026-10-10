@@ -1,4 +1,4 @@
-name: Absentee owner V2 PR319 exact merge validation v1
+name: Absentee owner V3 PR319 local synthetic merge validation v1
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 jobs:
-  exact-merge-validation:
+  local-synthetic-merge-validation:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
 
@@ -20,10 +20,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Certify dispatch main and support-workflow scope
+      - name: Certify dispatch main and V3 workflow promotion scope
         shell: bash
         env:
-          PRE_SUPPORT_MAIN: 1e721decd3e2868e82ca130f5d841e34226a3622
+          PRE_V3_MAIN: 5270fbf525b23dafedd429e275be5bcd77b965c3
           SUPPORT_WORKFLOW: .github/workflows/absentee-owner-v2-pr319-exact-merge-validation-v1.yml
         run: |
           set -euo pipefail
@@ -32,26 +32,31 @@ jobs:
 
           test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
           test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_REPOSITORY" = "CMG-MyCrew/REOS-Enterprise"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
 
-          test "$GITHUB_SHA" != "$PRE_SUPPORT_MAIN"
+          test "$GITHUB_SHA" != "$PRE_V3_MAIN"
 
-          git cat-file -e "$PRE_SUPPORT_MAIN^{commit}"
-          git merge-base --is-ancestor "$PRE_SUPPORT_MAIN" "$GITHUB_SHA"
+          git cat-file -e "$PRE_V3_MAIN^{commit}"
+          git merge-base --is-ancestor \
+            "$PRE_V3_MAIN" \
+            "$GITHUB_SHA"
 
           mapfile -t main_changes < <(
             git diff-tree \
               --no-commit-id \
               --name-status \
               -r \
-              "$PRE_SUPPORT_MAIN" \
+              "$PRE_V3_MAIN" \
               "$GITHUB_SHA"
           )
 
           test "${#main_changes[@]}" -eq 1
-          test "${main_changes[0]}" = $'A\t'"$SUPPORT_WORKFLOW"
+          test "${main_changes[0]}" = \
+            $'M\t'"$SUPPORT_WORKFLOW"
 
-          git cat-file -e "$GITHUB_SHA:$SUPPORT_WORKFLOW"
+          git cat-file -e \
+            "$GITHUB_SHA:$SUPPORT_WORKFLOW"
 
           test -z "$(
             git status \
@@ -60,18 +65,112 @@ jobs:
           )"
 
           printf 'DISPATCH_MAIN_SHA=%s\n' "$GITHUB_SHA"
-          printf 'POST_SUPPORT_MAIN_SCOPE_EXACT=true\n'
+          printf 'POST_V3_PROMOTION_MAIN_SCOPE_EXACT=true\n'
 
-      - name: Checkout live PR319 synthetic merge
+      - name: Checkout frozen PR319 runtime source branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: refs/pull/319/merge
-          path: live-merge
+          ref: feat/absentee-owner-v2-exact-event-read-only-reconciliation-v1
+          path: runtime-source
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Certify live PR319 merge identity and scope
-        id: live_merge
+      - name: Certify and import frozen runtime source
+        shell: bash
+        env:
+          DISPATCH_MAIN: ${{ github.sha }}
+          RUNTIME_HEAD: d26c205c1f47ae28b60c176c209e0fc5a409e92a
+          TRUE_MERGE_BASE: 5a91795628b4c837b83e32e7b4b09ecabe12b89d
+          RUNTIME_FILE: build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2ExactEventReadOnlyReconciliation.js
+          RUNTIME_SHA256: 0f274486d26b09833a19ddf5104b69c00379e54506e1d14e415fe839303da7d2
+        run: |
+          set -euo pipefail
+
+          runtime_repo="$GITHUB_WORKSPACE/runtime-source"
+          merge_repo="$GITHUB_WORKSPACE/dispatch-main"
+
+          runtime_checkout="$(
+            git -C "$runtime_repo" rev-parse HEAD
+          )"
+
+          test "$runtime_checkout" = "$RUNTIME_HEAD"
+
+          test -z "$(
+            git -C "$runtime_repo" status \
+              --porcelain=v1 \
+              --untracked-files=all
+          )"
+
+          git -C "$merge_repo" fetch \
+            --quiet \
+            --no-tags \
+            "$runtime_repo" \
+            HEAD
+
+          imported_runtime="$(
+            git -C "$merge_repo" rev-parse FETCH_HEAD
+          )"
+
+          test "$imported_runtime" = "$RUNTIME_HEAD"
+
+          git -C "$merge_repo" cat-file -e \
+            "$RUNTIME_HEAD^{commit}"
+
+          merge_base="$(
+            git -C "$merge_repo" merge-base \
+              "$DISPATCH_MAIN" \
+              "$RUNTIME_HEAD"
+          )"
+
+          runtime_parent="$(
+            git -C "$merge_repo" rev-parse \
+              "$RUNTIME_HEAD^"
+          )"
+
+          runtime_ahead="$(
+            git -C "$merge_repo" rev-list \
+              --count \
+              "$TRUE_MERGE_BASE..$RUNTIME_HEAD"
+          )"
+
+          test "$merge_base" = "$TRUE_MERGE_BASE"
+          test "$runtime_parent" = "$TRUE_MERGE_BASE"
+          test "$runtime_ahead" = "1"
+
+          mapfile -t runtime_changes < <(
+            git -C "$merge_repo" diff \
+              --name-status \
+              "$TRUE_MERGE_BASE" \
+              "$RUNTIME_HEAD"
+          )
+
+          test "${#runtime_changes[@]}" -eq 1
+          test "${runtime_changes[0]}" = \
+            $'A\t'"$RUNTIME_FILE"
+
+          runtime_sha="$(
+            git -C "$merge_repo" cat-file blob \
+              "$RUNTIME_HEAD:$RUNTIME_FILE" |
+              sha256sum |
+              awk '{print $1}'
+          )"
+
+          test "$runtime_sha" = "$RUNTIME_SHA256"
+
+          test -z "$(
+            git -C "$merge_repo" status \
+              --porcelain=v1 \
+              --untracked-files=all
+          )"
+
+          printf 'FROZEN_RUNTIME_HEAD_EXACT=true\n'
+          printf 'TRUE_MERGE_BASE_EXACT=true\n'
+          printf 'RUNTIME_HEAD_PARENT_EXACT=true\n'
+          printf 'RUNTIME_BRANCH_SCOPE_EXACT=true\n'
+          printf 'RUNTIME_BRANCH_SHA256_EXACT=true\n'
+
+      - name: Create ephemeral local synthetic merge
+        id: synthetic_merge
         shell: bash
         env:
           DISPATCH_MAIN: ${{ github.sha }}
@@ -81,27 +180,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          cd "$GITHUB_WORKSPACE/live-merge"
+          cd "$GITHUB_WORKSPACE/dispatch-main"
 
-          merge_sha="$(git rev-parse HEAD)"
-          merge_tree="$(git rev-parse HEAD^{tree})"
-
-          mapfile -t parent_tokens < <(
-            git rev-list \
-              --parents \
-              -n 1 \
-              "$merge_sha"
-          )
-
-          read -r commit parent1 parent2 extra <<< "${parent_tokens[0]}"
-
-          test "$commit" = "$merge_sha"
-          test "$parent1" = "$DISPATCH_MAIN"
-          test "$parent2" = "$RUNTIME_HEAD"
-          test -z "${extra:-}"
-
-          git cat-file -e "$DISPATCH_MAIN^{commit}"
-          git cat-file -e "$RUNTIME_HEAD^{commit}"
+          test "$(git rev-parse HEAD)" = "$DISPATCH_MAIN"
 
           test -z "$(
             git status \
@@ -109,52 +190,72 @@ jobs:
               --untracked-files=all
           )"
 
-          mapfile -t merge_changes < <(
-            git diff-tree \
-              --no-commit-id \
+          GIT_MERGE_AUTOEDIT=no \
+          git merge \
+            --no-commit \
+            --no-ff \
+            "$RUNTIME_HEAD"
+
+          test "$(git rev-parse HEAD)" = "$DISPATCH_MAIN"
+
+          merge_head="$(
+            git rev-parse MERGE_HEAD
+          )"
+
+          test "$merge_head" = "$RUNTIME_HEAD"
+
+          unmerged_count="$(
+            git ls-files -u |
+              wc -l |
+              tr -d ' '
+          )"
+
+          test "$unmerged_count" = "0"
+
+          synthetic_tree="$(
+            git write-tree
+          )"
+
+          mapfile -t synthetic_changes < <(
+            git diff \
+              --cached \
               --name-status \
-              -r \
-              "$DISPATCH_MAIN" \
-              "$merge_sha"
+              "$DISPATCH_MAIN"
           )
 
-          test "${#merge_changes[@]}" -eq 1
-          test "${merge_changes[0]}" = $'A\t'"$RUNTIME_FILE"
+          test "${#synthetic_changes[@]}" -eq 1
+          test "${synthetic_changes[0]}" = \
+            $'A\t'"$RUNTIME_FILE"
+
+          git diff \
+            --cached \
+            --check \
+            "$DISPATCH_MAIN"
 
           runtime_sha="$(
-            git cat-file blob \
-              "$merge_sha:$RUNTIME_FILE" |
-              sha256sum |
+            sha256sum "$RUNTIME_FILE" |
               awk '{print $1}'
           )"
 
           test "$runtime_sha" = "$RUNTIME_SHA256"
 
-          runtime_head_sha="$(
-            git cat-file blob \
-              "$RUNTIME_HEAD:$RUNTIME_FILE" |
-              sha256sum |
-              awk '{print $1}'
-          )"
+          printf 'synthetic_tree=%s\n' \
+            "$synthetic_tree" >> "$GITHUB_OUTPUT"
 
-          test "$runtime_head_sha" = "$RUNTIME_SHA256"
-
-          printf 'merge_sha=%s\n' "$merge_sha" >> "$GITHUB_OUTPUT"
-          printf 'merge_tree=%s\n' "$merge_tree" >> "$GITHUB_OUTPUT"
-
-          printf 'LIVE_PR319_MERGE_SHA=%s\n' "$merge_sha"
-          printf 'LIVE_PR319_MERGE_TREE=%s\n' "$merge_tree"
-          printf 'LIVE_PR319_MERGE_FIRST_PARENT=%s\n' "$parent1"
-          printf 'LIVE_PR319_MERGE_SECOND_PARENT=%s\n' "$parent2"
-          printf 'LIVE_PR319_FIRST_PARENT_CHANGESET_EXACT=true\n'
-          printf 'LIVE_PR319_RUNTIME_SHA256_EXACT=true\n'
+          printf 'LOCAL_SYNTHETIC_MERGE_CLEAN=true\n'
+          printf 'LOCAL_SYNTHETIC_MERGE_HEAD=%s\n' \
+            "$merge_head"
+          printf 'LOCAL_SYNTHETIC_MERGE_TREE=%s\n' \
+            "$synthetic_tree"
+          printf 'LOCAL_SYNTHETIC_FIRST_PARENT_SCOPE_EXACT=true\n'
+          printf 'LOCAL_SYNTHETIC_RUNTIME_SHA256_EXACT=true\n'
 
       - name: Validate reconciliation runtime syntax
         shell: bash
         run: |
           set -euo pipefail
 
-          cd "$GITHUB_WORKSPACE/live-merge"
+          cd "$GITHUB_WORKSPACE/dispatch-main"
 
           node --check \
             build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2ExactEventReadOnlyReconciliation.js
@@ -166,7 +267,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          cd "$GITHUB_WORKSPACE/live-merge"
+          cd "$GITHUB_WORKSPACE/dispatch-main"
 
           python3 - <<'PY'
           from pathlib import Path
@@ -246,25 +347,25 @@ jobs:
         run: |
           set -euo pipefail
 
-          cd "$GITHUB_WORKSPACE/live-merge"
+          cd "$GITHUB_WORKSPACE/dispatch-main"
 
           node scripts/validate-county-runtime-integration.js
 
           printf 'COUNTY_RUNTIME_INTEGRATION_VALID=true\n'
 
-      - name: Validate planner successor immutability against live base
+      - name: Validate planner successor immutability
         shell: bash
         env:
-          LIVE_BASE: ${{ github.sha }}
-          RUNTIME_HEAD: d26c205c1f47ae28b60c176c209e0fc5a409e92a
+          DISPATCH_MAIN: ${{ github.sha }}
         run: |
           set -euo pipefail
 
-          cd "$GITHUB_WORKSPACE/live-merge"
+          cd "$GITHUB_WORKSPACE/dispatch-main"
 
-          git diff --quiet \
-            "$LIVE_BASE" \
-            "$RUNTIME_HEAD" \
+          git diff \
+            --cached \
+            --quiet \
+            "$DISPATCH_MAIN" \
             -- \
             build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2.js \
             scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-planner-v2.js \
@@ -273,19 +374,19 @@ jobs:
 
           printf 'PLANNER_SUCCESSOR_IMMUTABILITY_VALID=true\n'
 
-      - name: Validate evidence-store successor immutability against live base
+      - name: Validate evidence-store successor immutability
         shell: bash
         env:
-          LIVE_BASE: ${{ github.sha }}
-          RUNTIME_HEAD: d26c205c1f47ae28b60c176c209e0fc5a409e92a
+          DISPATCH_MAIN: ${{ github.sha }}
         run: |
           set -euo pipefail
 
-          cd "$GITHUB_WORKSPACE/live-merge"
+          cd "$GITHUB_WORKSPACE/dispatch-main"
 
-          git diff --quiet \
-            "$LIVE_BASE" \
-            "$RUNTIME_HEAD" \
+          git diff \
+            --cached \
+            --quiet \
+            "$DISPATCH_MAIN" \
             -- \
             build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js \
             scripts/validate-absentee-owner-classification-evidence-store-v2.js \
@@ -299,7 +400,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          cd "$GITHUB_WORKSPACE/live-merge"
+          cd "$GITHUB_WORKSPACE/dispatch-main"
 
           python3 - <<'PY'
           from pathlib import Path
@@ -344,6 +445,34 @@ jobs:
           print("OFFER_SUBMISSION_AUTHORITY_GRANTED=false")
           PY
 
+      - name: Abort ephemeral local synthetic merge
+        if: always()
+        shell: bash
+        env:
+          DISPATCH_MAIN: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          cd "$GITHUB_WORKSPACE/dispatch-main"
+
+          if git rev-parse \
+               --verify \
+               --quiet \
+               MERGE_HEAD >/dev/null; then
+            git merge --abort
+          fi
+
+          test "$(git rev-parse HEAD)" = "$DISPATCH_MAIN"
+
+          test -z "$(
+            git status \
+              --porcelain=v1 \
+              --untracked-files=all
+          )"
+
+          printf 'EPHEMERAL_SYNTHETIC_MERGE_ABORTED=true\n'
+          printf 'DISPATCH_MAIN_WORKTREE_RESTORED=true\n'
+
       - name: Checkout final main race snapshot
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -352,20 +481,20 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Checkout final PR319 merge race snapshot
+      - name: Checkout final runtime-head race snapshot
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: refs/pull/319/merge
-          path: final-merge
+          ref: feat/absentee-owner-v2-exact-event-read-only-reconciliation-v1
+          path: final-runtime
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Final main head and merge race certification
+      - name: Final main and runtime-head race certification
         shell: bash
         env:
           DISPATCH_MAIN: ${{ github.sha }}
-          INITIAL_LIVE_MERGE: ${{ steps.live_merge.outputs.merge_sha }}
           RUNTIME_HEAD: d26c205c1f47ae28b60c176c209e0fc5a409e92a
+          SYNTHETIC_TREE: ${{ steps.synthetic_merge.outputs.synthetic_tree }}
         run: |
           set -euo pipefail
 
@@ -374,28 +503,17 @@ jobs:
               rev-parse HEAD
           )"
 
-          final_merge="$(
-            git -C "$GITHUB_WORKSPACE/final-merge" \
+          final_runtime="$(
+            git -C "$GITHUB_WORKSPACE/final-runtime" \
               rev-parse HEAD
           )"
 
           test "$final_main" = "$DISPATCH_MAIN"
-          test "$final_merge" = "$INITIAL_LIVE_MERGE"
-
-          read -r commit parent1 parent2 extra <<< "$(
-            git -C "$GITHUB_WORKSPACE/final-merge" \
-              rev-list \
-              --parents \
-              -n 1 \
-              "$final_merge"
-          )"
-
-          test "$commit" = "$final_merge"
-          test "$parent1" = "$DISPATCH_MAIN"
-          test "$parent2" = "$RUNTIME_HEAD"
-          test -z "${extra:-}"
+          test "$final_runtime" = "$RUNTIME_HEAD"
+          test -n "$SYNTHETIC_TREE"
 
           printf 'FINAL_MAIN_RACE_ABSENT=true\n'
-          printf 'FINAL_PR319_HEAD_RACE_ABSENT=true\n'
-          printf 'FINAL_PR319_MERGE_RACE_ABSENT=true\n'
-          printf 'PR319_EXACT_MERGE_SNAPSHOT_INDEPENDENT_VALIDATION=true\n'
+          printf 'FINAL_RUNTIME_HEAD_RACE_ABSENT=true\n'
+          printf 'LOCAL_SYNTHETIC_MERGE_VALIDATION=true\n'
+          printf 'GITHUB_PULL_MERGE_REF_DEPENDENCY=false\n'
+          printf 'PR319_SOURCE_MUTATION_EXECUTED=false\n'
