@@ -116,7 +116,6 @@ const workflow =
 
 [
   'REOS.Security.requireAdmin',
-  'REOS.AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceBoundedRolloutOrchestratorV2',
   'function reosAbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceBoundedRolloutV2('
 ].forEach(marker => {
   assert.ok(
@@ -125,6 +124,12 @@ const workflow =
       marker
   );
 });
+
+assert.ok(
+  /REOS\s*\.\s*AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceBoundedRolloutOrchestratorV2/
+    .test(runtime),
+  'authorized orchestrator dependency missing'
+);
 
 [
   'REOS.AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2',
