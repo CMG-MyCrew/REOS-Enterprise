@@ -803,7 +803,24 @@ jobs:
         run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-extension-design-v2.js
 
       - name: Validate absentee-owner certified property-source provenance bounded rollout orchestrator v2 implementation freeze v1
+        if: ${{ github.event_name == 'pull_request' && github.head_ref == 'feat/absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-orchestrator-v2-implementation-freeze' }}
         run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-orchestrator-v2-implementation-freeze-v1.js
+
+      - name: Check absentee-owner certified property-source provenance bounded rollout orchestrator v2 syntax
+        run: |
+          node --check build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceBoundedRolloutOrchestratorV2.js
+          node --check scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-orchestrator-v2.js
+          node --check scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-orchestrator-behavior-v2.js
+          node --check scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-orchestrator-integration-v2.js
+
+      - name: Validate absentee-owner certified property-source provenance bounded rollout orchestrator v2 static
+        run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-orchestrator-v2.js
+
+      - name: Validate absentee-owner certified property-source provenance bounded rollout orchestrator v2 behavior
+        run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-orchestrator-behavior-v2.js
+
+      - name: Validate absentee-owner certified property-source provenance bounded rollout orchestrator v2 integration
+        run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-orchestrator-integration-v2.js
 
       - name: Check absentee-owner certified property-source provenance executor v2 syntax
         run: node --check build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceExecutorV2.js
