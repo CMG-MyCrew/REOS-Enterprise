@@ -822,6 +822,22 @@ jobs:
       - name: Validate absentee-owner certified property-source provenance bounded rollout orchestrator v2 integration
         run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-orchestrator-integration-v2.js
 
+      - name: Check absentee-owner certified property-source provenance bounded rollout production entrypoint v2 syntax
+        run: |
+          node --check build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceBoundedRolloutProductionEntrypointV2.js
+          node --check scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-production-entrypoint-v2.js
+          node --check scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-production-entrypoint-behavior-v2.js
+          node --check scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-production-entrypoint-integration-v2.js
+
+      - name: Validate absentee-owner certified property-source provenance bounded rollout production entrypoint v2 static
+        run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-production-entrypoint-v2.js
+
+      - name: Validate absentee-owner certified property-source provenance bounded rollout production entrypoint v2 behavior
+        run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-production-entrypoint-behavior-v2.js
+
+      - name: Validate absentee-owner certified property-source provenance bounded rollout production entrypoint v2 integration
+        run: node scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-production-entrypoint-integration-v2.js
+
       - name: Check absentee-owner certified property-source provenance executor v2 syntax
         run: node --check build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceExecutorV2.js
 

@@ -254,6 +254,18 @@ const ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVEN
 ];
 
 /*
+ * Manual admin-only V2 bounded-rollout production entrypoint.
+ *
+ * Keep this additive RPC boundary separate from the certified internal
+ * orchestrator. It delegates exactly once to that orchestrator and grants
+ * no direct planner, executor, store, Database, HTTP, spreadsheet, lock,
+ * scheduler, trigger, acquisition, ARV, repair, MAO, or offer authority.
+ */
+const ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_BOUNDED_ROLLOUT_PRODUCTION_ENTRYPOINT_V2_PRODUCTION_FILES = [
+  'build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceBoundedRolloutProductionEntrypointV2.js'
+];
+
+/*
  * V2 evidence-store provisioning administration runtime.
  *
  * Keep this additive administrative provisioning surface separate from the
@@ -1288,6 +1300,76 @@ diffEntries = diffEntries.filter(
 
 pass(
   'certified property-source provenance bounded rollout orchestrator v2 surface is exactly one explicitly allowlisted additive internal orchestration file'
+);
+
+const absenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceBoundedRolloutProductionEntrypointV2Entries =
+  diffEntries.filter(entry =>
+    ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_BOUNDED_ROLLOUT_PRODUCTION_ENTRYPOINT_V2_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_BOUNDED_ROLLOUT_PRODUCTION_ENTRYPOINT_V2_PRODUCTION_FILES.length,
+  1,
+  'certified property-source provenance bounded rollout production entrypoint v2 inventory must contain exactly one file'
+);
+
+ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_BOUNDED_ROLLOUT_PRODUCTION_ENTRYPOINT_V2_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    absenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceBoundedRolloutProductionEntrypointV2Entries.filter(
+      entry => entry.file === file
+    );
+
+  assert.ok(
+    fs.existsSync(path.join(ROOT, file)),
+    `certified property-source provenance bounded rollout production entrypoint v2 runtime is missing: ${file}`
+  );
+
+  if (matches.length === 0) {
+    const sourceEditStatus = git([
+      'status',
+      '--porcelain=v1',
+      '--untracked-files=all',
+      '--',
+      file
+    ]);
+
+    assert.equal(
+      sourceEditStatus.status,
+      0,
+      `unable to inspect bounded rollout production entrypoint v2 source-edit status: ${file}`
+    );
+
+    assert.equal(
+      String(sourceEditStatus.stdout || '').trim(),
+      '?? ' + file,
+      `bounded rollout production entrypoint v2 must be either an untracked authorized source edit or additive against baseline: ${file}`
+    );
+  } else {
+    assert.equal(
+      matches.length,
+      1,
+      `bounded rollout production entrypoint v2 file missing or duplicated: ${file}`
+    );
+
+    assert.equal(
+      matches[0].status,
+      'A',
+      `bounded rollout production entrypoint v2 must remain additive: ${file}`
+    );
+  }
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !ABSENTEE_OWNER_CLASSIFICATION_PERSISTENCE_CERTIFIED_PROPERTY_SOURCE_PROVENANCE_BOUNDED_ROLLOUT_PRODUCTION_ENTRYPOINT_V2_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'certified property-source provenance bounded rollout production entrypoint v2 surface is exactly one explicitly allowlisted additive manual admin RPC file'
 );
 
 
