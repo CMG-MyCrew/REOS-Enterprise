@@ -1,0 +1,74 @@
+{
+  "dealId": "DL-SYNTH-PERSIST-001",
+  "canonicalPropertyKey": "property|parcel|pa|philadelphia|synthetic-persist-001",
+  "asOf": "2026-10-11T12:00:00.000Z",
+  "arv": {
+    "arvEvidenceId": "ARVE-SYNTH-PERSIST-001",
+    "schemaVersion": "v1",
+    "dealId": "DL-SYNTH-PERSIST-001",
+    "canonicalPropertyKey": "property|parcel|pa|philadelphia|synthetic-persist-001",
+    "evidenceStatus": "supported",
+    "confidenceStatus": "sufficient",
+    "estimatedArv": 250000,
+    "acceptedComparableEvidenceIds": [
+      "CE-SYNTH-001",
+      "CE-SYNTH-002",
+      "CE-SYNTH-003"
+    ],
+    "acceptedComparableCount": 3,
+    "minimumComparableCount": 3,
+    "valuationMethod": "synthetic_test_only",
+    "valuationInputs": {},
+    "supportedLowValue": 240000,
+    "supportedHighValue": 260000,
+    "reviewRequired": false,
+    "reasonCodes": [],
+    "evidenceGeneratedAt": "2026-10-11T10:00:00.000Z",
+    "persistedAt": "2026-10-11T10:01:00.000Z",
+    "sourceEngine": "synthetic-test",
+    "sourceEngineVersion": "v1",
+    "provenance": {
+      "synthetic": true
+    },
+    "idempotencyKey": "synthetic-arv-001",
+    "supersedesEvidenceId": ""
+  },
+  "repair": {
+    "repairScopeEvidenceId": "RSE-SYNTH-PERSIST-001",
+    "schemaVersion": "v1",
+    "dealId": "DL-SYNTH-PERSIST-001",
+    "canonicalPropertyKey": "property|parcel|pa|philadelphia|synthetic-persist-001",
+    "scopeStatus": "adequate",
+    "scopeComplete": true,
+    "estimatedRepairCost": 50000,
+    "reviewRequired": false,
+    "reasonCodes": [],
+    "scopeInputs": {},
+    "evidenceGeneratedAt": "2026-10-11T10:05:00.000Z",
+    "persistedAt": "2026-10-11T10:06:00.000Z",
+    "sourceEngine": "synthetic-test",
+    "sourceEngineVersion": "v1",
+    "provenance": {
+      "synthetic": true
+    },
+    "idempotencyKey": "synthetic-repair-001",
+    "supersedesEvidenceId": ""
+  },
+  "readiness": {
+    "readinessEvidenceId": "ORE-SYNTH-PERSIST-001",
+    "schemaVersion": "v1",
+    "dealId": "DL-SYNTH-PERSIST-001",
+    "canonicalPropertyKey": "property|parcel|pa|philadelphia|synthetic-persist-001",
+    "arvEvidenceId": "ARVE-SYNTH-PERSIST-001",
+    "repairScopeEvidenceId": "RSE-SYNTH-PERSIST-001",
+    "decision": "eligible",
+    "compSupportedArvReady": true,
+    "repairScopeReady": true,
+    "reasonCodes": [],
+    "evaluatedAt": "2026-10-11T10:10:00.000Z",
+    "persistedAt": "2026-10-11T10:11:00.000Z",
+    "gateVersion": "offline-comps-readiness-evidence-gate-mapper-v1",
+    "idempotencyKey": "synthetic-readiness-001",
+    "supersedesEvidenceId": ""
+  }
+}

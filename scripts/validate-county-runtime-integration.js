@@ -150,6 +150,7 @@ const POST_COUNTY_PRODUCTION_FILES = [
   'build/apps-script-brand/PhiladelphiaProbateCertifiedOversizeOrphanAnchoredDurableEvidenceCaptureProductionTransport.js',
   'build/apps-script-brand/PhiladelphiaProbatePersistenceReadinessExactIdentityInspection.js',
   'build/apps-script-brand/PhiladelphiaProbateAbsentPersistenceExecutor.js',
+  'build/apps-script-brand/CompsReadinessEvidencePersistence.js',
 ];
 
 /*
