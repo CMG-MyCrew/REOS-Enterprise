@@ -226,6 +226,39 @@ REOS.AbsenteeOwnerClassificationEvidenceStoreV2 = (function () {
     );
   }
 
+  function normalizeCertifiedOpaAccountReadback_(value) {
+    if (
+      typeof value === 'string' &&
+      /^[0-9]{9}$/.test(value)
+    ) {
+      return value;
+    }
+
+    if (
+      typeof value === 'number' &&
+      isFinite(value) &&
+      Math.floor(value) === value &&
+      value >= 0 &&
+      value <= 999999999
+    ) {
+      var normalized =
+        String(value);
+
+      while (normalized.length < 9) {
+        normalized =
+          '0' + normalized;
+      }
+
+      if (/^[0-9]{9}$/.test(normalized)) {
+        return normalized;
+      }
+    }
+
+    throw precondition_(
+      'Stored v2 Certified OPA Account readback is invalid.'
+    );
+  }
+
   function validObservedAt_(value) {
     if (typeof value !== 'string') {
       return false;
@@ -801,6 +834,14 @@ REOS.AbsenteeOwnerClassificationEvidenceStoreV2 = (function () {
       );
     }
 
+    var normalizedRow =
+      row.slice();
+
+    normalizedRow[18] =
+      normalizeCertifiedOpaAccountReadback_(
+        row[18]
+      );
+
     if (
       !Array.isArray(formulas) ||
       formulas.length !== HEADERS.length ||
@@ -813,7 +854,7 @@ REOS.AbsenteeOwnerClassificationEvidenceStoreV2 = (function () {
       );
     }
 
-    row.forEach(function (value, index) {
+    normalizedRow.forEach(function (value, index) {
       if (
         typeof value === 'string' &&
         !safeText_(value)
@@ -840,17 +881,17 @@ REOS.AbsenteeOwnerClassificationEvidenceStoreV2 = (function () {
 
     if (
       !/^AOCE2-[0-9a-f]{64}$/.test(
-        row[0]
+        normalizedRow[0]
       ) ||
-      !validObservedAt_(row[1]) ||
-      row[2] !== 2 ||
-      row[3] !== 1 ||
-      !safeText_(row[4]) ||
-      !safeText_(row[5]) ||
-      typeof row[6] !== 'number' ||
-      !isFinite(row[6]) ||
-      Math.floor(row[6]) !== row[6] ||
-      row[6] < 2
+      !validObservedAt_(normalizedRow[1]) ||
+      normalizedRow[2] !== 2 ||
+      normalizedRow[3] !== 1 ||
+      !safeText_(normalizedRow[4]) ||
+      !safeText_(normalizedRow[5]) ||
+      typeof normalizedRow[6] !== 'number' ||
+      !isFinite(normalizedRow[6]) ||
+      Math.floor(normalizedRow[6]) !== normalizedRow[6] ||
+      normalizedRow[6] < 2
     ) {
       throw precondition_(
         'Stored v2 identity or contract fields are invalid.'
@@ -860,25 +901,25 @@ REOS.AbsenteeOwnerClassificationEvidenceStoreV2 = (function () {
     if (
       !own_(
         PERSISTABLE_OUTCOMES,
-        row[7]
+        normalizedRow[7]
       ) ||
-      row[8] !== BASIS ||
-      row[9] !==
+      normalizedRow[8] !== BASIS ||
+      normalizedRow[9] !==
         PERSISTABLE_OUTCOMES[
-          row[7]
+          normalizedRow[7]
         ] ||
       !validateDifferingJson_(
         helpers,
-        row[7],
-        row[10]
+        normalizedRow[7],
+        normalizedRow[10]
       ) ||
       !validateAddressJson_(
         helpers,
-        row[11]
+        normalizedRow[11]
       ) ||
       !validateAddressJson_(
         helpers,
-        row[12]
+        normalizedRow[12]
       )
     ) {
       throw precondition_(
@@ -887,13 +928,13 @@ REOS.AbsenteeOwnerClassificationEvidenceStoreV2 = (function () {
     }
 
     if (
-      row[13] !== SOURCE_AGENCY ||
-      row[14] !== SOURCE_DATASET ||
-      row[15] !== SOURCE_TABLE ||
-      row[16] !== SOURCE_ENDPOINT ||
-      row[17] !== LOOKUP_MODE ||
-      !/^[0-9]{9}$/.test(row[18]) ||
-      row[19] !== CERTIFICATION_BASIS
+      normalizedRow[13] !== SOURCE_AGENCY ||
+      normalizedRow[14] !== SOURCE_DATASET ||
+      normalizedRow[15] !== SOURCE_TABLE ||
+      normalizedRow[16] !== SOURCE_ENDPOINT ||
+      normalizedRow[17] !== LOOKUP_MODE ||
+      !/^[0-9]{9}$/.test(normalizedRow[18]) ||
+      normalizedRow[19] !== CERTIFICATION_BASIS
     ) {
       throw precondition_(
         'Stored v2 source provenance is invalid.'
@@ -901,11 +942,11 @@ REOS.AbsenteeOwnerClassificationEvidenceStoreV2 = (function () {
     }
 
     [
-      row[20],
-      row[21],
-      row[22],
-      row[23],
-      row[24]
+      normalizedRow[20],
+      normalizedRow[21],
+      normalizedRow[22],
+      normalizedRow[23],
+      normalizedRow[24]
     ].forEach(function (value) {
       if (!lowercaseSha_(value)) {
         throw precondition_(
@@ -916,10 +957,10 @@ REOS.AbsenteeOwnerClassificationEvidenceStoreV2 = (function () {
 
     if (
       !(
-        row[25] === GENESIS ||
-        lowercaseSha_(row[25])
+        normalizedRow[25] === GENESIS ||
+        lowercaseSha_(normalizedRow[25])
       ) ||
-      !lowercaseSha_(row[26])
+      !lowercaseSha_(normalizedRow[26])
     ) {
       throw precondition_(
         'Stored v2 evidence hash chain fields are invalid.'
@@ -928,24 +969,24 @@ REOS.AbsenteeOwnerClassificationEvidenceStoreV2 = (function () {
 
     var expectedEventId =
       eventIdFor_(helpers, {
-        persistenceContractVersion: row[2],
-        classificationContractVersion: row[3],
-        distressLeadId: row[4],
-        canonicalPropertyKey: row[5],
-        certifiedOpaAccount: row[18],
+        persistenceContractVersion: normalizedRow[2],
+        classificationContractVersion: normalizedRow[3],
+        distressLeadId: normalizedRow[4],
+        canonicalPropertyKey: normalizedRow[5],
+        certifiedOpaAccount: normalizedRow[18],
         propertySourceIdentityCertificationSha256:
-          row[20],
+          normalizedRow[20],
         normalLookupEvidenceSha256:
-          row[21],
+          normalizedRow[21],
         ownerEvidenceResultSha256:
-          row[22],
+          normalizedRow[22],
         comparisonResultSha256:
-          row[23],
+          normalizedRow[23],
         classifierResultSha256:
-          row[24]
+          normalizedRow[24]
       });
 
-    if (row[0] !== expectedEventId) {
+    if (normalizedRow[0] !== expectedEventId) {
       throw precondition_(
         'Stored v2 Evidence Event ID is not deterministic.'
       );
@@ -953,10 +994,10 @@ REOS.AbsenteeOwnerClassificationEvidenceStoreV2 = (function () {
 
     var expectedEventHash =
       helpers.hashCanonicalObject(
-        eventPayloadFromRow_(row)
+        eventPayloadFromRow_(normalizedRow)
       );
 
-    if (row[26] !== expectedEventHash) {
+    if (normalizedRow[26] !== expectedEventHash) {
       throw precondition_(
         'Stored v2 Evidence Event SHA-256 is invalid.'
       );
@@ -967,25 +1008,25 @@ REOS.AbsenteeOwnerClassificationEvidenceStoreV2 = (function () {
         physicalRowNumber,
 
       evidenceEventId:
-        row[0],
+        normalizedRow[0],
 
       observedAtUtc:
-        row[1],
+        normalizedRow[1],
 
       distressLeadId:
-        row[4],
+        normalizedRow[4],
 
       canonicalPropertyKey:
-        row[5],
+        normalizedRow[5],
 
       classifierResultSha256:
-        row[24],
+        normalizedRow[24],
 
       previousEvidenceSha256:
-        row[25],
+        normalizedRow[25],
 
       evidenceEventSha256:
-        row[26]
+        normalizedRow[26]
     };
   }
 
@@ -1173,12 +1214,39 @@ REOS.AbsenteeOwnerClassificationEvidenceStoreV2 = (function () {
   }
 
   function rowEquals_(left, right) {
-    return (
-      left.length === right.length &&
-      left.every(function (value, index) {
-        return value === right[index];
-      })
-    );
+    if (
+      !Array.isArray(left) ||
+      !Array.isArray(right) ||
+      left.length !== right.length
+    ) {
+      return false;
+    }
+
+    return left.every(function (value, index) {
+      if (index === 18) {
+        if (
+          typeof right[index] !== 'string' ||
+          !/^[0-9]{9}$/.test(
+            right[index]
+          )
+        ) {
+          return false;
+        }
+
+        try {
+          return (
+            normalizeCertifiedOpaAccountReadback_(
+              value
+            ) ===
+            right[index]
+          );
+        } catch (error) {
+          return false;
+        }
+      }
+
+      return value === right[index];
+    });
   }
 
   function persist(plan, options) {
