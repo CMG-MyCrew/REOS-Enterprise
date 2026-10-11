@@ -153,6 +153,23 @@ const POST_COUNTY_PRODUCTION_FILES = [
 ];
 
 /*
+ * Offline-certifiable comps readiness evidence persistence module v1.
+ *
+ * Keep this additive persistence-contract module separate from the inherited
+ * POST_COUNTY_PRODUCTION_FILES inventory. Existing certified integration
+ * validators intentionally pin that historical inventory at exactly 70 files.
+ *
+ * This one-file inventory grants no live storage adapter, Google Sheets write,
+ * provider request, production ARV calculation, repair-scope mutation,
+ * Qualified Deal Queue, acquisition lifecycle, MAO, offer-generation,
+ * offer-submission, RPC, deployment, scheduler, or trigger authority.
+ */
+const COMPS_READINESS_EVIDENCE_PERSISTENCE_PRODUCTION_FILES = [
+  'build/apps-script-brand/CompsReadinessEvidencePersistence.js'
+];
+
+
+/*
  * Bounded absentee-owner source-evidence retrieval runtime.
  *
  * Keep this read-only implementation separate from the inherited
@@ -922,6 +939,49 @@ diffEntries = diffEntries.filter(
     !POST_COUNTY_PRODUCTION_FILES.includes(
       entry.file
     )
+);
+
+const compsReadinessEvidencePersistenceEntries =
+  diffEntries.filter(entry =>
+    COMPS_READINESS_EVIDENCE_PERSISTENCE_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  COMPS_READINESS_EVIDENCE_PERSISTENCE_PRODUCTION_FILES.length,
+  1,
+  'comps readiness evidence persistence inventory must contain exactly one file'
+);
+
+COMPS_READINESS_EVIDENCE_PERSISTENCE_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    compsReadinessEvidencePersistenceEntries.filter(
+      entry => entry.file === file
+    );
+
+  assert.equal(
+    matches.length,
+    1,
+    `comps readiness evidence persistence file missing or duplicated: ${file}`
+  );
+
+  assert.equal(
+    matches[0].status,
+    'A',
+    `comps readiness evidence persistence file must remain additive: ${file}`
+  );
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !COMPS_READINESS_EVIDENCE_PERSISTENCE_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'comps readiness evidence persistence surface is exactly one explicitly allowlisted additive offline-certifiable file'
 );
 
 const absenteeOwnerSourceEvidenceRetrievalEntries =
