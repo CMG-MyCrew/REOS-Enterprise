@@ -1,0 +1,38 @@
+{
+  "context": {
+    "dealId": "DL-SYNTH-001",
+    "canonicalPropertyKey": "property|parcel|pa|philadelphia|synthetic-001",
+    "asOf": "2026-10-11T12:00:00.000Z"
+  },
+  "arv": {
+    "outcome": "selected",
+    "record": {
+      "arvEvidenceId": "ARVE-SYNTH-001",
+      "dealId": "DL-SYNTH-001",
+      "canonicalPropertyKey": "property|parcel|pa|philadelphia|synthetic-001",
+      "evidenceStatus": "supported",
+      "confidenceStatus": "sufficient",
+      "estimatedArv": 250000,
+      "acceptedComparableEvidenceIds": [
+        "CE-SYNTH-001",
+        "CE-SYNTH-002",
+        "CE-SYNTH-003"
+      ],
+      "acceptedComparableCount": 3,
+      "minimumComparableCount": 3,
+      "reviewRequired": false
+    }
+  },
+  "repair": {
+    "outcome": "selected",
+    "record": {
+      "repairScopeEvidenceId": "RSE-SYNTH-001",
+      "dealId": "DL-SYNTH-001",
+      "canonicalPropertyKey": "property|parcel|pa|philadelphia|synthetic-001",
+      "scopeStatus": "adequate",
+      "scopeComplete": true,
+      "estimatedRepairCost": 50000,
+      "reviewRequired": false
+    }
+  }
+}
