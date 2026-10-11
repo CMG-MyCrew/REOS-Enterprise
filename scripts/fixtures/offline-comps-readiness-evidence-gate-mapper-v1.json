@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "offline-comps-readiness-evidence-gate-mapper-fixtures-v1",
+  "context": {
+    "dealId": "DL-SYNTH-001",
+    "canonicalPropertyKey": "property|parcel|pa|philadelphia|synthetic-001",
+    "asOf": "2026-10-11T12:00:00.000Z"
+  },
+  "validArv": {
+    "arvEvidenceId": "ARVE-SYNTH-001",
+    "dealId": "DL-SYNTH-001",
+    "canonicalPropertyKey": "property|parcel|pa|philadelphia|synthetic-001",
+    "evidenceStatus": "supported",
+    "confidenceStatus": "sufficient",
+    "estimatedArv": 250000,
+    "acceptedComparableEvidenceIds": [
+      "COMP-SYNTH-001",
+      "COMP-SYNTH-002",
+      "COMP-SYNTH-003"
+    ],
+    "acceptedComparableCount": 3,
+    "minimumComparableCount": 3,
+    "reviewRequired": false
+  },
+  "validRepair": {
+    "repairScopeEvidenceId": "RSE-SYNTH-001",
+    "dealId": "DL-SYNTH-001",
+    "canonicalPropertyKey": "property|parcel|pa|philadelphia|synthetic-001",
+    "scopeStatus": "adequate",
+    "scopeComplete": true,
+    "estimatedRepairCost": 50000,
+    "reviewRequired": false
+  }
+}
