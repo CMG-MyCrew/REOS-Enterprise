@@ -31,15 +31,21 @@ const RUNTIME =
 const FREEZE_DOC =
   'docs/absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-orchestrator-v2-implementation-freeze-v1.md';
 
+const STORE =
+  'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js';
+
+const ALLOWED_STORE_BLOBS =
+  Object.freeze([
+    '3e8175c31763a8cc3f0f6fe665edd8eb3ff377cb',
+    'a1ac146b8a26adb1dccc15858926e710d6c2757c'
+  ]);
+
 const IMMUTABLE = Object.freeze({
   'build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceExecutorV2.js':
     '2c353ca3ce173ff2d35b5722c7669af63a3b1cb0',
 
   'build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2.js':
     'fd034b1b367a5720da58ab26703e1e4a2bf7e937',
-
-  'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js':
-    '3e8175c31763a8cc3f0f6fe665edd8eb3ff377cb',
 
   'build/apps-script-brand/AbsenteeOwnerClassificationBoundedRollout.js':
     '4c19474a66315b5277a8ebdd2864a0827e5a1595',
@@ -232,6 +238,21 @@ for (
       relative
   );
 }
+
+const storeBlob =
+  git([
+    'hash-object',
+    '--',
+    STORE
+  ]);
+
+assert.ok(
+  ALLOWED_STORE_BLOBS.includes(
+    storeBlob
+  ),
+  'immutable dependency changed: ' +
+    STORE
+);
 
 const freeze =
   fs.readFileSync(
