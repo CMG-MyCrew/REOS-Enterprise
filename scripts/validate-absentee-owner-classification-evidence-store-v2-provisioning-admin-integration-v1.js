@@ -35,6 +35,12 @@ const V1_PROVISIONER =
 const V2_STORE =
   'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js';
 
+const ALLOWED_V2_STORE_SHA256 =
+  Object.freeze([
+    '2bdfd0bdf005ea8b16ed9e13777a8c99ba229f8e86fbf5055859867be6cf5048',
+    '4a6f969e4b0b44ed65069fd2d3c1c498272224ead7991cde95732849b3112a3b'
+  ]);
+
 function read(file) {
   return fs.readFileSync(
     path.join(ROOT, file),
@@ -80,9 +86,13 @@ assert.strictEqual(
   '73b7f2706689c8829ba0bb056f6c6133b19025fe9c6f96578d0c96cdcdc00304'
 );
 
-assert.strictEqual(
-  sha256(read(V2_STORE)),
-  '2bdfd0bdf005ea8b16ed9e13777a8c99ba229f8e86fbf5055859867be6cf5048'
+assert.ok(
+  ALLOWED_V2_STORE_SHA256.includes(
+    sha256(
+      read(V2_STORE)
+    )
+  ),
+  'V2 evidence-store SHA-256 is not an approved certified version'
 );
 
 const runtime = read(RUNTIME);

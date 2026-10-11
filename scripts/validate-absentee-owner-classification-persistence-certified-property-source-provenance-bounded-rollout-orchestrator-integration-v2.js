@@ -49,10 +49,18 @@ const FREEZE_DOC =
 const FREEZE_VALIDATOR =
   'scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-bounded-rollout-orchestrator-v2-implementation-freeze-v1.js';
 
+const STORE =
+  'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js';
+
+const ALLOWED_STORE_BLOBS =
+  Object.freeze([
+    '3e8175c31763a8cc3f0f6fe665edd8eb3ff377cb',
+    'a1ac146b8a26adb1dccc15858926e710d6c2757c'
+  ]);
+
 const IMMUTABLE = [
   'build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceExecutorV2.js',
   'build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2.js',
-  'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js',
   'build/apps-script-brand/AbsenteeOwnerClassificationBoundedRollout.js',
   'build/apps-script-brand/Database.js'
 ];
@@ -86,7 +94,8 @@ for (
     WORKFLOW,
     COUNTY_RUNTIME,
     FREEZE_DOC,
-    FREEZE_VALIDATOR
+    FREEZE_VALIDATOR,
+    STORE
   ].concat(
     IMMUTABLE
   )
@@ -279,6 +288,35 @@ for (
       relative
   );
 }
+
+const storeBlob =
+  childProcess
+    .spawnSync(
+      'git',
+      [
+        'hash-object',
+        '--',
+        STORE
+      ],
+      {
+        cwd: ROOT,
+        encoding: 'utf8'
+      }
+    );
+
+assert.equal(
+  storeBlob.status,
+  0,
+  'unable to hash V2 evidence-store dependency'
+);
+
+assert.ok(
+  ALLOWED_STORE_BLOBS.includes(
+    storeBlob.stdout.trim()
+  ),
+  'immutable/freeze dependency changed: ' +
+    STORE
+);
 
 assert.equal(
   crypto

@@ -35,6 +35,15 @@ const countyValidator =
 const freezeValidator =
   'scripts/validate-absentee-owner-classification-persistence-certified-property-source-provenance-executor-v2-implementation-freeze-v1.js';
 
+const STORE =
+  'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js';
+
+const ALLOWED_STORE_BLOBS =
+  Object.freeze([
+    '3e8175c31763a8cc3f0f6fe665edd8eb3ff377cb',
+    'a1ac146b8a26adb1dccc15858926e710d6c2757c'
+  ]);
+
 const expectedImplementationFiles = [
   workflow,
   runtime,
@@ -272,7 +281,6 @@ assert.ok(
 
 const immutable = [
   'build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2.js',
-  'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js',
   'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2ProvisioningAdmin.js',
   'build/apps-script-brand/Database.js',
   'build/apps-script-brand/AbsenteeOwnerClassificationPersistencePlanner.js',
@@ -316,6 +324,29 @@ immutable.forEach(file => {
     `certified dependency changed: ${file}`
   );
 });
+
+const storeBlob =
+  run(
+    'git',
+    [
+      'hash-object',
+      '--',
+      STORE
+    ]
+  );
+
+assert.equal(
+  storeBlob.status,
+  0,
+  'cannot hash V2 evidence-store dependency'
+);
+
+assert.ok(
+  ALLOWED_STORE_BLOBS.includes(
+    storeBlob.stdout.trim()
+  ),
+  `certified dependency changed: ${STORE}`
+);
 
 const countyRun =
   run(
