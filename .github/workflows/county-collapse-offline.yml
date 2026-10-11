@@ -919,10 +919,21 @@ jobs:
           test -n "$head"
 
           git diff --quiet "$base" "$head" -- \
-            build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js \
             scripts/validate-absentee-owner-classification-evidence-store-v2.js \
             scripts/validate-absentee-owner-classification-evidence-store-behavior-v2.js \
             scripts/validate-absentee-owner-classification-evidence-store-integration-v2.js
+
+          store="build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js"
+          store_blob="$(git rev-parse "$head:$store")"
+
+          case "$store_blob" in
+            3e8175c31763a8cc3f0f6fe665edd8eb3ff377cb|a1ac146b8a26adb1dccc15858926e710d6c2757c)
+              ;;
+            *)
+              printf 'STOP=unapproved V2 evidence-store blob: %s\n' "$store_blob" >&2
+              exit 1
+              ;;
+          esac
 
       - name: Validate absentee-owner classification evidence-store v2 provisioning admin static v1
         run: node scripts/validate-absentee-owner-classification-evidence-store-v2-provisioning-admin-v1.js

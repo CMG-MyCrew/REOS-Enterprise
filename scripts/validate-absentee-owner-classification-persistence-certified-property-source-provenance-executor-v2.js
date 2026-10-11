@@ -12,6 +12,15 @@ const BASE = '3f5c9fcc11861efd3f6f00c9b46c2d98f93025b9';
 const runtimePath =
   'build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenanceExecutorV2.js';
 
+const STORE =
+  'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js';
+
+const ALLOWED_STORE_BLOBS =
+  Object.freeze([
+    '3e8175c31763a8cc3f0f6fe665edd8eb3ff377cb',
+    'a1ac146b8a26adb1dccc15858926e710d6c2757c'
+  ]);
+
 const source =
   fs.readFileSync(
     path.join(ROOT, runtimePath),
@@ -127,7 +136,6 @@ assert.ok(
 
 const immutable = [
   'build/apps-script-brand/AbsenteeOwnerClassificationPersistenceCertifiedPropertySourceProvenancePlannerV2.js',
-  'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2.js',
   'build/apps-script-brand/AbsenteeOwnerClassificationEvidenceStoreV2ProvisioningAdmin.js',
   'build/apps-script-brand/Database.js',
   'build/apps-script-brand/AbsenteeOwnerClassificationPersistencePlanner.js',
@@ -146,6 +154,26 @@ function git(args) {
     }
   );
 }
+
+const storeBlob =
+  git([
+    'hash-object',
+    '--',
+    STORE
+  ]);
+
+assert.equal(
+  storeBlob.status,
+  0,
+  'unable to hash immutable V2 evidence-store dependency'
+);
+
+assert.ok(
+  ALLOWED_STORE_BLOBS.includes(
+    storeBlob.stdout.trim()
+  ),
+  `immutable dependency changed: ${STORE}`
+);
 
 immutable.forEach(file => {
   const expected = git([
