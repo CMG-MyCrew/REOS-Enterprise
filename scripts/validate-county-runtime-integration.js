@@ -695,6 +695,18 @@ pass(
 );
 
 /*
+ * Production Spreadsheet Identity Certification V1.
+ *
+ * Keep this read-only identity certification surface outside the historical
+ * generic production inventory. It is independently certified below and
+ * grants no production mutation, provisioning, persistence, MAO, or offer
+ * authority.
+ */
+const PRODUCTION_SPREADSHEET_IDENTITY_CERTIFICATION_PRODUCTION_FILES = [
+  'build/apps-script-brand/ProductionSpreadsheetIdentityCertification.js'
+];
+
+/*
  * Runtime production file inventory.
  */
 RUNTIME_CORE_FILES.forEach(fileName => {
@@ -2578,6 +2590,49 @@ assert.ok(
   'CountyCodeViolationGroup3PostRestorationEvidence.js must be the authority-free durable read-only Group 3 post-restoration evidence surface'
 );
 
+const productionSpreadsheetIdentityCertificationEntries =
+  diffEntries.filter(entry =>
+    PRODUCTION_SPREADSHEET_IDENTITY_CERTIFICATION_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  PRODUCTION_SPREADSHEET_IDENTITY_CERTIFICATION_PRODUCTION_FILES.length,
+  1,
+  'production spreadsheet identity certification inventory must contain exactly one file'
+);
+
+PRODUCTION_SPREADSHEET_IDENTITY_CERTIFICATION_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    productionSpreadsheetIdentityCertificationEntries.filter(
+      entry => entry.file === file
+    );
+
+  assert.equal(
+    matches.length,
+    1,
+    `production spreadsheet identity certification file missing or duplicated: ${file}`
+  );
+
+  assert.equal(
+    matches[0].status,
+    'A',
+    `production spreadsheet identity certification file must remain additive: ${file}`
+  );
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !PRODUCTION_SPREADSHEET_IDENTITY_CERTIFICATION_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'production spreadsheet identity certification surface is exactly one explicitly allowlisted additive read-only file'
+);
+
 assert.equal(
   expectedProductionFiles.size,
   147,
@@ -3156,3 +3211,100 @@ console.log('');
 console.log(
   'County runtime integration certification PASSED.'
 );
+
+// Dedicated additive validation:
+// Production Spreadsheet Identity Certification V1.
+// This is intentionally separate from historical generic
+// production_additions/component_validators accounting.
+(function validateProductionSpreadsheetIdentityCertificationV1() {
+  const fs = require('fs');
+  const path = require('path');
+
+  const root = path.resolve(__dirname, '..');
+
+  const productionPath = path.join(
+    root,
+    'build/apps-script-brand/ProductionSpreadsheetIdentityCertification.js'
+  );
+
+  const fixturePath = path.join(
+    root,
+    'scripts/fixtures/production-spreadsheet-identity-certification-v1.json'
+  );
+
+  const validatorPath = path.join(
+    root,
+    'scripts/validate-production-spreadsheet-identity-certification-v1.js'
+  );
+
+  if (!fs.existsSync(productionPath)) {
+    throw new Error(
+      'ProductionSpreadsheetIdentityCertification.js missing'
+    );
+  }
+
+  if (!fs.existsSync(fixturePath)) {
+    throw new Error(
+      'production spreadsheet identity certification fixture missing'
+    );
+  }
+
+  if (!fs.existsSync(validatorPath)) {
+    throw new Error(
+      'production spreadsheet identity certification validator missing'
+    );
+  }
+
+  const source = fs.readFileSync(productionPath, 'utf8');
+
+  const required = [
+    'REOS_PRODUCTION_SPREADSHEET_IDENTITY_CERTIFICATION_V1',
+    'reosProductionSpreadsheetIdentityCertificationV1',
+    'REOS_PRODUCTION_SPREADSHEET_ID',
+    'SpreadsheetApp.openById',
+    'DISTRESS_LEADS',
+    'DEALS'
+  ];
+
+  for (const token of required) {
+    if (!source.includes(token)) {
+      throw new Error(
+        'identity certification required token missing: ' + token
+      );
+    }
+  }
+
+  const forbidden = [
+    'getActiveSpreadsheet',
+    '.setValue(',
+    '.setValues(',
+    '.appendRow(',
+    '.clear(',
+    '.clearContent(',
+    '.insertSheet(',
+    '.deleteSheet(',
+    '.setProperty(',
+    '.setProperties(',
+    '.deleteProperty(',
+    '.deleteAllProperties(',
+    'SpreadsheetApp.flush',
+    'LockService',
+    'UrlFetchApp',
+    'GmailApp',
+    'DriveApp',
+    'ScriptApp'
+  ];
+
+  for (const token of forbidden) {
+    if (source.includes(token)) {
+      throw new Error(
+        'identity certification forbidden token present: ' + token
+      );
+    }
+  }
+
+  console.log(
+    'production_spreadsheet_identity_certification_v1=ok'
+  );
+})();
+
