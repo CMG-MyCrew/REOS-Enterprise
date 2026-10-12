@@ -1,0 +1,21 @@
+{
+  "version": "v1",
+  "expectedSpreadsheetIdentity": "prod-spreadsheet-001",
+  "requestedSpreadsheetIdentity": "prod-spreadsheet-001",
+  "wrongSpreadsheetIdentity": "wrong-spreadsheet-999",
+  "tables": {
+    "DEAL_ARV_EVIDENCE": 23,
+    "DEAL_REPAIR_SCOPE_EVIDENCE": 17,
+    "DEAL_OFFER_READINESS_EVIDENCE": 15
+  },
+  "requiredOutcomes": [
+    "provisioned",
+    "already_provisioned",
+    "rejected_spreadsheet_identity",
+    "rejected_existing_schema",
+    "rejected_authorization",
+    "failed_lock",
+    "failed_provisioning",
+    "failed_verification"
+  ]
+}
