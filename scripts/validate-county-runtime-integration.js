@@ -168,6 +168,20 @@ const COMPS_READINESS_EVIDENCE_PERSISTENCE_PRODUCTION_FILES = [
   'build/apps-script-brand/CompsReadinessEvidencePersistence.js'
 ];
 
+/*
+ * Live-capable comps readiness evidence storage adapter v1.
+ *
+ * Keep this additive adapter separate from the inherited
+ * POST_COUNTY_PRODUCTION_FILES inventory. This one-file inventory
+ * grants no automatic invocation, Google Sheets write, sheet creation,
+ * header repair, provider request, production RPC, deployment,
+ * scheduler, trigger, workflow, Qualified Deal Queue, acquisition
+ * lifecycle, MAO, offer-generation, or offer-submission authority.
+ */
+const COMPS_READINESS_EVIDENCE_STORAGE_ADAPTER_PRODUCTION_FILES = [
+  'build/apps-script-brand/CompsReadinessEvidenceStorageAdapter.js'
+];
+
 
 /*
  * Bounded absentee-owner source-evidence retrieval runtime.
@@ -982,6 +996,49 @@ diffEntries = diffEntries.filter(
 
 pass(
   'comps readiness evidence persistence surface is exactly one explicitly allowlisted additive offline-certifiable file'
+);
+
+const compsReadinessEvidenceStorageAdapterEntries =
+  diffEntries.filter(entry =>
+    COMPS_READINESS_EVIDENCE_STORAGE_ADAPTER_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  COMPS_READINESS_EVIDENCE_STORAGE_ADAPTER_PRODUCTION_FILES.length,
+  1,
+  'comps readiness evidence storage adapter inventory must contain exactly one file'
+);
+
+COMPS_READINESS_EVIDENCE_STORAGE_ADAPTER_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    compsReadinessEvidenceStorageAdapterEntries.filter(
+      entry => entry.file === file
+    );
+
+  assert.equal(
+    matches.length,
+    1,
+    `comps readiness evidence storage adapter file missing or duplicated: ${file}`
+  );
+
+  assert.equal(
+    matches[0].status,
+    'A',
+    `comps readiness evidence storage adapter file must remain additive: ${file}`
+  );
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !COMPS_READINESS_EVIDENCE_STORAGE_ADAPTER_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'comps readiness evidence storage adapter surface is exactly one explicitly allowlisted additive live-capable but non-invoked file'
 );
 
 const absenteeOwnerSourceEvidenceRetrievalEntries =
