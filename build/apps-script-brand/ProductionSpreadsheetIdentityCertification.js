@@ -36,7 +36,11 @@ var REOS_PRODUCTION_SPREADSHEET_IDENTITY_CERTIFICATION_V1 =
       ["Distress Lead ID", "Address", "City", "State", "Zip", "County", "Source", "Source Dataset", "Parcel ID", "Source Record ID", "Source Record Key", "Source Observation Key", "Canonical Property Key"];
 
   var SECONDARY_REQUIRED_FIELDS =
-      ["ARV", "Analysis ID", "Cap Rate %", "Cash Required", "Closed", "Closing", "Comparable Analysis", "Created At", "DEALS", "DSCR", "Deal ID", "Disposition", "Due Diligence", "Flip Profit", "Grade", "Initial Analysis", "Lead", "MAO", "NOI", "Negotiation", "Offer Amount", "Offer Generation", "Offer ID", "Offer Submitted", "Property Review", "Purchase Price", "ROI %", "Recommendation", "Risk Level", "Score", "Score ID", "Source", "Status", "Summary JSON", "Under Contract", "Updated At"];
+      [
+        "Deal ID",
+        "Address",
+        "Deal Status"
+      ];
 
   function copyArray_(values) {
     return values.slice();

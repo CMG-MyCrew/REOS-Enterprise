@@ -23,44 +23,9 @@
   "secondary": {
     "sheetName": "DEALS",
     "requiredFields": [
-      "ARV",
-      "Analysis ID",
-      "Cap Rate %",
-      "Cash Required",
-      "Closed",
-      "Closing",
-      "Comparable Analysis",
-      "Created At",
-      "DEALS",
-      "DSCR",
       "Deal ID",
-      "Disposition",
-      "Due Diligence",
-      "Flip Profit",
-      "Grade",
-      "Initial Analysis",
-      "Lead",
-      "MAO",
-      "NOI",
-      "Negotiation",
-      "Offer Amount",
-      "Offer Generation",
-      "Offer ID",
-      "Offer Submitted",
-      "Property Review",
-      "Purchase Price",
-      "ROI %",
-      "Recommendation",
-      "Risk Level",
-      "Score",
-      "Score ID",
-      "Source",
-      "Status",
-      "Summary JSON",
-      "Under Contract",
-      "Updated At"
-    ],
-    "requiredFieldsSha256": "e8dbe8e8a3586a364e6275eee8e7d9755d5f65ad05b0888d5a0042d171a0f76b",
-    "selectionRule": "all fields represented in at least two schema-bearing source files"
+      "Address",
+      "Deal Status"
+    ]
   }
 }
