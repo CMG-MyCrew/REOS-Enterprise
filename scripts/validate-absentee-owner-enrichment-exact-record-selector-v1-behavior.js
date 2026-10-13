@@ -14,6 +14,24 @@ function assert(condition, message) {
   }
 }
 
+function containsInvalidDate(value) {
+  if (value instanceof Date) {
+    return !Number.isFinite(value.getTime());
+  }
+
+  if (Array.isArray(value)) {
+    return value.some(containsInvalidDate);
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.keys(value).some(function (key) {
+      return containsInvalidDate(value[key]);
+    });
+  }
+
+  return false;
+}
+
 function makeHarness(config) {
   config = config || {};
 
@@ -203,6 +221,14 @@ test('successful exact persisted dual identity', function () {
     result.record['Canonical Property Key'] === 'CPK-100',
     'Complete row evidence missing canonical key.'
   );
+  assert(
+    result.record['Updated At'] instanceof Date,
+    'Valid physical Date must remain Date evidence.'
+  );
+  assert(
+    Number.isFinite(result.record['Updated At'].getTime()),
+    'Valid physical Date must remain finite.'
+  );
 
   assert(h.adminCalls() === 1, 'Admin must be required once.');
   assert(h.sheetLookups() === 1, 'Expected one sheet lookup.');
@@ -243,6 +269,79 @@ test('successful exact persisted dual identity', function () {
     'automaticOfferAuthorityGranted'
   ].forEach(function (key) {
     assert(result[key] === false, key + ' must be false.');
+  });
+});
+
+test('invalid physical Date fails closed without escape', function () {
+  const h = makeHarness({
+    row: [
+      'DL-100',
+      'CPK-100',
+      '',
+      '',
+      new Date(NaN)
+    ]
+  });
+
+  const result = invoke(h, validOptions());
+
+  assert(result.ok === false, 'Expected invalid-Date failure.');
+  assert(
+    result.code === 'PHYSICAL_VALUE_INVALID_DATE',
+    'Wrong invalid-Date failure code.'
+  );
+  assert(
+    result.offendingHeader === 'Updated At',
+    'Wrong offending header.'
+  );
+  assert(
+    result.offendingColumn === 5,
+    'Wrong offending physical column.'
+  );
+  assert(
+    !Object.prototype.hasOwnProperty.call(result, 'record'),
+    'Invalid physical record must not escape.'
+  );
+  assert(
+    containsInvalidDate(result) === false,
+    'Returned failure must contain no invalid Date.'
+  );
+
+  assert(
+    h.rangeReads.length === 2,
+    'Invalid-Date failure must preserve exactly two reads.'
+  );
+
+  assert(
+    JSON.stringify(h.rangeReads[1]) ===
+      JSON.stringify({
+        row: 7,
+        column: 1,
+        numRows: 1,
+        numColumns: 5
+      }),
+    'Invalid-Date target read boundary changed.'
+  );
+
+  assert(
+    h.writes.length === 0,
+    'Invalid-Date failure must perform zero writes.'
+  );
+
+  [
+    'productionDataMutationAuthorityGranted',
+    'canonicalIdentityRepairAuthorityGranted',
+    'migrationAuthorityGranted',
+    'schedulerAuthorityGranted',
+    'triggerAuthorityGranted',
+    'connectorExecutionAuthorityGranted',
+    'certificationMutationAuthorityGranted',
+    'automaticOfferAuthorityGranted'
+  ].forEach(function (key) {
+    assert(
+      result[key] === false,
+      key + ' must remain false on invalid-Date failure.'
+    );
   });
 });
 

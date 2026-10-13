@@ -141,6 +141,28 @@ REOS.AbsenteeOwnerEnrichmentExactRecordSelector = (function () {
     return record;
   }
 
+  function invalidDateFailure_(headers, values) {
+    var index;
+
+    for (index = 0; index < values.length; index += 1) {
+      var value = values[index];
+
+      if (value instanceof Date && !isFinite(value.getTime())) {
+        var result = fail_(
+          'PHYSICAL_VALUE_INVALID_DATE',
+          'Physical row contains an invalid Date value.'
+        );
+
+        result.offendingHeader = cleanString_(headers[index]);
+        result.offendingColumn = index + 1;
+
+        return result;
+      }
+    }
+
+    return null;
+  }
+
   function evidence_(rowNumber, identity, record) {
     return {
       ok: true,
@@ -286,6 +308,13 @@ REOS.AbsenteeOwnerEnrichmentExactRecordSelector = (function () {
         'CANONICAL_PROPERTY_KEY_MISMATCH',
         'Persisted Canonical Property Key does not match expected identity.'
       );
+    }
+
+    var invalidDateResult =
+      invalidDateFailure_(headers, values);
+
+    if (invalidDateResult) {
+      return invalidDateResult;
     }
 
     return evidence_(
