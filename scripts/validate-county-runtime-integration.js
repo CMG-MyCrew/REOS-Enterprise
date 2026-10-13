@@ -2688,6 +2688,57 @@ pass(
   'production spreadsheet identity certification surface is exactly one explicitly allowlisted additive read-only file'
 );
 
+/*
+ * Read-only Production DEALS Header Observer V1.
+ *
+ * Separately certified additive read-only production surface.
+ * It is extracted before historical production reconciliation,
+ * preserving production_additions=147 and component_validators=97.
+ *
+ * This accounting grants no deployment, RPC, mutation,
+ * provisioning, persistence, readiness-gate, MAO, or offer
+ * authority.
+ */
+const PRODUCTION_DEALS_HEADER_OBSERVER_V1_PRODUCTION_FILES = [
+  'build/apps-script-brand/ProductionDealsHeaderObserver.js'
+];
+
+assert.equal(
+  PRODUCTION_DEALS_HEADER_OBSERVER_V1_PRODUCTION_FILES.length,
+  1,
+  'production DEALS header observer must contain exactly one production file'
+);
+
+PRODUCTION_DEALS_HEADER_OBSERVER_V1_PRODUCTION_FILES.forEach(file => {
+  const matches = diffEntries.filter(
+    entry => entry.file === file
+  );
+
+  assert.equal(
+    matches.length,
+    1,
+    `production DEALS header observer file must appear exactly once: ${file}`
+  );
+
+  assert.equal(
+    matches[0].status,
+    'A',
+    `production DEALS header observer file must remain additive: ${file}`
+  );
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !PRODUCTION_DEALS_HEADER_OBSERVER_V1_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'production DEALS header observer surface is exactly one explicitly allowlisted additive read-only file'
+);
+
+
 assert.equal(
   expectedProductionFiles.size,
   147,
