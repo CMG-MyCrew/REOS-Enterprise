@@ -205,6 +205,11 @@ const COMPS_READINESS_EVIDENCE_STORAGE_PROVISIONING_EXECUTOR_PRODUCTION_FILES = 
   'build/apps-script-brand/CompsReadinessEvidenceStorageProvisioningExecutor.js'
 ];
 
+const COMPS_READINESS_EVIDENCE_STORAGE_PROVISIONING_RPC_PRODUCTION_FILES = [
+  'build/apps-script-brand/CompsReadinessEvidenceStorageProvisioningRpc.js'
+];
+
+
 
 
 /*
@@ -1176,6 +1181,50 @@ diffEntries = diffEntries.filter(
 pass(
   'comps readiness evidence storage provisioning executor surface is exactly one explicitly allowlisted additive live-capable but non-invoked administrative file'
 );
+
+const compsReadinessEvidenceStorageProvisioningRpcEntries =
+  diffEntries.filter(entry =>
+    COMPS_READINESS_EVIDENCE_STORAGE_PROVISIONING_RPC_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  COMPS_READINESS_EVIDENCE_STORAGE_PROVISIONING_RPC_PRODUCTION_FILES.length,
+  1,
+  'comps readiness evidence storage provisioning RPC wrapper inventory must contain exactly one file'
+);
+
+COMPS_READINESS_EVIDENCE_STORAGE_PROVISIONING_RPC_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    compsReadinessEvidenceStorageProvisioningRpcEntries.filter(
+      entry => entry.file === file
+    );
+
+  assert.equal(
+    matches.length,
+    1,
+    `comps readiness evidence storage provisioning RPC wrapper file missing or duplicated: ${file}`
+  );
+
+  assert.equal(
+    matches[0].status,
+    'A',
+    `comps readiness evidence storage provisioning RPC wrapper file must remain additive: ${file}`
+  );
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !COMPS_READINESS_EVIDENCE_STORAGE_PROVISIONING_RPC_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'comps readiness evidence storage provisioning RPC wrapper surface is exactly one explicitly allowlisted additive live-capable but non-invoked administrative file'
+);
+
 
 const absenteeOwnerSourceEvidenceRetrievalEntries =
   diffEntries.filter(entry =>
