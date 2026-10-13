@@ -707,6 +707,18 @@ const PRODUCTION_SPREADSHEET_IDENTITY_CERTIFICATION_PRODUCTION_FILES = [
 ];
 
 /*
+ * Production Spreadsheet Property Binding Admin V1.
+ *
+ * Keep this separately authorized administrative surface outside the
+ * historical generic production inventory. It is independently certified
+ * below and grants no automatic invocation, provisioning, persistence,
+ * readiness-gate, MAO, or offer authority.
+ */
+const PRODUCTION_SPREADSHEET_PROPERTY_BINDING_ADMIN_PRODUCTION_FILES = [
+  'build/apps-script-brand/ProductionSpreadsheetPropertyBindingAdmin.js'
+];
+
+/*
  * Runtime production file inventory.
  */
 RUNTIME_CORE_FILES.forEach(fileName => {
@@ -2588,6 +2600,49 @@ assert.ok(
     'build/apps-script-brand/CountyCodeViolationGroup3PostRestorationEvidence.js'
   ),
   'CountyCodeViolationGroup3PostRestorationEvidence.js must be the authority-free durable read-only Group 3 post-restoration evidence surface'
+);
+
+const productionSpreadsheetPropertyBindingAdminEntries =
+  diffEntries.filter(entry =>
+    PRODUCTION_SPREADSHEET_PROPERTY_BINDING_ADMIN_PRODUCTION_FILES.includes(
+      entry.file
+    )
+  );
+
+assert.equal(
+  PRODUCTION_SPREADSHEET_PROPERTY_BINDING_ADMIN_PRODUCTION_FILES.length,
+  1,
+  'production spreadsheet property-binding admin inventory must contain exactly one file'
+);
+
+PRODUCTION_SPREADSHEET_PROPERTY_BINDING_ADMIN_PRODUCTION_FILES.forEach(file => {
+  const matches =
+    productionSpreadsheetPropertyBindingAdminEntries.filter(
+      entry => entry.file === file
+    );
+
+  assert.equal(
+    matches.length,
+    1,
+    `production spreadsheet property-binding admin file missing or duplicated: ${file}`
+  );
+
+  assert.equal(
+    matches[0].status,
+    'A',
+    `production spreadsheet property-binding admin file must remain additive: ${file}`
+  );
+});
+
+diffEntries = diffEntries.filter(
+  entry =>
+    !PRODUCTION_SPREADSHEET_PROPERTY_BINDING_ADMIN_PRODUCTION_FILES.includes(
+      entry.file
+    )
+);
+
+pass(
+  'production spreadsheet property-binding admin surface is exactly one explicitly allowlisted additive administrative file'
 );
 
 const productionSpreadsheetIdentityCertificationEntries =
