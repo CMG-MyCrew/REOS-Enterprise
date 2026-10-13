@@ -56,44 +56,7 @@ const primaryHeaders = [
   'Canonical Property Key'
 ];
 
-const secondaryHeaders = [
-  'ARV',
-  'Analysis ID',
-  'Cap Rate %',
-  'Cash Required',
-  'Closed',
-  'Closing',
-  'Comparable Analysis',
-  'Created At',
-  'DEALS',
-  'DSCR',
-  'Deal ID',
-  'Disposition',
-  'Due Diligence',
-  'Flip Profit',
-  'Grade',
-  'Initial Analysis',
-  'Lead',
-  'MAO',
-  'NOI',
-  'Negotiation',
-  'Offer Amount',
-  'Offer Generation',
-  'Offer ID',
-  'Offer Submitted',
-  'Property Review',
-  'Purchase Price',
-  'ROI %',
-  'Recommendation',
-  'Risk Level',
-  'Score',
-  'Score ID',
-  'Source',
-  'Status',
-  'Summary JSON',
-  'Under Contract',
-  'Updated At'
-];
+const secondaryHeaders = ['Deal ID','Address','Deal Status'];
 
 const candidate =
   '1N_5Saw8paJbUZ3FYWr2LmqMDV5qcHSNHda6RoxyqNTU';
