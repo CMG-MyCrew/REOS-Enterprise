@@ -1,0 +1,65 @@
+name: REOS Orchestrator Offline Certification
+
+on:
+  pull_request:
+    paths:
+      - 'orchestrator/**'
+      - 'scripts/validate-orchestrator-*.js'
+      - '.github/workflows/reos-orchestrator-offline-certification.yml'
+  push:
+    branches:
+      - 'feature/reos-autonomous-development-orchestrator-v1'
+    paths:
+      - 'orchestrator/**'
+      - 'scripts/validate-orchestrator-*.js'
+      - '.github/workflows/reos-orchestrator-offline-certification.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-certification:
+    name: Offline safety certification
+    runs-on: ubuntu-24.04
+
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Verify Node.js runtime
+        run: |
+          set -euo pipefail
+          node --version
+
+      - name: Verify JavaScript syntax
+        run: |
+          set -euo pipefail
+          node --check orchestrator/policy-engine.js
+          node --check orchestrator/task-planner.js
+          node --check orchestrator/manifest-validator.js
+          node --check orchestrator/filesystem-guard.js
+          node --check scripts/validate-orchestrator-safety.js
+          node --check scripts/validate-orchestrator-manifest.js
+          node --check scripts/validate-orchestrator-filesystem.js
+
+      - name: Certify policy engine
+        run: |
+          set -euo pipefail
+          node scripts/validate-orchestrator-safety.js
+
+      - name: Certify manifest validator
+        run: |
+          set -euo pipefail
+          node scripts/validate-orchestrator-manifest.js
+
+      - name: Certify filesystem containment
+        run: |
+          set -euo pipefail
+          node scripts/validate-orchestrator-filesystem.js
