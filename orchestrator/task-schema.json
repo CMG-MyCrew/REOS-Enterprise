@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "mode": "offline-dry-run",
+  "productionAuthority": false,
+  "tasks": [
+    {
+      "id": "orchestrator-policy-certification",
+      "operations": ["offline_test", "offline_validate"],
+      "files": [
+        "orchestrator/policy-engine.js",
+        "scripts/validate-orchestrator-safety.js"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "orchestrator-planner-certification",
+      "operations": ["plan", "offline_test"],
+      "files": [
+        "orchestrator/task-planner.js"
+      ],
+      "dependencies": [
+        "orchestrator-policy-certification"
+      ]
+    }
+  ]
+}
