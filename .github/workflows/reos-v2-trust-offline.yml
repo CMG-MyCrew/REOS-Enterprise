@@ -1,0 +1,77 @@
+name: REOS V2 Trust Offline Certification
+
+on:
+  pull_request:
+    paths:
+      - 'orchestrator/recovery-same-organization-v2-*'
+      - 'scripts/validate-orchestrator-v2-*.js'
+      - 'scripts/validate-orchestrator-same-organization-v2.js'
+      - 'docs/recovery-same-organization-v2-design.md'
+      - '.github/workflows/reos-v2-trust-offline.yml'
+  push:
+    branches:
+      - 'feature/autonomous-builder-single-org-trust-v2'
+    paths:
+      - 'orchestrator/recovery-same-organization-v2-*'
+      - 'scripts/validate-orchestrator-v2-*.js'
+      - 'scripts/validate-orchestrator-same-organization-v2.js'
+      - 'docs/recovery-same-organization-v2-design.md'
+      - '.github/workflows/reos-v2-trust-offline.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  v2-trust-offline:
+    name: V2 fail-closed security certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout reviewed revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Verify Node.js runtime
+        run: |
+          set -euo pipefail
+          node --version
+
+      - name: Validate JavaScript syntax
+        run: |
+          set -euo pipefail
+          node --check orchestrator/recovery-same-organization-v2-authority-adapter.js
+          node --check orchestrator/recovery-same-organization-v2-b1-bridge.js
+          node --check scripts/validate-orchestrator-same-organization-v2.js
+          node --check scripts/validate-orchestrator-v2-supersession-proposal.js
+          node --check scripts/validate-orchestrator-v2-authority-adapter.js
+          node --check scripts/validate-orchestrator-v2-b1-bridge.js
+          node --check scripts/validate-orchestrator-v2-b1-missing-dependencies.js
+
+      - name: Certify V2 contract
+        run: |
+          set -euo pipefail
+          node scripts/validate-orchestrator-same-organization-v2.js
+
+      - name: Certify supersession remains blocked
+        run: |
+          set -euo pipefail
+          node scripts/validate-orchestrator-v2-supersession-proposal.js
+
+      - name: Certify V2 authority adapter
+        run: |
+          set -euo pipefail
+          node scripts/validate-orchestrator-v2-authority-adapter.js
+
+      - name: Certify V2 B1 fail-closed boundary
+        run: |
+          set -euo pipefail
+          if [ -f scripts/reos-independent-trust-evidence-gate.js ] && [ -f orchestrator/recovery-independent-administrator-evidence-gate.js ]; then
+            node scripts/validate-orchestrator-v2-b1-bridge.js
+          else
+            node scripts/validate-orchestrator-v2-b1-missing-dependencies.js
+          fi
