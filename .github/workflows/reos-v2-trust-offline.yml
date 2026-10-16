@@ -52,6 +52,8 @@ jobs:
           node --check scripts/validate-orchestrator-v2-b1-bridge.js
           node --check scripts/validate-orchestrator-v2-b1-missing-dependencies.js
           node --check scripts/validate-orchestrator-v2-b1-public-ci-safe.js
+          node --check orchestrator/recovery-same-organization-v2-two-human-offline-evaluator.js
+          node --check scripts/validate-orchestrator-v2-two-human-offline.js
 
       - name: Certify V2 contract
         run: |
@@ -73,3 +75,8 @@ jobs:
           set -euo pipefail
           node scripts/validate-orchestrator-v2-b1-public-ci-safe.js
           node scripts/validate-orchestrator-v2-b1-missing-dependencies.js
+
+      - name: Certify R3 synthetic two-human controls (offline only)
+        run: |
+          set -euo pipefail
+          node scripts/validate-orchestrator-v2-two-human-offline.js
