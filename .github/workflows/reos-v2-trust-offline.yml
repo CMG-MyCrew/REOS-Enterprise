@@ -51,6 +51,7 @@ jobs:
           node --check scripts/validate-orchestrator-v2-authority-adapter.js
           node --check scripts/validate-orchestrator-v2-b1-bridge.js
           node --check scripts/validate-orchestrator-v2-b1-missing-dependencies.js
+          node --check scripts/validate-orchestrator-v2-b1-public-ci-safe.js
 
       - name: Certify V2 contract
         run: |
@@ -67,11 +68,8 @@ jobs:
           set -euo pipefail
           node scripts/validate-orchestrator-v2-authority-adapter.js
 
-      - name: Certify V2 B1 fail-closed boundary
+      - name: Certify public-only V2 B1 fail-closed boundary
         run: |
           set -euo pipefail
-          if [ -f scripts/reos-independent-trust-evidence-gate.js ] && [ -f orchestrator/recovery-independent-administrator-evidence-gate.js ]; then
-            node scripts/validate-orchestrator-v2-b1-bridge.js
-          else
-            node scripts/validate-orchestrator-v2-b1-missing-dependencies.js
-          fi
+          node scripts/validate-orchestrator-v2-b1-public-ci-safe.js
+          node scripts/validate-orchestrator-v2-b1-missing-dependencies.js
