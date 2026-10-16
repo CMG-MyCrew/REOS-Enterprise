@@ -145,12 +145,11 @@ function validateOfflineContracts(policy, proposal) {
     'PROPOSED_MODEL'
   );
 
-  if (
-    typeof proposal.sourceCommit !== 'string' ||
-    !/^[a-f0-9]{40}$/.test(proposal.sourceCommit)
-  ) {
-    throw new Error('INVALID_SOURCE_COMMIT');
-  }
+  requireExact(
+    proposal.sourceCommit,
+    '74222ddd75922b7d1e141766aaa6c6fe2d193de1',
+    'SOURCE_COMMIT'
+  );
 
   for (const key of PROPOSAL_TRUE) {
     requireExact(proposal[key], true, 'PROPOSAL_' + key);

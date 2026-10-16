@@ -171,6 +171,24 @@ for (const key of Object.keys(proposal.evidenceGates)) {
   });
 }
 
+const invalidSourceCommits = [
+  '0'.repeat(40),
+  'f'.repeat(40),
+  'INVALID',
+  '',
+  null,
+  undefined
+];
+
+for (const sourceCommit of invalidSourceCommits) {
+  mustReject(policy, { ...proposal, sourceCommit });
+}
+
+const missingSourceCommit = { ...proposal };
+delete missingSourceCommit.sourceCommit;
+mustReject(policy, missingSourceCommit);
+
+console.log('SOURCE_COMMIT_EXACT_PIN_TESTS=PASS');
 console.log('=== REOS V2 AUTHORITY CERTIFICATION ===');
 console.log('V2_AUTHORITY_ADAPTER_VALIDATION=PASS');
 console.log('FORGED_AUTHORITY_DENIAL_TESTS=' + denialTests);

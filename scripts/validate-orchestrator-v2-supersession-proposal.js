@@ -58,7 +58,11 @@ function validate(p) {
     'SINGLE_ORGANIZATION_SEGREGATED_ADMINISTRATION'
   );
 
-  assert.match(p.sourceCommit, /^[a-f0-9]{40}$/);
+  assert.equal(
+    p.sourceCommit,
+    '74222ddd75922b7d1e141766aaa6c6fe2d193de1',
+    'Certified B1 source commit required'
+  );
 
   for (const key of requiredTrue) {
     assert.equal(p[key], true, key);
@@ -110,7 +114,11 @@ for (const [key, value] of [
   ['status', 'ACTIVE'],
   ['legacyArchitecture', 'RETIRED'],
   ['proposedArchitecture', 'UNCONTROLLED_ADMIN'],
-  ['sourceCommit', 'INVALID']
+  ['sourceCommit', 'INVALID'],
+  ['sourceCommit', '0'.repeat(40)],
+  ['sourceCommit', 'f'.repeat(40)],
+  ['sourceCommit', null],
+  ['sourceCommit', undefined]
 ]) {
   assert.throws(
     () => validate({ ...record, [key]: value })
@@ -118,6 +126,12 @@ for (const [key, value] of [
   negativeTests++;
 }
 
+const missingSourceCommit = { ...record };
+delete missingSourceCommit.sourceCommit;
+assert.throws(() => validate(missingSourceCommit));
+negativeTests++;
+
+console.log('SOURCE_COMMIT_EXACT_PIN_TESTS=PASS');
 console.log('V2_SUPERSESSION_PROPOSAL_VALIDATION=PASS');
 console.log('NEGATIVE_TESTS_PASSED=' + negativeTests);
 console.log('SEPARATE_ORGANIZATION_REQUIRED=false');

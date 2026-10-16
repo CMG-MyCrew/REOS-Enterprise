@@ -17,7 +17,7 @@ const MODULES = Object.freeze({
   ],
   v2: [
     'orchestrator/recovery-same-organization-v2-authority-adapter.js',
-    'd907d1a255369981ee29aec2b0b64a6a3f7f1903b6ca394c4ad773b52345e879'
+    '650bd539995118fda27331acdad5dbe2a02cf4b612bd99ecad5dcd64334783fb'
   ]
 });
 
