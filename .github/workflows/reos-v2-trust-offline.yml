@@ -5,6 +5,7 @@ on:
     paths:
       - 'orchestrator/recovery-same-organization-v2-*'
       - 'scripts/validate-orchestrator-v2-*.js'
+      - 'scripts/r5-*.js'
       - 'scripts/validate-orchestrator-same-organization-v2.js'
       - 'docs/recovery-same-organization-v2-design.md'
       - '.github/workflows/reos-v2-trust-offline.yml'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'orchestrator/recovery-same-organization-v2-*'
       - 'scripts/validate-orchestrator-v2-*.js'
+      - 'scripts/r5-*.js'
       - 'scripts/validate-orchestrator-same-organization-v2.js'
       - 'docs/recovery-same-organization-v2-design.md'
       - '.github/workflows/reos-v2-trust-offline.yml'
@@ -54,6 +56,8 @@ jobs:
           node --check scripts/validate-orchestrator-v2-b1-public-ci-safe.js
           node --check orchestrator/recovery-same-organization-v2-two-human-offline-evaluator.js
           node --check scripts/validate-orchestrator-v2-two-human-offline.js
+          node --check scripts/r5-simulator.js
+          node --check scripts/r5-validator.js
 
       - name: Certify V2 contract
         run: |
@@ -80,3 +84,8 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/validate-orchestrator-v2-two-human-offline.js
+
+      - name: Certify R5 synthetic lifecycle, replay and denial (offline only)
+        run: |
+          set -euo pipefail
+          node scripts/r5-validator.js
